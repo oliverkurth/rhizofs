@@ -1,0 +1,44 @@
+
+package rhizofs;
+
+message Version {
+    required int32 major = 1;
+    required int32 minor = 2;
+}
+
+
+enum RequestType {
+    STAT = 0;
+    MKDIR = 1;
+}
+
+enum ErrorType {
+    INVALID_REQUEST = 0;
+    DAMAGED_REQUEST = 1;
+}
+
+message Error {
+    required ErrorType errortype = 1;    
+}
+
+message Stat {
+    required int64 st_size = 1;    
+    required int32 st_mode = 2; // unsigned int
+}
+
+
+message Request {
+    required RequestType type = 1;
+    required Version version = 2;
+
+    // the share to connect to
+    required string endpoint = 3;
+}
+
+
+message Response {
+    required RequestType type = 1;
+    required Version version = 2;
+
+    optional Error error = 3;
+}
