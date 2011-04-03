@@ -1,5 +1,5 @@
-#ifndef __serve_h__
-#define __serve_h__
+#ifndef __server_serve_h__
+#define __server_serve_h__
 
 #include <stdio.h>
 #include <errno.h>
@@ -17,4 +17,4 @@ int Serve_init();
 int Serve_directory(const char *socket_name, const char *directory);
 void Serve_destroy();
 
-#endif // __serve_h__
+#endif // __server_serve_h__

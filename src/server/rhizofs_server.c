@@ -77,7 +77,7 @@ main(int argc, char *argv[])
 
     check((Serve_init() == 0), "Could not create server");
 
-    check(!Serve_directory(socket_name, directory), "error serving directory.");
+    check((Serve_directory(socket_name, directory) == 0), "error serving directory.");
 
     Serve_destroy();
 
@@ -86,5 +86,5 @@ main(int argc, char *argv[])
 error:
 
     Serve_destroy();
-    return 1;
+    return -1;
 }

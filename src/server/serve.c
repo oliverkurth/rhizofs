@@ -3,16 +3,15 @@
 int
 Serve_init()
 {
-
     if (context == NULL) {
         context = zmq_init(1);
-        check((context != 0), "Could not create Zmq context");
+        check((context != NULL), "Could not create Zmq context");
     }
 
     return 0;
 
 error:
-    return 1;
+    return -1;
 }
 
 
@@ -21,8 +20,10 @@ Serve_destroy()
 {
     if (context != NULL) {
         zmq_term(context);      
+        context = NULL;
     }   
 }
+
 
 int
 Serve_directory(const char *socket_name, const char *directory)
@@ -41,11 +42,13 @@ Serve_directory(const char *socket_name, const char *directory)
     check((socket != NULL), "Could not create zmq socket");
     check((zmq_bind(socket, socket_name) == 0), "could not bind to socket %s", socket_name);
 
-    log_info("Serving directory %s on %s.", directory, socket_name);
+    log_info("Serving directory <%s> on <%s>", directory, socket_name);
 
 
-    while(1) {
+    while (1) {
         zmq_msg_t request;     
+        zmq_msg_t reply;       
+
         zmq_msg_init (&request);        
 
         zmq_recv (socket, &request, 0);
@@ -59,7 +62,6 @@ Serve_directory(const char *socket_name, const char *directory)
          */
 
         //  Send reply back to client   
-        zmq_msg_t reply;       
         zmq_msg_init_data (&reply, "World", 5, NULL, NULL);
         zmq_send (socket, &reply, 0);
         zmq_msg_close (&reply);
@@ -74,7 +76,7 @@ error:
         socket = NULL;
     }
 
-    return 1;
+    return -1;
 }
 
 
