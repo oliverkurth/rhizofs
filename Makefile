@@ -1,6 +1,6 @@
 CFLAGS=-g -Wall -Isrc -I.
 LIBS=-lzmq -lprotobuf-c
-CC=clang
+#CC=clang
 
 # tools
 PROTOCC=protoc-c

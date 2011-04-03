@@ -5,13 +5,17 @@
 #include <getopt.h> // for optind, getopt
 
 #include "dbg.h"
-#include "serve.h"
+#include "servedir.h"
 
 #define DEFAULT_DIRECTORY "."
 #define DEFAULT_SOCKET "tcp://0.0.0.0:15656"
 
 
 FILE *LOG_FILE = NULL;
+
+/** zmq context */
+static void *context = NULL; 
+
 
 
 void
@@ -33,6 +37,7 @@ main(int argc, char *argv[])
 {
     char *socket_name = DEFAULT_SOCKET; // name of the zeromq socket
     char *directory = DEFAULT_DIRECTORY;   // name of the directory to server
+    ServeDir * sd = NULL;
     int i;
 
     // log to stdout
@@ -75,16 +80,29 @@ main(int argc, char *argv[])
         }
     } while (*argv);
 
-    check((Serve_init() == 0), "Could not create server");
+    // initialize the zmq context
+    context = zmq_init(1);
+    check((context != NULL), "Could not create Zmq context");
 
-    check((Serve_directory(socket_name, directory) == 0), "error serving directory.");
+    sd = ServeDir_create(context, socket_name, directory);
+    check((sd != NULL), "error serving directory.");
+    ServeDir_serve(sd);
 
-    Serve_destroy();
+    ServeDir_destroy(sd);
+    zmq_term(context);      
 
     return 0;
 
 error:
 
-    Serve_destroy();
+    if (sd != NULL) {
+        ServeDir_destroy(sd);
+    }
+
+    if (context != NULL) {
+        zmq_term(context);      
+        context = NULL;
+    }   
+
     return -1;
 }
