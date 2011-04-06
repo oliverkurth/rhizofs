@@ -21,8 +21,8 @@ ServeDir_create(void *context, char *socket_name, char *directory)
 
 
     return sd;
-error:
 
+error:
     if (sd->socket) {
         zmq_term(sd->socket);
     }
@@ -47,36 +47,70 @@ ServeDir_destroy(ServeDir * sd)
 int
 ServeDir_serve(ServeDir * sd)
 {
+    zmq_msg_t msg_req;     
+    zmq_msg_t msg_rep;       
+    Rhizofs__Request *request;
+
     log_info("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
-
     while (1) {
-        zmq_msg_t request;
-        zmq_msg_t reply;
+        check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");        
 
-        zmq_msg_init (&request);
+        zmq_recv (sd->socket, &msg_req, 0);
+        debug("Received a message\n");    
 
-        zmq_recv (sd->socket, &request, 0);
-        debug("Received a message\n");
-        zmq_msg_close (&request);
+        // create the response message
+        Rhizofs__Response response = RHIZOFS__RESPONSE__INIT;
+        Rhizofs__Version version = RHIZOFS__VERSION__INIT;
+        version.major = RHI_VERSION_MAJOR; 
+        version.minor = RHI_VERSION_MINOR; 
+        response.version = &version;
 
-        //  Do some 'work'
-        /*
-        respone = new response()
-        Serve_handle(request, &response)
-         */
+        request = rhizofs__request__unpack(NULL, 
+            zmq_msg_size(&msg_req),
+            zmq_msg_data(&msg_req)); 
 
-        //  Send reply back to client
-        zmq_msg_init_data (&reply, "World", 5, NULL, NULL);
-        zmq_send (sd->socket, &reply, 0);
-        zmq_msg_close (&reply);
+        if (request == NULL) {
+            log_warn("Could not unpack incoming message. Skipping");
+
+            // send back an error
+            response.requesttype = RHIZOFS__REQUEST_TYPE__UNKNOWN;
+            response.error = RHIZOFS__ERROR_TYPE__UNSERIALIZABLE_REQUEST;
+        }
+        else {
+            response.requesttype = request->requesttype;
+
+            switch(request->requesttype) {
+            
+                default:
+                    // dont know what to do with that request
+                    log_warn("recieved an invalid request");
+                    response.error = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
+            }
+
+            rhizofs__request__free_unpacked(request, NULL);
+        }
+
+        zmq_msg_close (&msg_req);
+
+        // serialize the reply
+        size_t len = (size_t)rhizofs__response__get_packed_size(&response);
+
+        zmq_msg_init_size(&msg_rep, len); // CHECK
+        rhizofs__response__pack(&response, zmq_msg_data(&msg_rep));
+
+        
+        //  Send reply back to client   
+        zmq_send (sd->socket, &msg_rep, 0);
+        zmq_msg_close (&msg_rep);
     }
 
     return 0;
 
 error:
 
+    zmq_msg_close (&msg_req);
+    zmq_msg_close (&msg_rep);
+
     return -1;
 }
-
-

@@ -10,16 +10,16 @@ message Version {
 enum RequestType {
     STAT = 0;
     MKDIR = 1;
+    UNKNOWN = 2;
 }
 
 enum ErrorType {
-    INVALID_REQUEST = 0;
-    DAMAGED_REQUEST = 1;
+    NONE = 0;
+    INVALID_REQUEST = 1;
+    UNSERIALIZABLE_REQUEST = 2;
+    INTERNAL = 3;
 }
 
-message Error {
-    required ErrorType errortype = 1;    
-}
 
 message Stat {
     required int64 st_size = 1;    
@@ -28,7 +28,7 @@ message Stat {
 
 
 message Request {
-    required RequestType type = 1;
+    required RequestType requesttype = 1;
     required Version version = 2;
 
     // the share to connect to
@@ -37,8 +37,8 @@ message Request {
 
 
 message Response {
-    required RequestType type = 1;
+    required RequestType requesttype = 1;
     required Version version = 2;
 
-    optional Error error = 3;
+    optional ErrorType error = 3;
 }
