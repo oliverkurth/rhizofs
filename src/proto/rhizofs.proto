@@ -12,6 +12,8 @@ enum RequestType {
     MKDIR = 1;
     UNKNOWN = 2;
     PING = 3;       // ping the server - does not perform any filesystem actions
+    READDIR = 4;
+    INVALID = 5;
 }
 
 enum ErrorType {
@@ -34,6 +36,10 @@ message Request {
 
     // the share to connect to
     required string endpoint = 3;
+
+    optional string path = 4;
+
+    // READDIR
 }
 
 
@@ -41,5 +47,8 @@ message Response {
     required RequestType requesttype = 1;
     required Version version = 2;
 
-    optional ErrorType error = 3;
+    required ErrorType errortype = 3 [default = NONE];
+
+    // READDIR
+    repeated string directory_entry = 4;
 }

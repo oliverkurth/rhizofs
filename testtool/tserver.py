@@ -17,11 +17,15 @@ def build_request(requesttype):
 def dump_response(resp):
     print "Requesttype %d (version %d.%d)" % (resp.requesttype, resp.version.major, resp.version.minor)
     #print "  endpoint: %s" % resp.endpoint
+    if resp.errortype != pb.NONE:
+        print "  error: %d" % resp.errortype
 
 def send_request(req):
     sock.send(req.SerializeToString())
     resp = pb.Response()
-    resp.ParseFromString(sock.recv())
+    data = sock.recv()
+    sys.stdout.write(data)
+    resp.ParseFromString(data)
     dump_response(resp)
 
 
@@ -32,8 +36,28 @@ def ping():
     send_request(r)
 
 
+def readdir_wo_path():
+    r = build_request(pb.READDIR)
+    send_request(r)
+
+
+def readdir():
+    r = build_request(pb.READDIR)
+    r.path = "."
+    send_request(r)
+
+def stat():
+    r = build_request(pb.STAT)
+    send_request(r)
+
+
+
+
 FUNCS={
-    "ping"  : ping
+    "ping"  : ping,
+    "readdir" : readdir,
+    "readdir_wo_path" : readdir_wo_path,
+    "stat"  : stat,
 }
 
 SOCKET="tcp://0.0.0.0:11555"

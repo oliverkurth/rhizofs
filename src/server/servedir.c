@@ -19,7 +19,6 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     check((sd->socket != NULL), "Could not create zmq socket");
     check((zmq_bind(sd->socket, socket_name) == 0), "could not bind to socket %s", socket_name);
 
-
     return sd;
 
 error:
@@ -57,8 +56,8 @@ ServeDir_serve(ServeDir * sd)
     while (1) {
         check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");        
 
-        zmq_recv (sd->socket, &msg_req, 0);
-        debug("Received a message\n");    
+        check((zmq_recv (sd->socket, &msg_req, 0) == 0), "Could not recv message");
+        debug("Received a message");    
 
         // create the response message
         response = Response_create();
@@ -73,22 +72,32 @@ ServeDir_serve(ServeDir * sd)
 
             // send back an error
             response->requesttype = RHIZOFS__REQUEST_TYPE__UNKNOWN;
-            response->error = RHIZOFS__ERROR_TYPE__UNSERIALIZABLE_REQUEST;
+            response->errortype = RHIZOFS__ERROR_TYPE__UNSERIALIZABLE_REQUEST;
         }
         else {
-            response->requesttype = request->requesttype;
 
             switch(request->requesttype) {
 
                 case RHIZOFS__REQUEST_TYPE__PING:
-                    debug("Request: PING");
+                    debug("PING");
                     response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
+                    break;
+
+                case RHIZOFS__REQUEST_TYPE__READDIR:
+                    debug("READDIR: path: %s", request->path);
+                    response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
+
+                    if (request->path == NULL) {
+                        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
+                        debug("READDIR invalid (%d)", response->errortype);
+                    }
                     break;
             
                 default:
                     // dont know what to do with that request
+                    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID; 
+                    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
                     log_warn("recieved an invalid request");
-                    response->error = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
             }
 
             rhizofs__request__free_unpacked(request, NULL);
@@ -98,13 +107,13 @@ ServeDir_serve(ServeDir * sd)
 
         // serialize the reply
         size_t len = (size_t)rhizofs__response__get_packed_size(response);
+        debug("Response will be %d bytes long", len);
 
-        zmq_msg_init_size(&msg_rep, len); // CHECK
-        rhizofs__response__pack(response, zmq_msg_data(&msg_rep));
-
+        check((zmq_msg_init_size(&msg_rep, len) == 0), "Could not initialize message");
+        check((rhizofs__response__pack(response, zmq_msg_data(&msg_rep)) == len), "Could not pack message");
         
         //  Send reply back to client   
-        zmq_send (sd->socket, &msg_rep, 0);
+        check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
         zmq_msg_close (&msg_rep);
 
         Response_destroy(response);

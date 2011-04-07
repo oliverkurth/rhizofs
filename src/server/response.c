@@ -17,6 +17,7 @@ Response_create()
     
 
     response->version = version;
+    response->errortype = RHIZOFS__ERROR_TYPE__NONE; // be positive
 
 
     return response;
@@ -38,3 +39,7 @@ Response_destroy(Rhizofs__Response * response) {
     response = NULL;
 
 }
+
+
+
+//int Response_set_error(Rhizofs__Response * response, _Rhizofs__ErrorType et);
