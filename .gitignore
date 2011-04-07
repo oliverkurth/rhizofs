@@ -1,0 +1,5 @@
+src/proto/*.c
+src/proto/*.h
+*.o
+bin
+*.swp
