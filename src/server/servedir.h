@@ -9,7 +9,7 @@
 #include <zmq.h>
 
 #include "dbg.h"
-#include "version.h"
+#include "server/response.h"
 #include "proto/rhizofs.pb-c.h"
 
 typedef struct ServeDir {
