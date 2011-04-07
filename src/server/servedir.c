@@ -46,26 +46,26 @@ ServeDir_destroy(ServeDir * sd)
 int
 ServeDir_serve(ServeDir * sd)
 {
-    zmq_msg_t msg_req;     
-    zmq_msg_t msg_rep;       
+    zmq_msg_t msg_req;
+    zmq_msg_t msg_rep;
     Rhizofs__Request *request;
     Rhizofs__Response *response = NULL;
 
     log_info("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
     while (1) {
-        check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");        
+        check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");
 
         check((zmq_recv (sd->socket, &msg_req, 0) == 0), "Could not recv message");
-        debug("Received a message");    
+        debug("Received a message");
 
         // create the response message
         response = Response_create();
         check_mem(response);
 
-        request = rhizofs__request__unpack(NULL, 
+        request = rhizofs__request__unpack(NULL,
             zmq_msg_size(&msg_req),
-            zmq_msg_data(&msg_req)); 
+            zmq_msg_data(&msg_req));
 
         if (request == NULL) {
             log_warn("Could not unpack incoming message. Skipping");
@@ -88,15 +88,15 @@ ServeDir_serve(ServeDir * sd)
                     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
                     if (request->path == NULL) {
-                        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
+                        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
                         debug("READDIR invalid (%d)", response->errortype);
                     }
                     break;
-            
+
                 default:
                     // dont know what to do with that request
-                    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID; 
-                    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST; 
+                    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
+                    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
                     log_warn("recieved an invalid request");
             }
 
@@ -107,12 +107,12 @@ ServeDir_serve(ServeDir * sd)
 
         // serialize the reply
         size_t len = (size_t)rhizofs__response__get_packed_size(response);
-        debug("Response will be %d bytes long", len);
+        debug("Response will be %d bytes long", (int)len);
 
         check((zmq_msg_init_size(&msg_rep, len) == 0), "Could not initialize message");
         check((rhizofs__response__pack(response, zmq_msg_data(&msg_rep)) == len), "Could not pack message");
-        
-        //  Send reply back to client   
+
+        //  Send reply back to client
         check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
         zmq_msg_close (&msg_rep);
 
