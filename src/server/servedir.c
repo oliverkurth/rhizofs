@@ -81,6 +81,11 @@ ServeDir_serve(ServeDir * sd)
             response.requesttype = request->requesttype;
 
             switch(request->requesttype) {
+
+                case RHIZOFS__REQUEST_TYPE__PING:
+                    debug("Request: PING");
+                    response.requesttype = RHIZOFS__REQUEST_TYPE__PING;
+                    break;
             
                 default:
                     // dont know what to do with that request

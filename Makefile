@@ -4,6 +4,7 @@ FUSE_LIBS=`pkg-config fuse --libs`
 
 # tools
 PROTOCC=protoc-c
+PROTOC=protoc
 #CC=clang
 
 # input files
@@ -13,7 +14,7 @@ FS_SOURCES=$(wildcard src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
-all: build proto bin/rhizosrv
+all: build proto bin/rhizosrv testtool
 
 dev: CFLAGS+=-Wextra -DDEBUG
 dev: all
@@ -39,3 +40,11 @@ src/proto/rhizofs.pb-c.c:
 clean:
 	rm -f src/proto/*.c src/proto/*.h ${SERVER_OBJECTS} ${FS_OBJECTS}
 	rm -rf bin
+	rm -f testtool/rhizofs_pb.py
+
+.PHONY: testtool src/proto/rhizofs.pb-c.c
+
+testtool:
+	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto
+	mv ./testtool/src/proto/* ./testtool
+	rmdir ./testtool/src/proto ./testtool/src

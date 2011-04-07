@@ -3,3 +3,5 @@ src/proto/*.h
 *.o
 bin
 *.swp
+testtool/rhizofs_pb2.py
+*.pyc
