@@ -9,15 +9,14 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     sd->socket = NULL;
 
     // get the absolute path to the directory
-    sd->directory = NULL;
+    sd->directory = calloc(sizeof(char), PATH_MAX);
+    check_mem(sd->directory);
     check((realpath(directory, sd->directory) != NULL), "Could not resolve directory path");
 
     // validate the directory
     struct stat sr;
     check((stat((const char*)directory, &sr) == 0), "could not stat %s", directory);
     check(S_ISDIR(sr.st_mode), "%s is not a directory.", directory);
-
-    sd->directory = directory;
 
     sd->socket = zmq_socket(context, ZMQ_REP);
     sd->socket_name = socket_name;

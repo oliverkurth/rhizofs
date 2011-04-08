@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <limits.h> // for PATH_MAX
 #include <sys/stat.h>
 
 #include <zmq.h>

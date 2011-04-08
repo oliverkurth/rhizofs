@@ -48,3 +48,6 @@ testtool:
 	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto
 	mv ./testtool/src/proto/* ./testtool
 	rmdir ./testtool/src/proto ./testtool/src
+
+valgrind-srv: dev bin/rhizosrv
+	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/
