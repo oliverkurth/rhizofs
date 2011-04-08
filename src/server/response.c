@@ -34,13 +34,10 @@ error:
 void
 Response_destroy(Rhizofs__Response * response) {
 
-    if (response->directory_entries != NULL) {
-        int count = sizeof(response->directory_entries) / sizeof(char *);
+    if (response->n_directory_entries != 0) {
         int i = 0;
-        for (i=0; i<count; i++) {
-            if (response->directory_entries[i] != NULL) {
-                free(response->directory_entries[i]);
-            }
+        for (i=0; i<(int)response->n_directory_entries; i++) {
+            free(response->directory_entries[i]);
         }
         free(response->directory_entries);
     }
