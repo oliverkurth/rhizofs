@@ -1,4 +1,4 @@
-CFLAGS=-g -Wall -Isrc -I. `pkg-config fuse --cflags`
+CFLAGS=-g -Wall -Isrc -I. `pkg-config fuse --cflags` -O2
 LIBS=-lzmq -lprotobuf-c
 FUSE_LIBS=`pkg-config fuse --libs`
 
@@ -16,7 +16,7 @@ FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 all: build proto bin/rhizosrv testtool
 
-dev: CFLAGS+=-Wextra -DDEBUG
+dev: CFLAGS+=-Wextra -DDEBUG -O0
 dev: all
 
 build:

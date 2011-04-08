@@ -8,10 +8,15 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     check_mem(sd);
     sd->socket = NULL;
 
+    // get the absolute path to the directory
+    sd->directory = NULL;
+    check((realpath(directory, sd->directory) != NULL), "Could not resolve directory path");
+
     // validate the directory
     struct stat sr;
     check((stat((const char*)directory, &sr) == 0), "could not stat %s", directory);
     check(S_ISDIR(sr.st_mode), "%s is not a directory.", directory);
+
     sd->directory = directory;
 
     sd->socket = zmq_socket(context, ZMQ_REP);
@@ -22,6 +27,11 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     return sd;
 
 error:
+
+    if (sd->directory != NULL) {
+        free(sd->directory); // free the memory allocated by realpath
+    }
+
     if (sd->socket) {
         zmq_term(sd->socket);
     }
@@ -35,6 +45,11 @@ error:
 void
 ServeDir_destroy(ServeDir * sd)
 {
+
+    if (sd->directory != NULL) {
+        free(sd->directory); // free the memory allocated by realpath
+    }
+
     if (sd->socket != NULL) {
         zmq_close(sd->socket);
         sd->socket = NULL;
@@ -51,7 +66,7 @@ ServeDir_serve(ServeDir * sd)
     Rhizofs__Request *request;
     Rhizofs__Response *response = NULL;
 
-    log_info("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
+    debug("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
     while (1) {
         check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");
