@@ -19,12 +19,16 @@ def dump_response(resp):
     #print "  endpoint: %s" % resp.endpoint
     if resp.errortype != pb.NONE:
         print "  error: %d" % resp.errortype
+    if len(resp.directory_entries) > 0:
+        print "  directoriy_entries :"
+        for de in resp.directory_entries:
+            print "    %s" % de
 
 def send_request(req):
     sock.send(req.SerializeToString())
     resp = pb.Response()
     data = sock.recv()
-    sys.stdout.write(data)
+    #sys.stdout.write(data)
     resp.ParseFromString(data)
     dump_response(resp)
 

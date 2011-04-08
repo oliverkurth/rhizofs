@@ -1,0 +1,8 @@
+
+errno thread safety
+    Yes, errno is thread-safe on all platforms that support POSIX
+    threads, *provided* you compile your code correctly.
+    How to do so depends on the platform. On Solaris, compile with
+    -D_REENTRANT, on AIX with -D_THREAD_SAFE. On Linux, compile with
+    '-pthread' (though Linux errno is thread-safe by default).
+    [http://unix.derkeiler.com/Newsgroups/comp.unix.programmer/2007-05/msg00286.html]

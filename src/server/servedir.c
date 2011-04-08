@@ -91,6 +91,11 @@ ServeDir_serve(ServeDir * sd)
                         response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
                         debug("READDIR invalid (%d)", response->errortype);
                     }
+
+                    if ((io_readdir(&response, request->path) != 0)) {
+                        log_warn("io_readdir failed");
+                    }
+                    debug("response le %d", (int)response->n_directory_entries);
                     break;
 
                 default:

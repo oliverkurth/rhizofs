@@ -21,11 +21,12 @@ enum ErrorType {
     INVALID_REQUEST = 1;
     UNSERIALIZABLE_REQUEST = 2;
     INTERNAL = 3;
+    NO_MEMORY = 4;
 }
 
 
 message Stat {
-    required int64 st_size = 1;    
+    required int64 st_size = 1;
     required int32 st_mode = 2; // unsigned int
 }
 
@@ -49,6 +50,10 @@ message Response {
 
     required ErrorType errortype = 3 [default = NONE];
 
+    // the errno returned by the server filesystem.
+    // not negated
+    optional int32 fs_errno = 4;
+
     // READDIR
-    repeated string directory_entry = 4;
+    repeated string directory_entries = 5;
 }

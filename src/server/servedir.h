@@ -9,12 +9,13 @@
 #include <zmq.h>
 
 #include "dbg.h"
+#include "server/io.h"
 #include "server/response.h"
 #include "proto/rhizofs.pb-c.h"
 
 typedef struct ServeDir {
-    char * directory; 
-    char * socket_name; 
+    char * directory;
+    char * socket_name;
     void * socket;
 } ServeDir;
 

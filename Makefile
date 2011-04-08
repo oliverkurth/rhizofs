@@ -5,7 +5,7 @@ FUSE_LIBS=`pkg-config fuse --libs`
 # tools
 PROTOCC=protoc-c
 PROTOC=protoc
-CC=clang
+#CC=clang
 
 # input files
 SERVER_SOURCES=$(wildcard src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c

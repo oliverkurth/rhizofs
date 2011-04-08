@@ -34,6 +34,17 @@ error:
 void
 Response_destroy(Rhizofs__Response * response) {
 
+    if (response->directory_entries != NULL) {
+        int count = sizeof(response->directory_entries) / sizeof(char *);
+        int i = 0;
+        for (i=0; i<count; i++) {
+            if (response->directory_entries[i] != NULL) {
+                free(response->directory_entries[i]);
+            }
+        }
+        free(response->directory_entries);
+    }
+
     free(response->version);
     free(response);
     response = NULL;
@@ -42,4 +53,3 @@ Response_destroy(Rhizofs__Response * response) {
 
 
 
-//int Response_set_error(Rhizofs__Response * response, _Rhizofs__ErrorType et);
