@@ -130,11 +130,7 @@ ServeDir_serve(ServeDir * sd)
         zmq_msg_close (&msg_req);
 
         // serialize the reply
-        size_t len = (size_t)rhizofs__response__get_packed_size(response);
-        debug("Response will be %d bytes long", (int)len);
-
-        check((zmq_msg_init_size(&msg_rep, len) == 0), "Could not initialize message");
-        check((rhizofs__response__pack(response, zmq_msg_data(&msg_rep)) == len), "Could not pack message");
+        check((Response_pack(response, &msg_rep) == 0), "Could not pack message");
 
         //  Send reply back to client
         check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
@@ -152,8 +148,8 @@ ServeDir_serve(ServeDir * sd)
 
 error:
 
-    zmq_msg_close (&msg_req);
-    zmq_msg_close (&msg_rep);
+    zmq_msg_close(&msg_req);
+    zmq_msg_close(&msg_rep);
 
     Response_destroy(response);
 
