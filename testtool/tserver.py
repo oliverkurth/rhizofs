@@ -16,7 +16,8 @@ def build_request(requesttype):
 
 def dump_response(resp):
     print "Requesttype %d (version %d.%d)" % (resp.requesttype, resp.version.major, resp.version.minor)
-    #print "  endpoint: %s" % resp.endpoint
+    print "  errno: %s" % resp.fs_errno
+
     if resp.errortype != pb.NONE:
         print "  error: %d" % resp.errortype
     if len(resp.directory_entries) > 0:
@@ -47,7 +48,7 @@ def readdir_wo_path():
 
 def readdir():
     r = build_request(pb.READDIR)
-    r.path = "."
+    r.path = "usr/bin"
     send_request(r)
 
 def stat():

@@ -15,8 +15,10 @@ io_readdir(Rhizofs__Response **resp, const char* path)
 
     dir = opendir(path);
     if (dir == NULL) {
+        response->has_fs_errno = 1;
         response->fs_errno = errno;
-        log_warn("Could not open directory %s", path);
+        debug("Could not open directory %s", path);
+        return 0;
     }
 
     // count the entries in the directory

@@ -64,6 +64,7 @@ ServeDir_serve(ServeDir * sd)
     zmq_msg_t msg_rep;
     Rhizofs__Request *request;
     Rhizofs__Response *response = NULL;
+    char * fullpath = NULL;
 
     debug("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
@@ -90,6 +91,10 @@ ServeDir_serve(ServeDir * sd)
         }
         else {
 
+            if (request->path != NULL) {
+                check((path_join(sd->directory, request->path, &fullpath)==0), "error processing path");
+            }
+
             switch(request->requesttype) {
 
                 case RHIZOFS__REQUEST_TYPE__PING:
@@ -97,19 +102,19 @@ ServeDir_serve(ServeDir * sd)
                     response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
                     break;
 
+
                 case RHIZOFS__REQUEST_TYPE__READDIR:
-                    debug("READDIR: path: %s", request->path);
+                    debug("READDIR: path: %s", fullpath);
                     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
-                    if (request->path == NULL) {
+                    if (fullpath == NULL) {
                         response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
                         debug("READDIR invalid (%d)", response->errortype);
                     }
 
-                    if ((io_readdir(&response, request->path) != 0)) {
+                    if ((io_readdir(&response, fullpath) != 0)) {
                         log_warn("io_readdir failed");
                     }
-                    debug("response le %d", (int)response->n_directory_entries);
                     break;
 
                 default:
@@ -136,6 +141,11 @@ ServeDir_serve(ServeDir * sd)
         zmq_msg_close (&msg_rep);
 
         Response_destroy(response);
+
+        if (fullpath!=NULL) {
+            free(fullpath);
+            fullpath = NULL;
+        }
     }
 
     return 0;
@@ -146,6 +156,8 @@ error:
     zmq_msg_close (&msg_rep);
 
     Response_destroy(response);
+
+    free(fullpath);
 
     return -1;
 }
