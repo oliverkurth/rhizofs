@@ -11,7 +11,7 @@
 
 #include "dbg.h"
 #include "server/io.h"
-#include "server/response.h"
+#include "response.h"
 #include "util/path.h"
 #include "proto/rhizofs.pb-c.h"
 
