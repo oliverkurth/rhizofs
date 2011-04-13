@@ -23,7 +23,8 @@ static mode_pair mode_map_perm[] = {
 };
 
 static errno_pair errno_map[] = {
-    // TODO
+    { RHIZOFS__ERRNO_TYPE__ERRNO_NONE,      0 },
+    { RHIZOFS__ERRNO_TYPE__ERRNO_UNKNOWN,   EIO }
 };
 
 

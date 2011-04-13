@@ -79,4 +79,10 @@ Response_set_errno(Rhizofs__Response ** response, int eno)
 
 }
 
+int
+Response_get_errno(const Rhizofs__Response * response)
+{
+    return mapping_errno_l2p( response->errnotype );
+}
+
 

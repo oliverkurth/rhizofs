@@ -56,7 +56,7 @@ message Response {
     required ErrorType errortype = 3 [default = NONE];
 
     // the errno returned by the server filesystem.
-    required ErrnoType errnotype = 4;
+    required ErrnoType errnotype = 4 [default = ERRNO_NONE];
 
     // READDIR
     repeated string directory_entries = 5;

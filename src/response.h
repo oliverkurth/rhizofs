@@ -22,6 +22,13 @@ void Response_destroy(Rhizofs__Response * response);
  */
 void Response_set_errno(Rhizofs__Response ** response, int eno);
 
+
+/**
+ * set the local errno
+ */
+int Response_get_errno(const Rhizofs__Response * response);
+
+
 /**
  * pack the response in a zmq message
  * the message will be initialized to the correct size
