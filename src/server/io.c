@@ -1,3 +1,4 @@
+#include "dbg.h"
 #include "io.h"
 
 // check for memory and set response error on failure

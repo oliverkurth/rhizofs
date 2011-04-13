@@ -7,7 +7,6 @@
 #include <string.h>
 #include <dirent.h>
 
-#include "dbg.h"
 #include "response.h"
 #include "proto/rhizofs.pb-c.h"
 

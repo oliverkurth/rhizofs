@@ -9,7 +9,6 @@
 
 #include <zmq.h>
 
-#include "dbg.h"
 #include "server/io.h"
 #include "response.h"
 #include "util/path.h"
