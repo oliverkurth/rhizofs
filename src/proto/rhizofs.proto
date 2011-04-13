@@ -25,7 +25,8 @@ enum ErrorType {
 }
 
 enum ErrnoType {
-    ERRNO_UNKNOWN = 0;    
+    ERRNO_NONE = 0;
+    ERRNO_UNKNOWN = 1;    
 };
 
 
@@ -55,7 +56,7 @@ message Response {
     required ErrorType errortype = 3 [default = NONE];
 
     // the errno returned by the server filesystem.
-    optional ErrnoType errnotype = 4;
+    required ErrnoType errnotype = 4;
 
     // READDIR
     repeated string directory_entries = 5;

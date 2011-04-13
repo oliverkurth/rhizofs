@@ -18,6 +18,7 @@ Response_create()
 
     response->version = version;
     response->errortype = RHIZOFS__ERROR_TYPE__NONE; // be positive
+    response->errnotype = RHIZOFS__ERRNO_TYPE__ERRNO_NONE;
 
 
     return response;
@@ -79,7 +80,7 @@ Response_set_errno(Rhizofs__Response ** response, int eno)
 
     debug("Setting protocol errno %d", perrno);
 
-    (*response)->has_errnotype = 1;
+    //(*response)->has_errnotype = 1;
     (*response)->errnotype = perrno;
 
 }
