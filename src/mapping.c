@@ -22,11 +22,12 @@ static mode_pair mode_map_perm[] = {
     { RHI_PERM_XOTH,        S_IXOTH }
 };
 
-#define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
-
 static errno_pair errno_map[] = {
     // TODO
 };
+
+
+#define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
 #define errno_map_len(em) (sizeof(em)/sizeof(errno_pair))
 
 unsigned int

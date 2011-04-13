@@ -49,13 +49,7 @@ Response_destroy(Rhizofs__Response * response) {
 
 }
 
-/**
- * pack the response in a zmq message
- * the message will be initialized to the correct size
- * and has to be zmq_msg_closed
- *
- * 0 = success
- */
+
 int
 Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg)
 {
