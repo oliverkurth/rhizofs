@@ -16,7 +16,7 @@ def build_request(requesttype):
 
 def dump_response(resp):
     print "Requesttype %d (version %d.%d)" % (resp.requesttype, resp.version.major, resp.version.minor)
-    print "  errno: %s" % resp.fs_errno
+    print "  errnotype: %s" % resp.errnotype
 
     if resp.errortype != pb.NONE:
         print "  error: %d" % resp.errortype

@@ -2,6 +2,8 @@
 #define __mapping_h__
 
 #include <sys/stat.h>
+#include <errno.h>
+#include "proto/rhizofs.pb-c.h"
 
 // filetypes
 #define RHI_FILETYPE_DIR   0040000 // Directory
@@ -29,12 +31,20 @@ typedef struct mode_pair {
     mode_t local;
 } mode_pair;
 
+typedef struct errno_pair {
+    int protocol;
+    int local;
+} errno_pair;
+
+
 // l2p = local to protocol
 // p2l = protocol to local
 
 unsigned int mapping_mode_l2p(mode_t mode);
 mode_t mapping_mode_p2l(unsigned int);
 
+int mapping_errno_l2p(int lerrno);
+int mapping_errno_p2l(int perrno);
 
 #endif // __mapping_h__
 

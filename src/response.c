@@ -71,3 +71,17 @@ error:
     return -1;
  
 }
+
+void
+Response_set_errno(Rhizofs__Response ** response, int eno)
+{
+    int perrno = mapping_errno_l2p(eno);
+
+    debug("Setting protocol errno %d", perrno);
+
+    (*response)->has_errnotype = 1;
+    (*response)->errnotype = perrno;
+
+}
+
+

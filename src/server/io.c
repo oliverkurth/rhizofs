@@ -15,8 +15,7 @@ io_readdir(Rhizofs__Response **resp, const char* path)
 
     dir = opendir(path);
     if (dir == NULL) {
-        response->has_fs_errno = 1;
-        response->fs_errno = errno;
+        Response_set_errno(&response, errno);
         debug("Could not open directory %s", path);
         return 0;
     }
@@ -54,4 +53,6 @@ error:
         closedir(dir);
     }
     return -1;
+
 }
+

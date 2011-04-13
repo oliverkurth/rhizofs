@@ -24,6 +24,10 @@ enum ErrorType {
     NO_MEMORY = 4;
 }
 
+enum ErrnoType {
+    ERRNO_UNKNOWN = 0;    
+};
+
 
 message Stat {
     required int64 st_size = 1;
@@ -51,8 +55,7 @@ message Response {
     required ErrorType errortype = 3 [default = NONE];
 
     // the errno returned by the server filesystem.
-    // not negated
-    optional int32 fs_errno = 4;
+    optional ErrnoType errnotype = 4;
 
     // READDIR
     repeated string directory_entries = 5;

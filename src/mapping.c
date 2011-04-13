@@ -24,6 +24,10 @@ static mode_pair mode_map_perm[] = {
 
 #define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
 
+static errno_pair errno_map[] = {
+    // TODO
+};
+#define errno_map_len(em) (sizeof(em)/sizeof(errno_pair))
 
 unsigned int
 mapping_mode_l2p(mode_t mode)
@@ -73,5 +77,38 @@ mapping_mode_p2l(unsigned int md)
     }
     return mode;
 };
+
+
+int
+mapping_errno_l2p(int lerrno) 
+{
+    int perrno = RHIZOFS__ERRNO_TYPE__ERRNO_UNKNOWN; // default value
+    unsigned int i=0;
+
+    for (i=0; i<errno_map_len(errno_map); ++i) {
+        if (errno_map[i].local == lerrno) {
+            perrno = errno_map[i].protocol;
+            break;
+        }
+    }
+
+    return perrno;
+}
+
+
+int mapping_errno_p2l(int perrno)
+{
+    int lerrno = EIO; // default value
+    unsigned int i=0;
+
+    for (i=0; i<errno_map_len(errno_map); ++i) {
+        if (errno_map[i].protocol == perrno) {
+            lerrno = errno_map[i].local;
+            break;
+        }
+    }
+
+    return lerrno;
+}
 
 
