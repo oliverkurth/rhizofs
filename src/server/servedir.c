@@ -1,6 +1,10 @@
 #include "dbg.h"
 #include "servedir.h"
 
+// check for memory and set response error on failure
+#define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errortype = RHIZOFS__ERROR_TYPE__NO_MEMORY ; errno=0; ; goto error; }
+
+
 
 ServeDir *
 ServeDir_create(void *context, char *socket_name, char *directory)
@@ -65,7 +69,6 @@ ServeDir_serve(ServeDir * sd)
     zmq_msg_t msg_rep;
     Rhizofs__Request *request;
     Rhizofs__Response *response = NULL;
-    char * fullpath = NULL;
 
     debug("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
@@ -79,10 +82,7 @@ ServeDir_serve(ServeDir * sd)
         response = Response_create();
         check_mem(response);
 
-        request = rhizofs__request__unpack(NULL,
-            zmq_msg_size(&msg_req),
-            zmq_msg_data(&msg_req));
-
+        request = Request_from_message(&msg_req);
         if (request == NULL) {
             log_warn("Could not unpack incoming message. Skipping");
 
@@ -93,37 +93,27 @@ ServeDir_serve(ServeDir * sd)
         else {
             int action_rc = 0;
 
-            if (request->path != NULL) {
-                check((path_join(sd->directory, request->path, &fullpath)==0), "error processing path");
-            }
-
             switch(request->requesttype) {
 
                 case RHIZOFS__REQUEST_TYPE__PING:
-                    action_rc = action_ping(&response);
+                    action_rc = ServeDir_action_ping(&response);
                     break;
 
-
                 case RHIZOFS__REQUEST_TYPE__READDIR:
-                    debug("READDIR: path: %s", fullpath);
-                    response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
-
-                    if (fullpath == NULL) {
-                        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
-                        debug("READDIR invalid (%d)", response->errortype);
-                    }
-
-                    if ((action_readdir(&response, fullpath) != 0)) {
-                        log_warn("action_readdir failed");
-                    }
+                    action_rc = ServeDir_action_readdir(sd, request, &response);
                     break;
 
                 default:
                     // dont know what to do with that request
-                    action_rc = action_invalid(&response);
+                    //action_rc = action_invalid(sd, request, &response);
+                    action_rc = ServeDir_action_invalid(&response);
             }
 
-            rhizofs__request__free_unpacked(request, NULL);
+            if (action_rc != 0) {
+                log_warn("calling action failed");
+            }
+
+            Request_from_message_destroy(request);
         }
 
         zmq_msg_close (&msg_req);
@@ -136,11 +126,6 @@ ServeDir_serve(ServeDir * sd)
         zmq_msg_close (&msg_rep);
 
         Response_destroy(response);
-
-        if (fullpath!=NULL) {
-            free(fullpath);
-            fullpath = NULL;
-        }
     }
 
     return 0;
@@ -152,7 +137,110 @@ error:
 
     Response_destroy(response);
 
-    free(fullpath);
-
     return -1;
 }
+
+
+int
+ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
+{
+    check((request->path != NULL), "request path is null");
+    check((path_join(sd->directory, request->path, fullpath)==6), "error processing path");
+    check_debug((fullpath != NULL), "fullpath is null");
+
+    return 0;
+error:
+    return -1;
+}
+
+
+int
+ServeDir_action_ping(Rhizofs__Response **resp)
+{
+    Rhizofs__Response * response = (*resp);
+    
+    debug("PING");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
+
+    return 0; // always successful
+}
+
+
+int
+ServeDir_action_invalid(Rhizofs__Response **resp)
+{
+    Rhizofs__Response * response = (*resp);
+    
+    log_warn("INVALID REQUEST");
+
+    // dont know what to do with that request
+    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
+    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+
+    return 0; // always successful
+}
+
+
+int
+ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    DIR *dir = NULL;
+    char * dirpath = NULL;
+    struct dirent *de;
+    size_t entry_count = 0;
+    int i;
+    Rhizofs__Response * response = (*resp);
+
+    debug("READDIR");
+
+    check((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
+    dir = opendir(dirpath);
+    if (dir == NULL) {
+        Response_set_errno(&response, errno);
+        debug("Could not open directory %s", dirpath);
+        return 0;
+    }
+
+    // count the entries in the directory
+    while (readdir(dir) != NULL) {
+        ++entry_count;
+    }
+
+    response->directory_entries = (char**)calloc(sizeof(char *), entry_count);
+    check_mem_response(response->directory_entries);
+
+    rewinddir(dir);
+    i = 0;
+    while ((de = readdir(dir)) != NULL) {
+        debug("found directory entry %s",  de->d_name);
+
+        response->directory_entries[i] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
+        check_mem_response(response->directory_entries[i]);
+        strcpy(response->directory_entries[i], de->d_name);
+
+        ++i;
+    }
+    response->n_directory_entries = i;
+
+    closedir(dir);
+
+    free(dirpath);
+
+    return 0;
+
+error:
+
+    // leave the directory_entries when an error occurs.
+    // they will get free'd when calling Response_destroy
+
+    if (dir != NULL) {
+        closedir(dir);
+    }
+
+    free(dirpath);
+
+    return -1;
+
+}
+
+
