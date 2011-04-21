@@ -91,6 +91,7 @@ ServeDir_serve(ServeDir * sd)
             response->errortype = RHIZOFS__ERROR_TYPE__UNSERIALIZABLE_REQUEST;
         }
         else {
+            int action_rc = 0;
 
             if (request->path != NULL) {
                 check((path_join(sd->directory, request->path, &fullpath)==0), "error processing path");
@@ -99,8 +100,7 @@ ServeDir_serve(ServeDir * sd)
             switch(request->requesttype) {
 
                 case RHIZOFS__REQUEST_TYPE__PING:
-                    debug("PING");
-                    response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
+                    action_rc = action_ping(&response);
                     break;
 
 
@@ -120,9 +120,7 @@ ServeDir_serve(ServeDir * sd)
 
                 default:
                     // dont know what to do with that request
-                    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
-                    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
-                    log_warn("recieved an invalid request");
+                    action_rc = action_invalid(&response);
             }
 
             rhizofs__request__free_unpacked(request, NULL);

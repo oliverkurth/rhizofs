@@ -4,6 +4,33 @@
 // check for memory and set response error on failure
 #define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errortype = RHIZOFS__ERROR_TYPE__NO_MEMORY ; errno=0; ; goto error; }
 
+int
+action_ping(Rhizofs__Response **resp)
+{
+    Rhizofs__Response * response = (*resp);
+    
+    debug("PING");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
+
+    return 0; // always successful
+}
+
+
+int
+action_invalid(Rhizofs__Response **resp)
+{
+    Rhizofs__Response * response = (*resp);
+    
+    log_warn("INVALID REQUEST");
+
+    // dont know what to do with that request
+    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
+    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+
+
+    return 0; // always successful
+}
+
 
 int
 action_readdir(Rhizofs__Response **resp, const char* path)

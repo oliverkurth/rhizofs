@@ -11,6 +11,8 @@
 #include "proto/rhizofs.pb-c.h"
 
 
+int action_ping(Rhizofs__Response **resp);
+int action_invalid(Rhizofs__Response **resp);
 int action_readdir(Rhizofs__Response **resp, const char* path);
 
 #endif // __server_action_h__
