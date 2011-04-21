@@ -36,6 +36,8 @@ extern FILE *LOG_FILE;
 
 #define check_mem(A) check((A), "Out of memory.")
 
-
+// use expression as sub-expression,
+// then make type of full expression int, discard result
+#define UNUSED(A) (void)(sizeof((A), 0))
 
 #endif /* __dbg_h__ */
