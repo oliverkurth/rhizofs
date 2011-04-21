@@ -145,7 +145,7 @@ int
 ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
 {
     check((request->path != NULL), "request path is null");
-    check((path_join(sd->directory, request->path, fullpath)==6), "error processing path");
+    check((path_join(sd->directory, request->path, fullpath)==0), "error processing path");
     check_debug((fullpath != NULL), "fullpath is null");
 
     return 0;
@@ -194,107 +194,7 @@ ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
     debug("READDIR");
 
     check((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
-    dir = opendir(dirpath);
-    if (dir == NULL) {
-        Response_set_errno(&response, errno);
-        debug("Could not open directory %s", dirpath);
-        return 0;
-    }
-
-    // count the entries in the directory
-    while (readdir(dir) != NULL) {
-        ++entry_count;
-    }
-
-    response->directory_entries = (char**)calloc(sizeof(char *), entry_count);
-    check_mem_response(response->directory_entries);
-
-    rewinddir(dir);
-    i = 0;
-    while ((de = readdir(dir)) != NULL) {
-        debug("found directory entry %s",  de->d_name);
-
-        response->directory_entries[i] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
-        check_mem_response(response->directory_entries[i]);
-        strcpy(response->directory_entries[i], de->d_name);
-
-        ++i;
-    }
-    response->n_directory_entries = i;
-
-    closedir(dir);
-
-    free(dirpath);
-
-    return 0;
-
-error:
-
-    // leave the directory_entries when an error occurs.
-    // they will get free'd when calling Response_destroy
-
-    if (dir != NULL) {
-        closedir(dir);
-    }
-
-    free(dirpath);
-
-
-int
-ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
-{
-    check((request->path != NULL), "request path is null");
-    check((path_join(sd->directory, request->path, fullpath)==6), "error processing path");
-    check_debug((fullpath != NULL), "fullpath is null");
-
-    return 0;
-error:
-    return -1;
-
-}
-
-
-int
-ServeDir_action_ping(Rhizofs__Response **resp)
-{
-    Rhizofs__Response * response = (*resp);
-    
-    debug("PING");
-    response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
-
-    return 0; // always successful
-}
-
-
-int
-ServeDir_action_invalid(Rhizofs__Response **resp)
-{
-    Rhizofs__Response * response = (*resp);
-    
-    log_warn("INVALID REQUEST");
-
-    // dont know what to do with that request
-    response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
-    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
-
-    return 0; // always successful
-}
-
-
-int
-ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
-{
-    DIR *dir = NULL;
-    char * dirpath = NULL;
-    struct dirent *de;
-    size_t entry_count = 0;
-    int i;
-    Rhizofs__Response * response = (*resp);
-
-    debug("READDIR");
-
-    check((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
-    debug("Reading directory %s", dirpath);
+    debug("requested directory path: %s", dirpath);
     dir = opendir(dirpath);
     if (dir == NULL) {
         Response_set_errno(&response, errno);
