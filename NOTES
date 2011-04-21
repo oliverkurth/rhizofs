@@ -9,3 +9,7 @@ errno thread safety
 
 errno portability
     maybe replace with custom errorcodes in the protocol
+
+errnos in
+    asm-generic/errno-base.h
+    asm-generic/errno.h
