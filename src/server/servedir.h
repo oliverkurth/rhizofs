@@ -9,7 +9,7 @@
 
 #include <zmq.h>
 
-#include "server/io.h"
+#include "server/action.h"
 #include "response.h"
 #include "util/path.h"
 #include "proto/rhizofs.pb-c.h"

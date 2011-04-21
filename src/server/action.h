@@ -1,5 +1,5 @@
-#ifndef __server_io_h__
-#define __server_io_h__
+#ifndef __server_action_h__
+#define __server_action_h__
 
 #include <stdio.h>
 #include <errno.h>
@@ -11,7 +11,7 @@
 #include "proto/rhizofs.pb-c.h"
 
 
-int io_readdir(Rhizofs__Response **resp, const char* path);
+int action_readdir(Rhizofs__Response **resp, const char* path);
 
-#endif // __server_io_h__
+#endif // __server_action_h__
 

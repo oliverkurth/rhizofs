@@ -1,12 +1,12 @@
 #include "dbg.h"
-#include "io.h"
+#include "action.h"
 
 // check for memory and set response error on failure
 #define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errortype = RHIZOFS__ERROR_TYPE__NO_MEMORY ; errno=0; ; goto error; }
 
 
 int
-io_readdir(Rhizofs__Response **resp, const char* path)
+action_readdir(Rhizofs__Response **resp, const char* path)
 {
     DIR *dir = NULL;
     struct dirent *de;

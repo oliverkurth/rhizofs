@@ -113,8 +113,8 @@ ServeDir_serve(ServeDir * sd)
                         debug("READDIR invalid (%d)", response->errortype);
                     }
 
-                    if ((io_readdir(&response, fullpath) != 0)) {
-                        log_warn("io_readdir failed");
+                    if ((action_readdir(&response, fullpath) != 0)) {
+                        log_warn("action_readdir failed");
                     }
                     break;
 
