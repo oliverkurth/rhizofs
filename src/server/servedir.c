@@ -258,25 +258,25 @@ error:
 int
 ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
-    char * dirpath = NULL;
+    char * path = NULL;
     Rhizofs__Response * response = (*resp);
 
     debug("RMDIR");
 
     response->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
-    check_debug((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
-    debug("requested directory path: %s", dirpath);
-    if (rmdir(dirpath) == -1) {
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble directory path.");
+    debug("requested directory path: %s", path);
+    if (rmdir(path) == -1) {
         Response_set_errno(&response, errno);
-        debug("Could not remove directory %s", dirpath);
+        debug("Could not remove directory %s", path);
     }
 
-    free(dirpath);
+    free(path);
     return 0;
 
 error:
-    free(dirpath);
+    free(path);
     return -1;
 }
 
@@ -284,25 +284,25 @@ error:
 int
 ServeDir_action_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
-    char * filepath = NULL;
+    char * path = NULL;
     Rhizofs__Response * response = (*resp);
 
     debug("UNLINK");
 
     response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
-    check_debug((ServeDir_fullpath(sd, request, &filepath) == 0), "Could not assemble file path.");
-    debug("requested path: %s", filepath);
-    if (unlink(filepath) == -1) {
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble file path.");
+    debug("requested path: %s", path);
+    if (unlink(path) == -1) {
         Response_set_errno(&response, errno);
-        debug("Could not unlink %s", filepath);
+        debug("Could not unlink %s", path);
     }
 
-    free(filepath);
+    free(path);
     return 0;
 
 error:
-    free(filepath);
+    free(path);
     return -1;
 }
 
