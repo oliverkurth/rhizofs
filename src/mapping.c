@@ -23,20 +23,25 @@ static mode_pair mode_map_perm[] = {
 };
 
 static errno_pair errno_map[] = {
-    { RHIZOFS__ERRNO_TYPE__ERRNO_NONE,      0 },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_UNKNOWN,   EIO },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_PERM,      EPERM },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_NOENT,     ENOENT },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_NOMEM,     ENOMEM },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_ACCES,     EACCES },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_BUSY,      EBUSY },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_EXIST,     EEXIST },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_NOTDIR,    ENOTDIR },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_ISDIR,     EISDIR },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_INVAL,     EINVAL },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_FBIG,      EFBIG },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_NOSPC,     ENOSPC },
-    { RHIZOFS__ERRNO_TYPE__ERRNO_ROFS,      EROFS }
+    { RHIZOFS__ERRNO__ERRNO_NONE,      0 },
+    { RHIZOFS__ERRNO__ERRNO_PERM,      EPERM },
+    { RHIZOFS__ERRNO__ERRNO_NOENT,     ENOENT },
+    { RHIZOFS__ERRNO__ERRNO_NOMEM,     ENOMEM },
+    { RHIZOFS__ERRNO__ERRNO_ACCES,     EACCES },
+    { RHIZOFS__ERRNO__ERRNO_BUSY,      EBUSY },
+    { RHIZOFS__ERRNO__ERRNO_EXIST,     EEXIST },
+    { RHIZOFS__ERRNO__ERRNO_NOTDIR,    ENOTDIR },
+    { RHIZOFS__ERRNO__ERRNO_ISDIR,     EISDIR },
+    { RHIZOFS__ERRNO__ERRNO_INVAL,     EINVAL },
+    { RHIZOFS__ERRNO__ERRNO_FBIG,      EFBIG },
+    { RHIZOFS__ERRNO__ERRNO_NOSPC,     ENOSPC },
+    { RHIZOFS__ERRNO__ERRNO_ROFS,      EROFS },
+    { RHIZOFS__ERRNO__ERRNO_SPIPE,     ESPIPE },
+
+    // custom methods are located at the end of this list
+    { RHIZOFS__ERRNO__ERRNO_UNKNOWN,            EIO }, // everything unknown is an IO error
+    { RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST,    EINVAL },
+    { RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE,     EIO }
 };
 
 
@@ -44,7 +49,7 @@ static errno_pair errno_map[] = {
 #define errno_map_len(em) (sizeof(em)/sizeof(errno_pair))
 
 unsigned int
-mapping_mode_l2p(mode_t mode)
+mapping_mode_to_protocol(mode_t mode)
 {
     unsigned int md = 0;
     unsigned int i = 0;
@@ -69,7 +74,7 @@ mapping_mode_l2p(mode_t mode)
 
 
 mode_t
-mapping_mode_p2l(unsigned int md)
+mapping_mode_from_protocol(unsigned int md)
 {
     mode_t mode = 0;
     unsigned int i = 0;
@@ -94,9 +99,9 @@ mapping_mode_p2l(unsigned int md)
 
 
 int
-mapping_errno_l2p(int lerrno) 
+mapping_errno_to_protocol(int lerrno) 
 {
-    int perrno = RHIZOFS__ERRNO_TYPE__ERRNO_UNKNOWN; // default value
+    int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; // default value
     unsigned int i=0;
 
     for (i=0; i<errno_map_len(errno_map); ++i) {
@@ -110,7 +115,7 @@ mapping_errno_l2p(int lerrno)
 }
 
 
-int mapping_errno_p2l(int perrno)
+int mapping_errno_from_protocol(int perrno)
 {
     int lerrno = EIO; // default value
     unsigned int i=0;

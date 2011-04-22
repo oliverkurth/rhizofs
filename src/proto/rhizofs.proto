@@ -20,15 +20,7 @@ enum RequestType {
     RENAME = 9;
 }
 
-enum ErrorType {
-    NONE = 0;
-    INVALID_REQUEST = 1;
-    UNSERIALIZABLE_REQUEST = 2;
-    INTERNAL = 3;
-    NO_MEMORY = 4;
-}
-
-enum ErrnoType {
+enum Errno {
     ERRNO_NONE = 0;
     ERRNO_UNKNOWN = 1;    
     ERRNO_PERM = 2;  
@@ -43,6 +35,9 @@ enum ErrnoType {
     ERRNO_FBIG = 11;
     ERRNO_NOSPC = 12;
     ERRNO_ROFS = 13;
+    ERRNO_SPIPE = 14;
+    ERRNO_INVALID_REQUEST = 15;
+    ERRNO_UNSERIALIZABLE = 16;
 };
 
 
@@ -72,10 +67,8 @@ message Response {
     required RequestType requesttype = 1;
     required Version version = 2;
 
-    required ErrorType errortype = 3 [default = NONE];
-
     // the errno returned by the server filesystem.
-    required ErrnoType errnotype = 4 [default = ERRNO_NONE];
+    required Errno errnotype = 4 [default = ERRNO_NONE];
 
     // READDIR
     repeated string directory_entries = 5;

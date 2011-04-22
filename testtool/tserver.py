@@ -16,10 +16,9 @@ def build_request(requesttype):
 
 def dump_response(resp):
     print "Requesttype %d (version %d.%d)" % (resp.requesttype, resp.version.major, resp.version.minor)
-    print "  errnotype: %s" % resp.errnotype
 
-    if resp.errortype != pb.NONE:
-        print "  error: %d" % resp.errortype
+    if resp.errnotype != pb.ERRNO_NONE:
+        print "  error: %d" % resp.errnotype
     if len(resp.directory_entries) > 0:
         print "  directoriy_entries :"
         for de in resp.directory_entries:

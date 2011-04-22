@@ -16,11 +16,8 @@ Response_create()
     version->major = RHI_VERSION_MAJOR; 
     version->minor = RHI_VERSION_MINOR; 
     
-
     response->version = version;
-    response->errortype = RHIZOFS__ERROR_TYPE__NONE; // be positive
-    response->errnotype = RHIZOFS__ERRNO_TYPE__ERRNO_NONE;
-
+    response->errnotype = RHIZOFS__ERRNO__ERRNO_NONE;
 
     return response;
 
@@ -71,7 +68,7 @@ error:
 void
 Response_set_errno(Rhizofs__Response ** response, int eno)
 {
-    int perrno = mapping_errno_l2p(eno);
+    int perrno = mapping_errno_to_protocol(eno);
 
     debug("Setting protocol errno %d", perrno);
 
@@ -83,7 +80,6 @@ Response_set_errno(Rhizofs__Response ** response, int eno)
 int
 Response_get_errno(const Rhizofs__Response * response)
 {
-    return mapping_errno_l2p( response->errnotype );
+    return mapping_errno_from_protocol( response->errnotype );
 }
-
 

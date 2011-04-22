@@ -37,14 +37,14 @@ typedef struct errno_pair {
 } errno_pair;
 
 
-// l2p = local to protocol
-// p2l = protocol to local
+// to_protocol = local to protocol
+// from_protocol = protocol to local
 
-unsigned int mapping_mode_l2p(mode_t mode);
-mode_t mapping_mode_p2l(unsigned int);
+unsigned int mapping_mode_to_protocol(mode_t mode);
+mode_t mapping_mode_from_protocol(unsigned int);
 
-int mapping_errno_l2p(int lerrno);
-int mapping_errno_p2l(int perrno);
+int mapping_errno_to_protocol(int lerrno);
+int mapping_errno_from_protocol(int perrno);
 
 #endif // __mapping_h__
 

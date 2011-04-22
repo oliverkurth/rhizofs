@@ -2,7 +2,7 @@
 #include "servedir.h"
 
 // check for memory and set response error on failure
-#define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errortype = RHIZOFS__ERROR_TYPE__NO_MEMORY ; errno=0; ; goto error; }
+#define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; errno=0; ; goto error; }
 
 
 
@@ -88,7 +88,7 @@ ServeDir_serve(ServeDir * sd)
 
             // send back an error
             response->requesttype = RHIZOFS__REQUEST_TYPE__UNKNOWN;
-            response->errortype = RHIZOFS__ERROR_TYPE__UNSERIALIZABLE_REQUEST;
+            response->errnotype = RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE;
         }
         else {
             int action_rc = 0;
@@ -196,7 +196,7 @@ ServeDir_action_invalid(Rhizofs__Response **resp)
 
     // dont know what to do with that request
     response->requesttype = RHIZOFS__REQUEST_TYPE__INVALID;
-    response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+    response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
 
     return 0; // always successful
 }
@@ -332,10 +332,10 @@ ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
 
     if (!request->has_modemask) {
         log_err("the request did not specify an access mode");
-        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_p2l(request->modemask);
+    localmode = mapping_mode_from_protocol(request->modemask);
 
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
@@ -366,7 +366,7 @@ ServeDir_action_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
 
     if (request->path_to == NULL) {
         log_err("the request did not specify a path_to");
-        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
     check((path_join(sd->directory, request->path_to, &path_to)==0), "error processing path_to");
@@ -403,10 +403,10 @@ ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
 
     if (!request->has_modemask) {
         log_err("the request did not specify an access mode");
-        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_p2l(request->modemask);
+    localmode = mapping_mode_from_protocol(request->modemask);
 
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
