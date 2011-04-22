@@ -22,5 +22,5 @@ install: force
 install_debug: force
 	$(WAF) install_debug
 
-all: build build_debug
+all: build debug
 

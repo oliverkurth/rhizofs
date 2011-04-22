@@ -1,15 +1,7 @@
 #include "path.h"
 
-/**
- * join two paths
- *
- * p1: first path
- * p2: second path
- * pjoined: pointer to the string to write the joined path to
- *     memory will be allocated
- *
- * returns 0 on success
- */
+#define PATH_SEP '/'
+
 int
 path_join(const char * p1, const char * p2, char ** pj)
 {
@@ -48,4 +40,23 @@ path_join(const char * p1, const char * p2, char ** pj)
     strcpy((*pj)+(sizeof(char)*(p1_l+add_sep)), p2);
 
     return 0;
+}
+
+
+
+int
+path_join_real(const char * p1, const char * p2, char ** pj)
+{
+    char * realp = NULL;
+    int rc = 0;
+
+    if ((rc = path_join(p1, p2, &realp)) != 0) {
+        return rc;
+    } 
+
+    if (((*pj) = realpath(realp, NULL)) == NULL) {
+        rc = -1;
+    }
+    free(realp);
+    return rc;
 }

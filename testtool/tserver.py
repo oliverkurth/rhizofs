@@ -50,6 +50,12 @@ def readdir():
     r.path = "usr/bin"
     send_request(r)
 
+def readdir_path():
+    r = build_request(pb.READDIR)
+    r.path = "usr/bin/../bin/./"
+    send_request(r)
+
+
 def mkdir():
     r = build_request(pb.MKDIR)
     r.path = "tmp/testdir"
@@ -73,6 +79,7 @@ def stat():
 FUNCS={
     "ping"  : ping,
     "readdir" : readdir,
+    "readdir_path" : readdir_path,
     "readdir_wo_path" : readdir_wo_path,
     "stat"  : stat,
     "rmdir"  : rmdir,
