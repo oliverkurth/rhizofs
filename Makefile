@@ -1,53 +1,26 @@
-CFLAGS=-g -Wall -Isrc -I. $(shell pkg-config fuse --cflags) -O2
-LIBS=-lzmq -lprotobuf-c -lpthread
-FUSE_LIBS=$(shell pkg-config fuse --libs)
+WAF=./waf
 
-# tools
-PROTOCC=protoc-c
-PROTOC=protoc
-#CC=clang
+.PHONY: force
 
-# input files
-SERVER_SOURCES=$(wildcard src/util/*.c src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c
-SERVER_OBJECTS=$(patsubst %.c,%.o,${SERVER_SOURCES})
-FS_SOURCES=$(wildcard src/util/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
-FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
+default: release
 
+clean: force
+	$(WAF) clean
 
-all: build proto bin/rhizosrv bin/rhizofs testtool
+distclean: force
+	$(WAF) distclean
 
-dev: CFLAGS+=-Wextra -DDEBUG -O0
-dev: all
+debug: force
+	$(WAF) build_debug
 
-build:
-	@[ -d bin ] || mkdir bin
+release: force
+	$(WAF) build_release
 
-bin/rhizosrv: ${SERVER_OBJECTS}
-	$(CC) $(CFLAGS) $(LIBS) -o bin/rhizosrv ${SERVER_OBJECTS}
+install: force
+	$(WAF) install_release
 
-bin/rhizofs: ${FS_OBJECTS}
-	$(CC) $(CFLAGS) $(LIBS) $(FUSE_LIBS) -o bin/rhizofs ${FS_OBJECTS}
+install_debug: force
+	$(WAF) install_debug
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+all: build build_debug
 
-
-proto: src/proto/rhizofs.pb-c.c
-
-src/proto/rhizofs.pb-c.c:
-	$(PROTOCC) --c_out=./ src/proto/rhizofs.proto
-
-clean:
-	rm -f src/proto/*.c src/proto/*.h ${SERVER_OBJECTS} ${FS_OBJECTS}
-	rm -rf bin
-	rm -f testtool/rhizofs_pb.py
-
-.PHONY: testtool src/proto/rhizofs.pb-c.c
-
-testtool:
-	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto
-	mv ./testtool/src/proto/* ./testtool
-	rmdir ./testtool/src/proto ./testtool/src
-
-valgrind-srv: dev bin/rhizosrv
-	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/

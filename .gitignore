@@ -1,7 +1,7 @@
-src/proto/*.c
-src/proto/*.h
 *.o
-bin
+build
 *.swp
 testtool/rhizofs_pb2.py
 *.pyc
+.waf-*
+.lock-wafbuild

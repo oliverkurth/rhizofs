@@ -1,0 +1,5 @@
+#!/bin/sh
+# compatibility wrapper for well-known
+# autoconf build command syntax
+
+./waf configure $@
