@@ -179,7 +179,7 @@ int
 ServeDir_action_ping(Rhizofs__Response **resp)
 {
     Rhizofs__Response * response = (*resp);
-    
+
     debug("PING");
     response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
 
@@ -191,7 +191,7 @@ int
 ServeDir_action_invalid(Rhizofs__Response **resp)
 {
     Rhizofs__Response * response = (*resp);
-    
+
     log_warn("INVALID REQUEST");
 
     // dont know what to do with that request
@@ -324,7 +324,7 @@ int
 ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
-    mode_t localmode; 
+    mode_t localmode;
     Rhizofs__Response * response = (*resp);
 
     debug("ACCESS");
@@ -395,7 +395,7 @@ int
 ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
-    mode_t localmode; 
+    mode_t localmode;
     Rhizofs__Response * response = (*resp);
 
     debug("MKDIR");
@@ -423,6 +423,4 @@ error:
     free(path);
     return -1;
 }
-
-
 

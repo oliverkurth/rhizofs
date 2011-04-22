@@ -34,7 +34,7 @@ path_join(const char * p1, const char * p2, char ** pj)
         if (p2[0] == PATH_SEP) {
             --pj_l;
             add_sep = 0;
-        }    
+        }
     }
 
     *pj = calloc(sizeof(char *), pj_l+1);

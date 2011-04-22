@@ -99,7 +99,7 @@ mapping_mode_from_protocol(unsigned int md)
 
 
 int
-mapping_errno_to_protocol(int lerrno) 
+mapping_errno_to_protocol(int lerrno)
 {
     int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; // default value
     unsigned int i=0;

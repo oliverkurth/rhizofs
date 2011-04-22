@@ -3,26 +3,29 @@
 
 
 Rhizofs__Response *
-Response_create() 
+Response_create()
 {
-    Rhizofs__Response * response = calloc(sizeof(Rhizofs__Response), 1);
+    Rhizofs__Response * response = NULL;
+    Rhizofs__Version * version = NULL;
+
+    response = calloc(sizeof(Rhizofs__Response), 1);
     check_mem(response);
     rhizofs__response__init(response);
 
-    Rhizofs__Version * version = calloc(sizeof(Rhizofs__Version), 1); 
+    version = calloc(sizeof(Rhizofs__Version), 1);
     check_mem(version);
     rhizofs__version__init(version);
 
-    version->major = RHI_VERSION_MAJOR; 
-    version->minor = RHI_VERSION_MINOR; 
-    
+    version->major = RHI_VERSION_MAJOR;
+    version->minor = RHI_VERSION_MINOR;
+
     response->version = version;
     response->errnotype = RHIZOFS__ERRNO__ERRNO_NONE;
 
     return response;
 
 error:
-    
+
     free(version);
     free(response);
 
@@ -62,7 +65,7 @@ Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg)
 error:
     zmq_msg_close(msg);
     return -1;
- 
+
 }
 
 void
@@ -71,8 +74,6 @@ Response_set_errno(Rhizofs__Response ** response, int eno)
     int perrno = mapping_errno_to_protocol(eno);
 
     debug("Setting protocol errno %d", perrno);
-
-    //(*response)->has_errnotype = 1;
     (*response)->errnotype = perrno;
 
 }

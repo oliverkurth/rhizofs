@@ -14,7 +14,7 @@
 FILE *LOG_FILE = NULL;
 
 /** zmq context */
-static void *context = NULL; 
+static void *context = NULL;
 
 
 
@@ -89,7 +89,7 @@ main(int argc, char *argv[])
     ServeDir_serve(sd);
 
     ServeDir_destroy(sd);
-    zmq_term(context);      
+    zmq_term(context);
 
     return 0;
 
@@ -100,9 +100,9 @@ error:
     }
 
     if (context != NULL) {
-        zmq_term(context);      
+        zmq_term(context);
         context = NULL;
-    }   
+    }
 
     return -1;
 }
