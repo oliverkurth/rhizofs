@@ -51,6 +51,19 @@ def readdir():
     r.path = "usr/bin"
     send_request(r)
 
+def mkdir():
+    r = build_request(pb.MKDIR)
+    r.path = "tmp/testdir"
+    r.modemask = 0555
+    send_request(r)
+
+def rmdir():
+    r = build_request(pb.RMDIR)
+    r.path = "tmp/testdir"
+    send_request(r)
+
+
+
 def stat():
     r = build_request(pb.STAT)
     send_request(r)
@@ -63,6 +76,8 @@ FUNCS={
     "readdir" : readdir,
     "readdir_wo_path" : readdir_wo_path,
     "stat"  : stat,
+    "rmdir"  : rmdir,
+    "mkdir"  : mkdir,
 }
 
 SOCKET="tcp://0.0.0.0:11555"

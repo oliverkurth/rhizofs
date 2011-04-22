@@ -35,8 +35,8 @@ enum ErrnoType {
 
 
 message Stat {
-    required int64 st_size = 1;
-    required int32 st_mode = 2; // unsigned int
+    required int64 size = 1;
+    required int32 modemask = 2; // unsigned int
 }
 
 
