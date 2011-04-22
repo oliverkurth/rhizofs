@@ -188,10 +188,12 @@ ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
     char * dirpath = NULL;
     struct dirent *de;
     size_t entry_count = 0;
-    int i;
     Rhizofs__Response * response = (*resp);
 
     debug("READDIR");
+
+    response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
+    response->n_directory_entries = 0;
 
     check((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
     debug("requested directory path: %s", dirpath);
@@ -211,37 +213,35 @@ ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
     check_mem_response(response->directory_entries);
 
     rewinddir(dir);
-    i = 0;
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
 
-        response->directory_entries[i] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
-        check_mem_response(response->directory_entries[i]);
-        strcpy(response->directory_entries[i], de->d_name);
+        response->directory_entries[response->n_directory_entries] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
+        check_mem_response(response->directory_entries[response->n_directory_entries]);
+        strcpy(response->directory_entries[response->n_directory_entries], de->d_name);
 
-        ++i;
+        ++response->n_directory_entries;
     }
-    response->n_directory_entries = i;
 
     closedir(dir);
-
     free(dirpath);
-
     return 0;
 
 error:
+    if (response->n_directory_entries != 0) {
+        unsigned int i = 0;
+        for (i=0; i<response->n_directory_entries; i++) {
+            free(response->directory_entries[i]);
+        }
+    }
+    free(response->directory_entries);
 
-    // leave the directory_entries when an error occurs.
-    // they will get free'd when calling Response_destroy
 
     if (dir != NULL) {
         closedir(dir);
     }
-
     free(dirpath);
-
     return -1;
-
 }
 
 
