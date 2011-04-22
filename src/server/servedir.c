@@ -12,6 +12,7 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     ServeDir * sd = calloc(sizeof(ServeDir), 1);
     check_mem(sd);
     sd->socket = NULL;
+    sd->directory = NULL;
 
     // get the absolute path to the directory
     sd->directory = calloc(sizeof(char), PATH_MAX);
@@ -26,7 +27,7 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     sd->socket = zmq_socket(context, ZMQ_REP);
     sd->socket_name = socket_name;
     check((sd->socket != NULL), "Could not create zmq socket");
-    check((zmq_bind(sd->socket, socket_name) == 0), "could not bind to socket %s", socket_name);
+    check((zmq_connect(sd->socket, socket_name) == 0), "could not bind to socket %s", socket_name);
 
     return sd;
 
@@ -159,7 +160,6 @@ ServeDir_serve(ServeDir * sd)
                 zmq_msg_close (&msg_req);
                 term_loop = 1;
             } 
-            clean_errno();
         }
     }
 

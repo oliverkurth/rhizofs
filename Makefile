@@ -1,5 +1,5 @@
 CFLAGS=-g -Wall -Isrc -I. `pkg-config fuse --cflags` -O2
-LIBS=-lzmq -lprotobuf-c
+LIBS=-lzmq -lprotobuf-c -lpthread
 FUSE_LIBS=`pkg-config fuse --libs`
 
 # tools

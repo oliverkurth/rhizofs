@@ -36,8 +36,13 @@ extern FILE *LOG_FILE;
 
 #define check_mem(A) check((A), "Out of memory.")
 
-// use expression as sub-expression,
-// then make type of full expression int, discard result
-#define UNUSED(A) (void)(sizeof((A), 0))
+// macro to hide unused parameter warnings in some cases
+#if defined(__GNUC__)
+# define UNUSED_PARAMETER(x)  x __attribute__((unused))
+#elif defined(__LCLINT__)
+# define UNUSED_PARAMETER(x) /*@unused@*/ x
+#else
+# define UNUSED_PARAMETER(x) x
+#endif
 
 #endif /* __dbg_h__ */
