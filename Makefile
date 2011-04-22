@@ -1,6 +1,6 @@
-CFLAGS=-g -Wall -Isrc -I. `pkg-config fuse --cflags` -O2
+CFLAGS=-g -Wall -Isrc -I. $(shell pkg-config fuse --cflags) -O2
 LIBS=-lzmq -lprotobuf-c -lpthread
-FUSE_LIBS=`pkg-config fuse --libs`
+FUSE_LIBS=$(shell pkg-config fuse --libs)
 
 # tools
 PROTOCC=protoc-c
