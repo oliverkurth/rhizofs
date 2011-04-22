@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <limits.h> // for PATH_MAX
+#include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
 
@@ -34,5 +35,6 @@ int ServeDir_action_invalid(Rhizofs__Response **resp);
 
 /* filesystem actions */
 int ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
+int ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 
 #endif // __server_servedir_h__
