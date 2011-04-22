@@ -107,6 +107,10 @@ ServeDir_serve(ServeDir * sd)
                     action_rc = ServeDir_action_rmdir(sd, request, &response);
                     break;
 
+                case RHIZOFS__REQUEST_TYPE__UNLINK:
+                    action_rc = ServeDir_action_unlink(sd, request, &response);
+                    break;
+
                 default:
                     // dont know what to do with that request
                     //action_rc = action_invalid(sd, request, &response);
@@ -273,6 +277,32 @@ ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
 
 error:
     free(dirpath);
+    return -1;
+}
+
+
+int
+ServeDir_action_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * filepath = NULL;
+    Rhizofs__Response * response = (*resp);
+
+    debug("UNLINK");
+
+    response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
+
+    check_debug((ServeDir_fullpath(sd, request, &filepath) == 0), "Could not assemble file path.");
+    debug("requested path: %s", filepath);
+    if (unlink(filepath) == -1) {
+        Response_set_errno(&response, errno);
+        debug("Could not unlink %s", filepath);
+    }
+
+    free(filepath);
+    return 0;
+
+error:
+    free(filepath);
     return -1;
 }
 

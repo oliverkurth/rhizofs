@@ -15,6 +15,7 @@ enum RequestType {
     READDIR = 4;
     INVALID = 5;
     RMDIR = 6;
+    UNLINK = 7;
 }
 
 enum ErrorType {
