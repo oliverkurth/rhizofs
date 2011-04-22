@@ -17,6 +17,7 @@ enum RequestType {
     RMDIR = 6;
     UNLINK = 7;
     ACCESS = 8;
+    RENAME = 9;
 }
 
 enum ErrorType {
@@ -49,6 +50,9 @@ message Request {
     optional string path = 4;
 
     optional int32 modemask = 5;
+
+    // path to move/copy/link a file to
+    optional string path_to = 6;
 }
 
 

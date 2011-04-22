@@ -111,6 +111,14 @@ ServeDir_serve(ServeDir * sd)
                     action_rc = ServeDir_action_unlink(sd, request, &response);
                     break;
 
+                case RHIZOFS__REQUEST_TYPE__ACCESS:
+                    action_rc = ServeDir_action_access(sd, request, &response);
+                    break;
+
+                case RHIZOFS__REQUEST_TYPE__RENAME:
+                    action_rc = ServeDir_action_rename(sd, request, &response);
+                    break;
+
                 default:
                     // dont know what to do with that request
                     //action_rc = action_invalid(sd, request, &response);
@@ -337,6 +345,43 @@ ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
 
 error:
     free(path);
+    return -1;
+}
+
+
+int
+ServeDir_action_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path_from = NULL;
+    char * path_to = NULL;
+    Rhizofs__Response * response = (*resp);
+
+    debug("RENAME");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
+
+    if (request->path_to == NULL) {
+        log_err("the request did not specify a path_to");
+        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        return -1;
+    }
+    check((path_join(sd->directory, request->path_to, &path_to)==0), "error processing path_to");
+    check_debug((path_to != NULL), "path_to is null");
+
+
+    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0), "Could not assemble path.");
+    debug("requested path: %s -> %s", path_from, path_to);
+    if (rename(path_from, path_to) == -1) {
+        Response_set_errno(&response, errno);
+        debug("Could not rename %s to %s", path_from, path_to);
+    }
+
+    free(path_to);
+    free(path_from);
+    return 0;
+
+error:
+    free(path_to);
+    free(path_from);
     return -1;
 }
 
