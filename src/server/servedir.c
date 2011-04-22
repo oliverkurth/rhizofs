@@ -119,6 +119,11 @@ ServeDir_serve(ServeDir * sd)
                     action_rc = ServeDir_action_rename(sd, request, &response);
                     break;
 
+                case RHIZOFS__REQUEST_TYPE__MKDIR:
+                    action_rc = ServeDir_action_mkdir(sd, request, &response);
+                    break;
+
+
                 default:
                     // dont know what to do with that request
                     //action_rc = action_invalid(sd, request, &response);
@@ -384,5 +389,40 @@ error:
     free(path_from);
     return -1;
 }
+
+
+int
+ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path = NULL;
+    mode_t localmode; 
+    Rhizofs__Response * response = (*resp);
+
+    debug("MKDIR");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
+
+    if (!request->has_modemask) {
+        log_err("the request did not specify an access mode");
+        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        return -1;
+    }
+    localmode = mapping_mode_p2l(request->modemask);
+
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
+    debug("requested path: %s", path);
+    if (mkdir(path, localmode) == -1) {
+        Response_set_errno(&response, errno);
+        debug("Could not call mkdir on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
 
 
