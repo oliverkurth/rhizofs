@@ -14,7 +14,7 @@ FS_SOURCES=$(wildcard src/util/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
-all: build proto bin/rhizosrv testtool
+all: build proto bin/rhizosrv bin/rhizofs testtool
 
 dev: CFLAGS+=-Wextra -DDEBUG -O0
 dev: all
