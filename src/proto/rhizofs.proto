@@ -31,6 +31,18 @@ enum ErrorType {
 enum ErrnoType {
     ERRNO_NONE = 0;
     ERRNO_UNKNOWN = 1;    
+    ERRNO_PERM = 2;  
+    ERRNO_NOENT = 3; 
+    ERRNO_NOMEM = 4; 
+    ERRNO_ACCES = 5;
+    ERRNO_BUSY = 6;
+    ERRNO_EXIST = 7;
+    ERRNO_NOTDIR = 8;
+    ERRNO_ISDIR = 9;
+    ERRNO_INVAL = 10;
+    ERRNO_FBIG = 11;
+    ERRNO_NOSPC = 12;
+    ERRNO_ROFS = 13;
 };
 
 
