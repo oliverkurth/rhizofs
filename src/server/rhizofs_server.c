@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <getopt.h> // for optind, getopt
 
 #include "dbg.h"
@@ -15,6 +16,7 @@ FILE *LOG_FILE = NULL;
 
 /** zmq context */
 static void *context = NULL;
+static ServeDir * sd = NULL;
 
 
 
@@ -32,12 +34,31 @@ print_usage()
 }
 
 
+void
+shutdown(int sig)
+{
+    fprintf(stdout, "Shuting down...\n");
+
+    // terminating the zmq_context will make all
+    // sockets exit with errno == ETERM
+    if (context != NULL) {
+        zmq_term(context);
+        context = NULL;
+    }
+
+    if (sd != NULL) {
+        ServeDir_destroy(sd);    
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+
 int
 main(int argc, char *argv[])
 {
     char *socket_name = DEFAULT_SOCKET; // name of the zeromq socket
     char *directory = DEFAULT_DIRECTORY;   // name of the directory to server
-    ServeDir * sd = NULL;
     int i;
 
     // log to stdout
@@ -84,14 +105,15 @@ main(int argc, char *argv[])
     context = zmq_init(1);
     check((context != NULL), "Could not create Zmq context");
 
+    // install signal handler
+    (void)signal(SIGTERM, shutdown);
+    (void)signal(SIGINT, shutdown);
+
     sd = ServeDir_create(context, socket_name, directory);
     check((sd != NULL), "error serving directory.");
     ServeDir_serve(sd);
 
-    ServeDir_destroy(sd);
-    zmq_term(context);
-
-    return 0;
+    shutdown(SIGTERM);
 
 error:
 
@@ -104,5 +126,5 @@ error:
         context = NULL;
     }
 
-    return -1;
+    exit(EXIT_FAILURE);
 }

@@ -67,86 +67,100 @@ ServeDir_serve(ServeDir * sd)
 {
     zmq_msg_t msg_req;
     zmq_msg_t msg_rep;
+    int term_loop = 0;
     Rhizofs__Request *request;
     Rhizofs__Response *response = NULL;
 
     debug("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
 
-    while (1) {
+    while (term_loop == 0) {
+        int zmq_rc = 0;
+
         check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");
 
-        check((zmq_recv (sd->socket, &msg_req, 0) == 0), "Could not recv message");
-        debug("Received a message");
+        zmq_rc = zmq_recv(sd->socket, &msg_req, 0);
+        if (zmq_rc == 0) {
 
-        // create the response message
-        response = Response_create();
-        check_mem(response);
+            debug("Received a message");
 
-        request = Request_from_message(&msg_req);
-        if (request == NULL) {
-            log_warn("Could not unpack incoming message. Skipping");
+            // create the response message
+            response = Response_create();
+            check_mem(response);
 
-            // send back an error
-            response->requesttype = RHIZOFS__REQUEST_TYPE__UNKNOWN;
-            response->errnotype = RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE;
+            request = Request_from_message(&msg_req);
+            if (request == NULL) {
+                log_warn("Could not unpack incoming message. Skipping");
+
+                // send back an error
+                response->requesttype = RHIZOFS__REQUEST_TYPE__UNKNOWN;
+                response->errnotype = RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE;
+            }
+            else {
+                int action_rc = 0;
+
+                switch(request->requesttype) {
+
+                    case RHIZOFS__REQUEST_TYPE__PING:
+                        action_rc = ServeDir_action_ping(&response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__READDIR:
+                        action_rc = ServeDir_action_readdir(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__RMDIR:
+                        action_rc = ServeDir_action_rmdir(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__UNLINK:
+                        action_rc = ServeDir_action_unlink(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__ACCESS:
+                        action_rc = ServeDir_action_access(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__RENAME:
+                        action_rc = ServeDir_action_rename(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__MKDIR:
+                        action_rc = ServeDir_action_mkdir(sd, request, &response);
+                        break;
+
+
+                    default:
+                        // dont know what to do with that request
+                        //action_rc = action_invalid(sd, request, &response);
+                        action_rc = ServeDir_action_invalid(&response);
+                }
+
+                if (action_rc != 0) {
+                    log_warn("calling action failed");
+                }
+
+                Request_from_message_destroy(request);
+            }
+
+            zmq_msg_close (&msg_req);
+
+            // serialize the reply
+            check((Response_pack(response, &msg_rep) == 0), "Could not pack message");
+
+            //  Send reply back to client
+            check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
+            zmq_msg_close (&msg_rep);
+
+            Response_destroy(response);
         }
         else {
-            int action_rc = 0;
-
-            switch(request->requesttype) {
-
-                case RHIZOFS__REQUEST_TYPE__PING:
-                    action_rc = ServeDir_action_ping(&response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__READDIR:
-                    action_rc = ServeDir_action_readdir(sd, request, &response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__RMDIR:
-                    action_rc = ServeDir_action_rmdir(sd, request, &response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__UNLINK:
-                    action_rc = ServeDir_action_unlink(sd, request, &response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__ACCESS:
-                    action_rc = ServeDir_action_access(sd, request, &response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__RENAME:
-                    action_rc = ServeDir_action_rename(sd, request, &response);
-                    break;
-
-                case RHIZOFS__REQUEST_TYPE__MKDIR:
-                    action_rc = ServeDir_action_mkdir(sd, request, &response);
-                    break;
-
-
-                default:
-                    // dont know what to do with that request
-                    //action_rc = action_invalid(sd, request, &response);
-                    action_rc = ServeDir_action_invalid(&response);
-            }
-
-            if (action_rc != 0) {
-                log_warn("calling action failed");
-            }
-
-            Request_from_message_destroy(request);
+            if (errno == ETERM) {
+                debug("the context has been terminated leaving the servedir loop");
+                zmq_msg_close (&msg_req);
+                term_loop = 1;
+            } 
+            clean_errno();
         }
-
-        zmq_msg_close (&msg_req);
-
-        // serialize the reply
-        check((Response_pack(response, &msg_rep) == 0), "Could not pack message");
-
-        //  Send reply back to client
-        check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
-        zmq_msg_close (&msg_rep);
-
-        Response_destroy(response);
     }
 
     return 0;
