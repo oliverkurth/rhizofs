@@ -37,5 +37,6 @@ int ServeDir_action_invalid(Rhizofs__Response **resp);
 int ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 int ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 int ServeDir_action_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
+int ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 
 #endif // __server_servedir_h__

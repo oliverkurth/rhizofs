@@ -16,6 +16,7 @@ enum RequestType {
     INVALID = 5;
     RMDIR = 6;
     UNLINK = 7;
+    ACCESS = 8;
 }
 
 enum ErrorType {
@@ -47,7 +48,7 @@ message Request {
 
     optional string path = 4;
 
-    // READDIR
+    optional int32 modemask = 5;
 }
 
 

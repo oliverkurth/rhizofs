@@ -307,3 +307,37 @@ error:
 }
 
 
+int
+ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path = NULL;
+    mode_t localmode; 
+    Rhizofs__Response * response = (*resp);
+
+    debug("ACCESS");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
+
+    if (!request->has_modemask) {
+        log_err("the request did not specify an access mode");
+        response->errortype = RHIZOFS__ERROR_TYPE__INVALID_REQUEST;
+        return -1;
+    }
+    localmode = mapping_mode_p2l(request->modemask);
+
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
+    debug("requested path: %s", path);
+    if (access(path, localmode) == -1) {
+        Response_set_errno(&response, errno);
+        debug("Could not call access on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+
