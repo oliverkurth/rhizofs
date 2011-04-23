@@ -43,6 +43,10 @@ def configure(conf):
         var='PROTOCC'
     )
 
+    for header in ('stdlib.h', 'string.h', 'errno.h', 'sys/stat.h', 'stdio.h',
+            'dirent.h', 'limits.h'):
+        conf.check(header_name=header)
+
     # libs
     conf.check(package='protobufc', lib='protobuf-c',
                 header_name='google/protobuf-c/protobuf-c.h',

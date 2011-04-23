@@ -24,3 +24,13 @@ install_debug: force
 
 all: build debug
 
+
+# DEVELOPMENT targets ###############################################
+
+VALGRIND=valgrind
+VALGRIND_OPTS=--leak-check=full --show-reachable=yes --track-origins=yes
+TEST_MOUNTPOINT=/tmp/rhizo-mp
+
+valgrind-fs: debug
+	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
+	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(TEST_MOUNTPOINT)

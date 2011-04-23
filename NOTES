@@ -13,3 +13,8 @@ errno portability
 errnos in
     asm-generic/errno-base.h
     asm-generic/errno.h
+
+fuse exit from init method
+    http://article.gmane.org/gmane.comp.file-systems.fuse.devel/2834
+    http://thread.gmane.org/gmane.comp.file-systems.fuse.devel/5498/focus=5508
+    http://osdir.com/ml/file-systems.fuse.devel/2005-10/msg00028.html

@@ -5,8 +5,7 @@ FILE *LOG_FILE = NULL;
 
 int main(int argc, char *argv[])
 {
-    // log to stdout
-    LOG_FILE = stdout;
+    LOG_FILE = stderr;
 
 
 	umask(0);

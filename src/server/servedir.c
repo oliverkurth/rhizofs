@@ -38,7 +38,7 @@ error:
     }
 
     if (sd->socket) {
-        zmq_term(sd->socket);
+        zmq_close(sd->socket);
     }
 
     free(sd);
