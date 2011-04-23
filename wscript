@@ -75,34 +75,31 @@ def build(bld):
 
     additional_includes = [
         '.',    # add build directory for config.h
-        './src'
+        'src'
     ]
 
-    bld(source    = 'src/proto/rhizofs.proto',
+    bld(source    = ['src/proto/rhizofs.proto'] +
+                    glob.glob('src/*.c') +
+                    glob.glob('src/util/*.c'),
         features  = 'includes',
-        target    = 'proto-obj',
+        includes  = additional_includes,
+        target    = 'common-obj',
         install_path = None
     )
 
     bld.program(
-        source    = glob.glob('src/*.c') +
-                    glob.glob('src/server/*.c') +
-                    glob.glob('src/proto/*.c') +
-                    glob.glob('src/util/*.c'),
+        source    = glob.glob('src/server/*.c'),
         target    = 'rhizosrv',
         includes  = additional_includes,
-        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'proto-obj']
+        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'common-obj']
     )
 
 
     bld.program(
-        source    = glob.glob('src/*.c') +
-                    glob.glob('src/fs/*.c') +
-                    glob.glob('src/proto/*.c') +
-                    glob.glob('src/util/*.c'),
+        source    = glob.glob('src/fs/*.c'),
         target    = 'rhizofs',
         includes  = additional_includes,
-        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'FUSE', 'proto-obj']
+        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'FUSE', 'common-obj']
     )
 
 
