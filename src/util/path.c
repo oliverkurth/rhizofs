@@ -3,41 +3,41 @@
 #define PATH_SEP '/'
 
 int
-path_join(const char * p1, const char * p2, char ** pj)
+path_join(const char * path1, const char * path2, char ** pathjoined)
 {
-    if ((!p1) || (!p2)) {
+    if ((!path1) || (!path2)) {
         return -1;
     }
 
-    int p1_l = strlen(p1);
-    int p2_l = strlen(p2);
-    int pj_l = 0;
-    int add_sep = 0;
+    int lenpath1 = strlen(path1);
+    int lenpath2 = strlen(path2);
+    int lenpathjoined = 0;
+    int add_seperator = 0;
 
-    if ((p1_l != 0)) {
-        pj_l = p1_l;
-        if (p1[p1_l-1] != PATH_SEP) {
-            ++pj_l;
-            add_sep = 1;
+    if ((lenpath1 != 0)) {
+        lenpathjoined = lenpath1;
+        if (path1[lenpath1-1] != PATH_SEP) {
+            ++lenpathjoined;
+            add_seperator = 1;
         }
     }
-    if ((p2_l != 0)) {
-        pj_l += p2_l;
-        if (p2[0] == PATH_SEP) {
-            --pj_l;
-            add_sep = 0;
+    if ((lenpath2 != 0)) {
+        lenpathjoined += lenpath2;
+        if (path2[0] == PATH_SEP) {
+            --lenpathjoined;
+            add_seperator = 0;
         }
     }
 
-    *pj = calloc(sizeof(char *), pj_l+1);
-    if (pj == NULL) {
+    *pathjoined = calloc(sizeof(char *), lenpathjoined+1);
+    if (pathjoined == NULL) {
         return -1;
     }
-    strcpy(*pj, p1);
-    if (add_sep==1) {
-        (*pj)[p1_l] = PATH_SEP;
+    strcpy(*pathjoined, path1);
+    if (add_seperator==1) {
+        (*pathjoined)[lenpath1] = PATH_SEP;
     }
-    strcpy((*pj)+(sizeof(char)*(p1_l+add_sep)), p2);
+    strcpy((*pathjoined)+(sizeof(char)*(lenpath1+add_seperator)), path2);
 
     return 0;
 }
@@ -45,16 +45,16 @@ path_join(const char * p1, const char * p2, char ** pj)
 
 
 int
-path_join_real(const char * p1, const char * p2, char ** pj)
+path_join_real(const char * path1, const char * path2, char ** pathjoined)
 {
     char * realp = NULL;
     int rc = 0;
 
-    if ((rc = path_join(p1, p2, &realp)) != 0) {
+    if ((rc = path_join(path1, path2, &realp)) != 0) {
         return rc;
     } 
 
-    if (((*pj) = realpath(realp, NULL)) == NULL) {
+    if (((*pathjoined) = realpath(realp, NULL)) == NULL) {
         rc = -1;
     }
     free(realp);
