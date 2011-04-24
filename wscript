@@ -20,10 +20,8 @@ def process_proto(self, node):
     header_node = node.change_ext('.pb-c.h')
     obj_node = c_node.change_ext('.o')
     tsk = self.create_task('protocc', node, [c_node, header_node])
-
     # and the directory to the include path
     #self.includes.append(os.path.dirname(header_node.srcpath()))
-
     # add the cpp code to the files to compile
     self.source.append(c_node)
 
@@ -78,12 +76,13 @@ def build(bld):
         'src'
     ]
 
-    bld(source    = ['src/proto/rhizofs.proto'] +
+    bld.objects(source    = ['src/proto/rhizofs.proto'] +
                     glob.glob('src/*.c') +
-                    glob.glob('src/util/*.c'),
-        features  = 'includes',
+                    glob.glob('src/util/*.c') +
+                    glob.glob('src/util/*.rl'),
+        #features  = 'includes',
         includes  = additional_includes,
-        target    = 'common-obj',
+        target    = 'rhizcommon',
         install_path = None
     )
 
@@ -91,7 +90,7 @@ def build(bld):
         source    = glob.glob('src/server/*.c'),
         target    = 'rhizosrv',
         includes  = additional_includes,
-        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'common-obj']
+        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'rhizcommon']
     )
 
 
@@ -99,7 +98,7 @@ def build(bld):
         source    = glob.glob('src/fs/*.c'),
         target    = 'rhizofs',
         includes  = additional_includes,
-        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'FUSE', 'common-obj']
+        use       = ['ZMQ', 'PROTOBUFC', 'PTHREAD', 'FUSE', 'rhizcommon']
     )
 
 
