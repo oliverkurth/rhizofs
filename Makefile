@@ -30,7 +30,15 @@ all: build debug
 VALGRIND=valgrind
 VALGRIND_OPTS=--leak-check=full --show-reachable=yes --track-origins=yes
 TEST_MOUNTPOINT=/tmp/rhizo-mp
+SPLINT=splint
 
 valgrind-fs: debug
 	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
 	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(TEST_MOUNTPOINT)
+
+splint:
+	@# need to add the build directory for the generated protobuf-c code
+	find src/ -name '*.c' -o -name '*.h' | xargs $(SPLINT) \
+		-I src \
+		-I build/debug/src \
+		-posix-strict-lib
