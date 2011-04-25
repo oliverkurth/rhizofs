@@ -31,6 +31,7 @@ VALGRIND=valgrind
 VALGRIND_OPTS=--leak-check=full --show-reachable=yes --track-origins=yes
 TEST_MOUNTPOINT=/tmp/rhizo-mp
 SPLINT=splint
+CPPCHECK=cppcheck
 
 valgrind-fs: debug
 	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
@@ -42,3 +43,8 @@ splint:
 		-I src \
 		-I build/debug/src \
 		-posix-strict-lib
+
+cppcheck:
+	$(CPPCHECK) -q --enable=all \
+		-I src -I build/debug/src \
+		src build/debug/src
