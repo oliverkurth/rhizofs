@@ -24,3 +24,14 @@ fuse: threads should be started from init
 
 fuse: attr_timeout
     http://thread.gmane.org/gmane.comp.file-systems.fuse.devel/5034
+
+
+protocol:
+    "RHIZ" [FLAG BITMASK] [serialized protobuf]
+
+    Flags:
+        compressed yes/no
+
+compression:
+    flag in request to indicate if the server is allowed to answer compressed
+    -> server has to support compression
