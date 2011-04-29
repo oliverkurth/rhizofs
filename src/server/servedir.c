@@ -163,6 +163,7 @@ ServeDir_serve(ServeDir * sd)
         }
     }
 
+    debug("Exiting ServeDir_Serve");
     return 0;
 
 error:

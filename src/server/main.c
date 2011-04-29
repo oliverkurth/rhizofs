@@ -48,14 +48,9 @@ print_usage()
 void
 shutdown(int UNUSED_PARAMETER(sig))
 {
-    fprintf(stdout, "Shuting down...\n");
+    int t = 0;
 
-    // terminating the zmq_context will make all
-    // sockets exit with errno == ETERM
-    if (context != NULL) {
-        zmq_term(context);
-        context = NULL;
-    }
+    fprintf(stdout, "Shuting down...\n");
 
     if (in_socket != NULL) {
         zmq_close(in_socket);
@@ -67,7 +62,17 @@ shutdown(int UNUSED_PARAMETER(sig))
         worker_socket = NULL;
     }
 
-    pthread_exit(NULL);
+    // terminating the zmq_context will make all
+    // sockets exit with errno == ETERM
+    if (context != NULL) {
+        zmq_term(context);
+        context = NULL;
+    }
+
+    for (t=0; t<NUM_WORKER_THREADS; ++t) {
+        pthread_join(workers[t], NULL);
+    }
+
     exit(exit_code);
 }
 
@@ -82,7 +87,7 @@ worker_routine(void * wp)
     check((sd != NULL), "error serving directory.");
     // TODO: shutdown on error
     ServeDir_serve(sd);
-    
+
     ServeDir_destroy(sd);
     pthread_exit(NULL);
 
@@ -159,14 +164,14 @@ main(int argc, char *argv[])
     check((worker_socket != NULL), "Could not create internal zmq worker socket");
     check((zmq_bind(worker_socket, WORKER_SOCKET) == 0), "could not bind to socket %s", WORKER_SOCKET);
 
- 
+
     // startup the worker threads
     WorkerParams workerparams;
     workerparams.context = context;
     workerparams.directory = directory;
     int t = 0;
     for (t=0; t<NUM_WORKER_THREADS; ++t) {
-        pthread_create(&workers[t], NULL, worker_routine, (void *) &workerparams);   
+        pthread_create(&workers[t], NULL, worker_routine, (void *) &workerparams);
     }
 
     // connect the worker threads to the incomming socket
