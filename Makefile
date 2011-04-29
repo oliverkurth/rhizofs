@@ -37,6 +37,9 @@ valgrind-fs: debug
 	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
 	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(TEST_MOUNTPOINT)
 
+valgrind-srv: debug
+	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv tcp://0.0.0.0:11555 .
+
 splint:
 	@# need to add the build directory for the generated protobuf-c code
 	find src/ -name '*.c' -o -name '*.h' | xargs $(SPLINT) \
