@@ -1,20 +1,27 @@
 #include "rhizofs.h"
 
-/** private data */
+/**
+ * private data
+ *
+ * to be stored in the fuse context
+ */
 typedef struct RhizoPriv {
-    void * context; /** the zeromq context */
+    void * context;             /** the zeromq context */
     pthread_t broker_thread;
-    char * remote_socket_name; /** the name of the zmq socket to connect to */
+    char * remote_socket_name;  /** the name of the zmq socket to connect to */
 } RhizoPriv;
 
 
+/**
+ * broker function for a broker thread
+ */
 void *
 Rhizofs_broker(void * data)
 {
     RhizoPriv * priv = (RhizoPriv *) data;
 
     debug("Starting broker");
-    Broker_run(priv->context, "tcp://0.0.0.0:11555", INTERNAL_SOCKET_NAME); // TODO:remove hardcoded
+    Broker_run(priv->context, "tcp://0.0.0.0:11555", INTERNAL_SOCKET_NAME); // TODO:remove hardcoded socket
     debug("Exiting broker");
 
     pthread_exit(NULL);
@@ -22,7 +29,13 @@ Rhizofs_broker(void * data)
 
 
 
-
+/**
+ * filesystem initialization
+ *
+ * provides:
+ * - starting of background threads
+ * - setting up a 0mq context
+ */
 static void *
 Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
@@ -63,6 +76,9 @@ error:
     return NULL;
 }
 
+/**
+ * destroy/free the resources allocated by the filesystem
+ */
 static void
 Rhizofs_destroy(void * data)
 {

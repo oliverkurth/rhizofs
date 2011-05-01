@@ -1,6 +1,11 @@
 #ifndef __fs_broker_h__
 #define __fs_broker_h__
 
+/**
+ * the broker keeps the connection th the server and
+ * provides a socket the threads of the filesystem can connect to
+ */
+
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
