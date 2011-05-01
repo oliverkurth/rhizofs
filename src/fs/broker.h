@@ -8,13 +8,6 @@
 
 #include <zmq.h>
 
-#include "dbg.h"
-
-/** the zmq sockets the broker is listening on */
-static void * remote_socket = NULL;
-static void * fuse_socket = NULL;
-
-int Broker_init(const char * remote_socket, const char * fuse_socket);
-void Broker_destroy();
+int Broker_run(void * context, const char * remote_socket_name, const char * internal_socket_name);
 
 #endif /* __fs_broker_h__ */
