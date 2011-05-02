@@ -26,7 +26,7 @@ Rhizofs_broker(void * data)
 static void *
 Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
-    RhizoPriv * priv;
+    RhizoPriv * priv = NULL;
 
     priv = calloc(sizeof(RhizoPriv), 1);
     check_mem(priv);
@@ -42,18 +42,21 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     return priv;
 
 error:
-    if (priv->context != NULL) {
-        zmq_term(priv->context);
-        priv->context = NULL;
-    }
 
-    // thread will exit after destrying the zmq-context
-    if (priv->broker_thread) {
-        pthread_join(priv->broker_thread, NULL);
-    }
+    if (priv != NULL) {
+        if (priv->context != NULL) {
+            zmq_term(priv->context);
+            priv->context = NULL;
+        }
 
-    free(priv);
-    priv = NULL;
+        // thread will exit after destrying the zmq-context
+        if (priv->broker_thread) {
+            pthread_join(priv->broker_thread, NULL);
+        }
+
+        free(priv);
+        priv = NULL;
+    }
 
     /* exiting here is the last fallback when
        setting up the socket fails. see the NOTES

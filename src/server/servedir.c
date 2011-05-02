@@ -9,7 +9,7 @@
 ServeDir *
 ServeDir_create(void *context, char *socket_name, char *directory)
 {
-    ServeDir * sd = calloc(sizeof(ServeDir), 1);
+    ServeDir * sd = (ServeDir *)calloc(sizeof(ServeDir), 1);
     check_mem(sd);
     sd->socket = NULL;
     sd->directory = NULL;
@@ -33,15 +33,17 @@ ServeDir_create(void *context, char *socket_name, char *directory)
 
 error:
 
-    if (sd->directory != NULL) {
-        free(sd->directory); // free the memory allocated by realpath
-    }
+    if (sd != NULL) {
+        if (sd->directory != NULL) {
+            free(sd->directory); // free the memory allocated by realpath
+        }
 
-    if (sd->socket) {
-        zmq_close(sd->socket);
-    }
+        if (sd->socket) {
+            zmq_close(sd->socket);
+        }
 
-    free(sd);
+        free(sd);
+    }
 
     return NULL;
 }
