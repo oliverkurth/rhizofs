@@ -6,4 +6,6 @@
 #define RHI_VERSION_MINOR 1
 #define RHI_VERSION_FULL "0.1"
 
+#define RHI_NAME "Rhizofs"
+
 #endif /* __version_h__ */

@@ -35,3 +35,6 @@ protocol:
 compression:
     flag in request to indicate if the server is allowed to answer compressed
     -> server has to support compression
+
+fuse settings parsing:
+    http://sourceforge.net/apps/mediawiki/fuse/index.php?title=Option_parsing
