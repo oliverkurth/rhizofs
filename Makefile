@@ -32,13 +32,14 @@ VALGRIND_OPTS=--leak-check=full --show-reachable=yes --track-origins=yes
 TEST_MOUNTPOINT=/tmp/rhizo-mp
 SPLINT=splint
 CPPCHECK=cppcheck
+SOCKET_NAME=tcp://0.0.0.0:11555
 
 valgrind-fs: debug
 	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
-	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(TEST_MOUNTPOINT)
+	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
 
 valgrind-srv: debug
-	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv tcp://0.0.0.0:11555 .
+	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv $(SOCKET_NAME) .
 
 splint:
 	@# need to add the build directory for the generated protobuf-c code

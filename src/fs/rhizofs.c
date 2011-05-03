@@ -1,4 +1,5 @@
 #include "rhizofs.h"
+#include "socketpool.h"
 
 /**
  * private data
@@ -38,6 +39,8 @@ static struct fuse_opt rhizo_opts[] = {
 /** global settings store */
 static RhizoSettings settings;
 
+/** */
+static SocketPool socketpool;
 
 /**
  * broker function for a broker thread
@@ -67,6 +70,7 @@ static void *
 Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
     RhizoPriv * priv = NULL;
+    int rc;
 
     priv = calloc(sizeof(RhizoPriv), 1);
     check_mem(priv);
@@ -78,6 +82,9 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     // start up the broker thread
     pthread_create(&(priv->broker_thread), NULL, Rhizofs_broker, priv);
 
+    // create the socket pool
+    rc = SocketPool_init(&socketpool, priv->context, INTERNAL_SOCKET_NAME, ZMQ_REQ);
+    check((rc == 0), "Could not initialize the socket pool");
 
     return priv;
 
@@ -97,6 +104,8 @@ error:
         free(priv);
         priv = NULL;
     }
+
+    SocketPool_deinit(&socketpool);
 
     /* exiting here is the last fallback when
        setting up the socket fails. see the NOTES
@@ -128,44 +137,10 @@ Rhizofs_destroy(void * data)
 
         free(priv);
     }
+
+    SocketPool_deinit(&socketpool);
 }
 
-
-/*******************************************************************/
-/* socket handling                                                 */
-/*******************************************************************/
-
-static void *
-Rhizofs_socket_get()
-{
-    void * sock = NULL;
-
-    // get the fuse_context for the zmq_context
-    RhizoPriv * priv = (RhizoPriv *)fuse_get_context()->private_data;
-
-    sock = zmq_socket(priv->context, ZMQ_REQ);
-    check((sock != NULL), "Could not create Zmq socket");
-    check((zmq_connect(sock, INTERNAL_SOCKET_NAME) == 0), "could not bind to socket"); // TODO: remove hardcoded socket name
-
-    return sock;
-
-error:
-
-    if (sock != NULL) {
-        zmq_close(sock);
-    }
-
-    return NULL;
-}
-
-static void
-Rhizofs_socket_close(void * sock)
-{
-    if (sock != NULL) {
-        debug("closing socket");
-        zmq_close(sock);
-    }
-}
 
 
 
@@ -277,7 +252,6 @@ Rhizofs_run(int argc, char * argv[])
     int rc;
 
     memset(&settings, 0, sizeof(settings));
-    settings.host_socket = NULL;
 
     fuse_opt_parse(&args, &settings, rhizo_opts, Rhizofs_opt_proc);
     check_debug((Rhizofs_check_settings() == 0), "Invalid command line arguments");

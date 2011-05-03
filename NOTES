@@ -38,3 +38,6 @@ compression:
 
 fuse settings parsing:
     http://sourceforge.net/apps/mediawiki/fuse/index.php?title=Option_parsing
+
+pthread_key_create:
+    http://ubuntuforums.org/showthread.php?t=1429941
