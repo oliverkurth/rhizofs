@@ -39,8 +39,15 @@ static struct fuse_opt rhizo_opts[] = {
 /** global settings store */
 static RhizoSettings settings;
 
-/** */
 static SocketPool socketpool;
+
+/** get a socket from the socketpool, return an errno on failure*/
+#define GET_SOCKET(S) S = SocketPool_get_socket(&socketpool); \
+    if (S == NULL) { \
+        log_err("Could not fetch socket from socketpool"); \
+        return -ENOTSOCK; /* Socket operation on non-socket */ \
+    };
+
 
 /**
  * broker function for a broker thread
@@ -133,8 +140,6 @@ Rhizofs_destroy(void * data)
         if (priv->broker_thread) {
             pthread_join(priv->broker_thread, NULL);
         }
-
-
         free(priv);
     }
 
@@ -152,6 +157,9 @@ static int
 Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
+    void * sock = NULL;
+    GET_SOCKET(sock);
+
     return -EIO;
 }
 
@@ -218,7 +226,6 @@ Rhizofs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs
                 return 0;
             }
             return 1;
-
     }
     return 1;
 }
@@ -236,7 +243,6 @@ Rhizofs_check_settings()
         fprintf(stderr, "Missing host");
         goto error;
     }
-
     return 0;
 
 error:
