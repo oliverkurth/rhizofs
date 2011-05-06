@@ -462,17 +462,18 @@ ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
     debug("GETATTR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
-
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
 
     if (stat(path, &sb) == 0)  {
-
         attrs = calloc(sizeof(Rhizofs__Attrs), 1);
         check_mem(attrs);
+        rhizofs__attrs__init(attrs);
 
         attrs->size = sb.st_size;
+
+        debug("mode: %o", sb.st_mode );
         attrs->modemask = mapping_mode_to_protocol(sb.st_mode);
 
         /* user */
@@ -484,7 +485,7 @@ ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
         }
 
         /* group */
-        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group)),
+        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group) == 0),
                 "Could not fetch group info");
 
         /* times */
@@ -492,11 +493,11 @@ ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
         attrs->mtime = (int)sb.st_mtime;
         attrs->ctime = (int)sb.st_ctime;
 
-        response->attrs = attrs;
+        response->attrs = &(*attrs);
     }
     else {
-        debug("Could not stat %s", path);
         Response_set_errno(&response, errno);
+        debug("Could not stat %s", path);
     }
 
     free(path);
@@ -506,7 +507,6 @@ error:
 
     free(attrs);
     attrs = NULL;
-
     free(path);
     return -1;
 }

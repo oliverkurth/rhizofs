@@ -4,6 +4,7 @@
 #include "socketpool.h"
 #include "request.h"
 #include "response.h"
+#include "mapping.h"
 
 /**
  * private data
@@ -195,21 +196,19 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     zmq_msg_close(&msg_req);
 
-    if (zmq_msg_init(&msg_resp) == 0) {
+    if (zmq_msg_init(&msg_resp) != 0) {
         log_err("Could not initialize request message");
         (*err) = ENOMEM;
         goto error;
     }
 
     if (zmq_recv(sock, &msg_resp, 0) == 0) {
-        Rhizofs__Response * resp = Response_from_message(&msg_resp);
-
-        if (resp == NULL) {
+        response = Response_from_message(&msg_resp);
+        if (response == NULL) {
             log_err("Could not unpack response");
             (*err) = EIO;
             goto error;
         }
-        response = resp;
     }
     else {
         log_err("Failed to recieve response from server");
@@ -244,7 +243,7 @@ Rhizofs_readdir(const char * path, void * buf,
     request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response == NULL), "communicate failed");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
 
@@ -265,10 +264,51 @@ error:
 }
 
 
+static int
+Rhizofs_getattr(const char *path, struct stat *stbuf)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    check((response->attrs != NULL), "Response did not contain attrs");
+    returned_err = Response_get_errno(response);
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+
+    memset(stbuf, 0, sizeof(struct stat));
+    stbuf->st_size = response->attrs->size;
+    stbuf->st_mode = mapping_mode_from_protocol(response->attrs->modemask);
+    stbuf->st_atime  = response->attrs->atime;
+    stbuf->st_ctime  = response->attrs->ctime;
+    stbuf->st_mtime  = response->attrs->mtime;
+    stbuf->st_nlink = 1;
+
+    debug("mode: %o",stbuf->st_mode );
+
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+
 static struct fuse_operations rhizofs_oper = {
     .readdir    = Rhizofs_readdir,
     .init       = Rhizofs_init,
     .destroy    = Rhizofs_destroy,
+    .getattr    = Rhizofs_getattr,
 };
 
 

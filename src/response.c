@@ -93,6 +93,8 @@ Response_from_message(zmq_msg_t *msg)
 {
     Rhizofs__Response *response = NULL;
 
+    debug("Response is %d bytes long", (int)zmq_msg_size(msg));
+
     response = rhizofs__response__unpack(NULL,
         zmq_msg_size(&(*msg)),
         zmq_msg_data(&(*msg)));

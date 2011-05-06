@@ -8,6 +8,8 @@ Request_from_message(zmq_msg_t *msg)
 {
     Rhizofs__Request *request = NULL;
 
+    debug("Request is %d bytes long", (int)zmq_msg_size(msg));
+
     request = rhizofs__request__unpack(NULL,
         zmq_msg_size(&(*msg)),
         zmq_msg_data(&(*msg)));

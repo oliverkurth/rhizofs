@@ -38,6 +38,15 @@ valgrind-fs: debug
 	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
 	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
 
+run-fs: debug
+	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
+	./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
+
+run-fs: debug
+	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
+	./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
+
+
 valgrind-srv: debug
 	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv $(SOCKET_NAME) .
 
