@@ -36,6 +36,9 @@ error:
 void
 Response_destroy(Rhizofs__Response * response)
 {
+
+    free(response->attrs);
+
     if (response->n_directory_entries != 0) {
         int i = 0;
         for (i=0; i<(int)response->n_directory_entries; i++) {

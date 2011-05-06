@@ -18,14 +18,15 @@ enum RequestType {
     UNLINK = 7;
     ACCESS = 8;
     RENAME = 9;
+    GETATTR = 10;
 }
 
 enum Errno {
     ERRNO_NONE = 0;
-    ERRNO_UNKNOWN = 1;    
-    ERRNO_PERM = 2;  
-    ERRNO_NOENT = 3; 
-    ERRNO_NOMEM = 4; 
+    ERRNO_UNKNOWN = 1;
+    ERRNO_PERM = 2;
+    ERRNO_NOENT = 3;
+    ERRNO_NOMEM = 4;
     ERRNO_ACCES = 5;
     ERRNO_BUSY = 6;
     ERRNO_EXIST = 7;
@@ -41,9 +42,22 @@ enum Errno {
 };
 
 
-message Stat {
+message Attrs {
+    // filesire in bytes
     required int64 size = 1;
-    required int32 modemask = 2; // unsigned int
+
+    // unsigned int. see mapping.c
+    required int32 modemask = 2;
+
+    // userinfo - simply inticate if the user who runs the server is the owner
+    // of the file and and if this user is part of the group of the file
+    required bool is_owner = 3;
+    required bool is_in_group = 4;
+
+    // timestamps (unixtime)
+    required int32 atime = 5;
+    required int32 mtime = 6;
+    required int32 ctime = 7;
 }
 
 
@@ -72,4 +86,7 @@ message Response {
 
     // READDIR
     repeated string directory_entries = 5;
+
+    // attrs -- returned after getattr request
+    optional Attrs attrs = 6;
 }

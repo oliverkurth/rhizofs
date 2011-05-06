@@ -1,5 +1,6 @@
 #include "dbg.h"
 #include "servedir.h"
+#include "uidgid.h"
 
 // check for memory and set response error on failure
 #define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; errno=0; ; goto error; }
@@ -131,6 +132,9 @@ ServeDir_serve(ServeDir * sd)
                         action_rc = ServeDir_action_mkdir(sd, request, &response);
                         break;
 
+                    case RHIZOFS__REQUEST_TYPE__GETATTR:
+                        action_rc = ServeDir_action_getattr(sd, request, &response);
+                        break;
 
                     default:
                         // dont know what to do with that request
@@ -161,7 +165,7 @@ ServeDir_serve(ServeDir * sd)
                 debug("the context has been terminated leaving the servedir loop");
                 zmq_msg_close (&msg_req);
                 term_loop = 1;
-            } 
+            }
         }
     }
 
@@ -229,7 +233,6 @@ ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
     Rhizofs__Response * response = (*resp);
 
     debug("READDIR");
-
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
     response->n_directory_entries = 0;
 
@@ -292,10 +295,10 @@ ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
     Rhizofs__Response * response = (*resp);
 
     debug("RMDIR");
-
     response->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble directory path.");
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble directory path.");
     debug("requested directory path: %s", path);
     if (rmdir(path) == -1) {
         Response_set_errno(&response, errno);
@@ -318,10 +321,10 @@ ServeDir_action_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
     Rhizofs__Response * response = (*resp);
 
     debug("UNLINK");
-
     response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble file path.");
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble file path.");
     debug("requested path: %s", path);
     if (unlink(path) == -1) {
         Response_set_errno(&response, errno);
@@ -355,7 +358,8 @@ ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
     localmode = mapping_mode_from_protocol(request->modemask);
 
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
     debug("requested path: %s", path);
     if (access(path, localmode) == -1) {
         Response_set_errno(&response, errno);
@@ -386,11 +390,13 @@ ServeDir_action_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    check((path_join(sd->directory, request->path_to, &path_to)==0), "error processing path_to");
+    check((path_join(sd->directory, request->path_to, &path_to)==0),
+            "error processing path_to");
     check_debug((path_to != NULL), "path_to is null");
 
 
-    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0), "Could not assemble path.");
+    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
+            "Could not assemble path.");
     debug("requested path: %s -> %s", path_from, path_to);
     if (rename(path_from, path_to) == -1) {
         Response_set_errno(&response, errno);
@@ -426,7 +432,8 @@ ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
     localmode = mapping_mode_from_protocol(request->modemask);
 
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0), "Could not assemble path.");
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
     debug("requested path: %s", path);
     if (mkdir(path, localmode) == -1) {
         Response_set_errno(&response, errno);
@@ -437,6 +444,69 @@ ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
     return 0;
 
 error:
+    free(path);
+    return -1;
+}
+
+
+
+int
+ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path = NULL;
+    struct stat sb;
+
+    Rhizofs__Response * response = (*resp);
+    Rhizofs__Attrs * attrs = NULL;
+
+    debug("GETATTR");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
+
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+
+    if (stat(path, &sb) == 0)  {
+
+        attrs = calloc(sizeof(Rhizofs__Attrs), 1);
+        check_mem(attrs);
+
+        attrs->size = sb.st_size;
+        attrs->modemask = mapping_mode_to_protocol(sb.st_mode);
+
+        /* user */
+        if (getuid() == sb.st_uid) {
+            attrs->is_owner = 1;
+        }
+        else {
+            attrs->is_owner = 0;
+        }
+
+        /* group */
+        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group)),
+                "Could not fetch group info");
+
+        /* times */
+        attrs->atime = (int)sb.st_atime;
+        attrs->mtime = (int)sb.st_mtime;
+        attrs->ctime = (int)sb.st_ctime;
+
+        response->attrs = attrs;
+    }
+    else {
+        debug("Could not stat %s", path);
+        Response_set_errno(&response, errno);
+    }
+
+    free(path);
+    return 0;
+
+error:
+
+    free(attrs);
+    attrs = NULL;
+
     free(path);
     return -1;
 }
