@@ -1,6 +1,6 @@
-#include "dbg.h"
 #include "servedir.h"
-#include "uidgid.h"
+
+#include "../dbg.h"
 
 // check for memory and set response error on failure
 #define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; errno=0; ; goto error; }

@@ -1,5 +1,5 @@
-#include "dbg.h"
-#include "fs/rhizofs.h"
+#include "../dbg.h"
+#include "../fs/rhizofs.h"
 
 FILE *LOG_FILE = NULL;
 

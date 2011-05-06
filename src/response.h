@@ -1,5 +1,5 @@
-#ifndef __server_response_h_
-#define __server_response_h_
+#ifndef __server_response_h__
+#define __server_response_h__
 
 #include <stdio.h>
 #include <errno.h>
@@ -42,4 +42,4 @@ Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 
 void Response_from_message_destroy(Rhizofs__Response * response);
 
-#endif /* __server_response_h_ */
+#endif /* __server_response_h__ */

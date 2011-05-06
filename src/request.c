@@ -1,7 +1,6 @@
 #include "request.h"
 
 #include "dbg.h"
-#include "version.h"
 
 Rhizofs__Request *
 Request_from_message(zmq_msg_t *msg)

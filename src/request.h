@@ -1,12 +1,14 @@
-#ifndef __server_request_h_
-#define __server_request_h_
+#ifndef __server_request_h__
+#define __server_request_h__
 
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 
 #include <zmq.h>
+
 #include "mapping.h"
+#include "version.h"
 #include "proto/rhizofs.pb-c.h"
 
 
@@ -39,4 +41,4 @@ Rhizofs__Request * Request_from_message(zmq_msg_t * msg);
  */
 void Request_from_message_destroy(Rhizofs__Request * request);
 
-#endif //__server_request_h_
+#endif /* __server_request_h__ */

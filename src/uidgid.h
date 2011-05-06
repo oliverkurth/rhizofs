@@ -2,6 +2,9 @@
 #define __uidgid_h__
 
 #include <grp.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 /**

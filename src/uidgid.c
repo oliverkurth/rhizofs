@@ -1,10 +1,6 @@
 #include "uidgid.h"
+
 #include "dbg.h"
-
-#include "unistd.h"
-#include "stdio.h"
-#include "stdlib.h"
-
 
 
 int

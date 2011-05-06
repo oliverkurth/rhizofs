@@ -2,6 +2,9 @@
 #define __fs_socketpool_h__
 
 #include <pthread.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include <zmq.h>
 
 

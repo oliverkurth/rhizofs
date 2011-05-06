@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "dbg.h"
+#include "../dbg.h"
 
 
 /**

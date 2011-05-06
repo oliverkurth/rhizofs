@@ -6,9 +6,12 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "../dbg.h"
-#include "../version.h"
 #include "broker.h"
+#include "../mapping.h"
+#include "../request.h"
+#include "../response.h"
+#include "socketpool.h"
+#include "../version.h"
 
 // use the 2.6 fuse api
 #ifndef FUSE_USE_VERSION
