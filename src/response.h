@@ -38,4 +38,8 @@ int Response_get_errno(const Rhizofs__Response * response);
 int Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
 
 
-#endif //__server_response_h_
+Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
+
+void Response_from_message_destroy(Rhizofs__Response * response);
+
+#endif /* __server_response_h_ */

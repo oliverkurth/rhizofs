@@ -1,5 +1,9 @@
+#include <errno.h>
+
 #include "rhizofs.h"
 #include "socketpool.h"
+#include "request.h"
+#include "response.h"
 
 /**
  * private data
@@ -41,12 +45,18 @@ static RhizoSettings settings;
 
 static SocketPool socketpool;
 
-/** get a socket from the socketpool, return an errno on failure*/
-#define GET_SOCKET(S) S = SocketPool_get_socket(&socketpool); \
-    if (S == NULL) { \
-        log_err("Could not fetch socket from socketpool"); \
-        return -ENOTSOCK; /* Socket operation on non-socket */ \
-    };
+
+#define  FUSE_METHOD_HEAD   int returned_err = EIO;
+
+
+
+#define CREATE_REQUEST(R) R = Request_create(); \
+    if (R == NULL ) { \
+        log_err("Could not create Request"); \
+        returned_err = ENOMEM; \
+        goto error; \
+    }
+
 
 
 /**
@@ -147,6 +157,73 @@ Rhizofs_destroy(void * data)
 }
 
 
+/**
+ * send the request and wait for a reponse
+ *
+ * returns NULL on error, otherwise a Reesponse the caller
+ * is responsible tor free.
+ */
+Rhizofs__Response *
+Rhizofs_communicate(Rhizofs__Request * req, int * err)
+{
+    void * sock = NULL;
+    Rhizofs__Response * response = NULL;
+    zmq_msg_t msg_req;
+    zmq_msg_t msg_resp;
+
+    (*err) = 0;
+
+    /* get a socket from the socketpool, return an errno on failure*/
+    sock = SocketPool_get_socket(&socketpool);
+    if (sock == NULL) {
+        log_err("Could not fetch socket from socketpool");
+        (*err) = ENOTSOCK; /* Socket operation on non-socket */
+        goto error;
+    };
+
+    if (Request_pack(req, &msg_req) != 0) {
+        log_err("Could not pack request");
+        (*err) = errno;
+        goto error;
+    }
+
+    if (zmq_send(sock, &msg_req, 0) != 0) {
+        log_err("Could not send request");
+        (*err) = EIO;
+        goto error;
+    }
+
+    zmq_msg_close(&msg_req);
+
+    if (zmq_msg_init(&msg_resp) == 0) {
+        log_err("Could not initialize request message");
+        (*err) = ENOMEM;
+        goto error;
+    }
+
+    if (zmq_recv(sock, &msg_resp, 0) == 0) {
+        Rhizofs__Response * resp = Response_from_message(&msg_resp);
+
+        if (resp == NULL) {
+            log_err("Could not unpack response");
+            (*err) = EIO;
+            goto error;
+        }
+        response = resp;
+    }
+    else {
+        log_err("Failed to recieve response from server");
+        (*err) = EIO;
+        goto error;
+    }
+
+    return response;
+
+error:
+    zmq_msg_close(&msg_resp);
+    zmq_msg_close(&msg_req);
+    return NULL;
+}
 
 
 /*******************************************************************/
@@ -157,10 +234,34 @@ static int
 Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
-    void * sock = NULL;
-    GET_SOCKET(sock);
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+    int entry_n = 0;
 
-    return -EIO;
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response == NULL), "communicate failed");
+
+    Request_destroy(request);
+
+    for (entry_n=0; entry_n<response->n_directory_entries; ++entry_n) {
+        /* ... */
+        if (filler(buf, response->directory_entries[entry_n], NULL, 0)) {
+            break;
+        }
+    }
+
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
 }
 
 

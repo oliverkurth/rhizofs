@@ -34,8 +34,8 @@ error:
 
 
 void
-Response_destroy(Rhizofs__Response * response) {
-
+Response_destroy(Rhizofs__Response * response)
+{
     if (response->n_directory_entries != 0) {
         int i = 0;
         for (i=0; i<(int)response->n_directory_entries; i++) {
@@ -83,4 +83,25 @@ Response_get_errno(const Rhizofs__Response * response)
 {
     return mapping_errno_from_protocol( response->errnotype );
 }
+
+
+Rhizofs__Response *
+Response_from_message(zmq_msg_t *msg)
+{
+    Rhizofs__Response *response = NULL;
+
+    response = rhizofs__response__unpack(NULL,
+        zmq_msg_size(&(*msg)),
+        zmq_msg_data(&(*msg)));
+
+    return response;
+}
+
+
+void
+Response_from_message_destroy(Rhizofs__Response * response)
+{
+    rhizofs__response__free_unpacked(response, NULL);
+}
+
 
