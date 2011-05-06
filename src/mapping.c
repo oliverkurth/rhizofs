@@ -51,17 +51,18 @@ static errno_pair errno_map[] = {
 unsigned int
 mapping_mode_to_protocol(mode_t mode)
 {
-    unsigned int md = 0;
+    unsigned int md = 0000;
     unsigned int i = 0;
 
     for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
         if (mode_map_filetype[i].local & mode) {
-            md = mode_map_filetype[i].protocol;
+            md |= mode_map_filetype[i].protocol;
+            break; /* break to avoid overwrite with other matching flags */
         }
     }
 
-    if (md == 0) {
-        md = RHI_FILETYPE_REG; // fallback to regular file
+    if (md == 0000) {
+        md |= RHI_FILETYPE_REG; // fallback to regular file
     }
 
     for (i=0; i<mode_map_len(mode_map_perm); ++i) {
@@ -81,12 +82,13 @@ mapping_mode_from_protocol(unsigned int md)
 
     for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
         if (mode_map_filetype[i].protocol & md) {
-            mode = mode_map_filetype[i].local;
+            mode |= mode_map_filetype[i].local;
+            break; /* break to avoid overwrite with other matching flags */
         }
     }
 
     if (mode == 0) {
-        mode = S_IFREG; // fallback to regular file
+        mode |= S_IFREG; // fallback to regular file
     }
 
     for (i=0; i<mode_map_len(mode_map_perm); ++i) {
