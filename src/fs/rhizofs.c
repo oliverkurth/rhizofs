@@ -273,7 +273,11 @@ Rhizofs_readdir(const char * path, void * buf,
     FUSE_METHOD_HEAD;
     Rhizofs__Request * request = NULL;
     Rhizofs__Response * response = NULL;
-    int entry_n = 0;
+    unsigned int entry_n = 0;
+
+    (void) offset;
+    (void) fi;
+
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -281,6 +285,7 @@ Rhizofs_readdir(const char * path, void * buf,
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
+    returned_err = Response_get_errno(response);
 
     Request_destroy(request);
 
@@ -374,8 +379,10 @@ Rhizofs_fuse_main(struct fuse_args *args)
  * 1 means fuse should handle the option.
  */
 int
-Rhizofs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
+Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outargs)
 {
+    (void) data;
+
     switch (key) {
         case KEY_HELP:
             Rhizofs_usage(outargs->argv[0]);
