@@ -72,8 +72,7 @@ def build(bld):
         print('To build the project call "waf build_debug" or "waf build_release", and try "waf --help"')
 
     additional_includes = [
-        '.',    # add build directory for config.h
-        'src'
+        'src'    # add build directory for generated code
     ]
 
     bld.objects(source    = ['src/proto/rhizofs.proto'] +

@@ -6,7 +6,7 @@
 #include <getopt.h> // for optind, getopt
 #include <pthread.h>
 
-#include "dbg.h"
+#include "../dbg.h"
 #include "servedir.h"
 
 #define DEFAULT_DIRECTORY "."
