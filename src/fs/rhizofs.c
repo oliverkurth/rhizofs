@@ -225,6 +225,43 @@ error:
 }
 
 
+
+/**
+ * convert a Rhizofs_Attrs struct to a stat
+ * the stat has to be allocated
+ * by the caller
+ */
+void
+Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
+{
+    struct fuse_context * fctxt = fuse_get_context();
+
+    memset(stbuf, 0, sizeof(struct stat));
+    stbuf->st_size = attrs->size;
+    stbuf->st_mode = mapping_mode_from_protocol(attrs->modemask);
+    stbuf->st_atime  = attrs->atime;
+    stbuf->st_ctime  = attrs->ctime;
+    stbuf->st_mtime  = attrs->mtime;
+    stbuf->st_nlink = 1;
+
+    debug("mode: %o",stbuf->st_mode );
+
+    /*
+        set the uid ad gid of the calling process
+        do not set anything if the server-user is
+        not the user / in the group. this will cause
+        the FS to return "root"
+    */
+    if (attrs->is_owner != 0) {
+        stbuf->st_uid = fctxt->uid;
+    }
+    if (attrs->is_in_group != 0) {
+        /* this might be a bit to ambiguous .. think of something better*/
+        stbuf->st_gid = fctxt->gid;
+    }
+}
+
+
 /*******************************************************************/
 /* filesystem methods                                              */
 /*******************************************************************/
@@ -248,7 +285,6 @@ Rhizofs_readdir(const char * path, void * buf,
     Request_destroy(request);
 
     for (entry_n=0; entry_n<response->n_directory_entries; ++entry_n) {
-        /* ... */
         if (filler(buf, response->directory_entries[entry_n], NULL, 0)) {
             break;
         }
@@ -283,15 +319,7 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 
     Request_destroy(request);
 
-    memset(stbuf, 0, sizeof(struct stat));
-    stbuf->st_size = response->attrs->size;
-    stbuf->st_mode = mapping_mode_from_protocol(response->attrs->modemask);
-    stbuf->st_atime  = response->attrs->atime;
-    stbuf->st_ctime  = response->attrs->ctime;
-    stbuf->st_mtime  = response->attrs->mtime;
-    stbuf->st_nlink = 1;
-
-    debug("mode: %o",stbuf->st_mode );
+    Rhizofs_convert_attrs_stat(response->attrs, stbuf);
 
     Response_from_message_destroy(response);
     return 0;
