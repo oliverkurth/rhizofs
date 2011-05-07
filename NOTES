@@ -41,3 +41,17 @@ fuse settings parsing:
 
 pthread_key_create:
     http://ubuntuforums.org/showthread.php?t=1429941
+
+fuse_lowlevel api:
+    metafs uses it: http://metafs.sourceforge.net/
+
+    The metafsd/fuse_ll.cc file contains the interface between FUSE and MetaFS'
+    filesystem machinery. When the MetaFS daemon is ready to process filesystem
+    requests, it calls metafsd_process_events() on line 129, which sets up the FUSE
+    connection, calls the FUSE event loop, and cleans everything up when the FUSE
+    event loop returns.
+
+    If you're not sure exactly what the calls to MetaFS objects are doing, those
+    classes are declared (and documented) in libmetafs/metafs.hh.
+    http://osdir.com/ml/file-systems.fuse.devel/2005-12/msg00021.html
+
