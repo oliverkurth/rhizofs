@@ -45,7 +45,7 @@ run-fs: debug
 valgrind-srv: debug
 	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv $(SOCKET_NAME) .
 
-run_srv: debug
+run-srv: debug
 	./build/debug/rhizosrv $(SOCKET_NAME) .
 
 

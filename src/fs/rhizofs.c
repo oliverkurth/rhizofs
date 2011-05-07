@@ -314,9 +314,9 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
-    check((response->attrs != NULL), "Response did not contain attrs");
     returned_err = Response_get_errno(response);
     check((returned_err == 0), "Server reported an error");
+    check((response->attrs != NULL), "Response did not contain attrs");
 
     Request_destroy(request);
 
@@ -332,12 +332,71 @@ error:
 }
 
 
+static int
+Rhizofs_rmdir(const char * path)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    returned_err = Response_get_errno(response);
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_mkdir(const char * path, mode_t mode)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->modemask = mapping_mode_to_protocol(mode);
+    request->has_modemask = 1;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    returned_err = Response_get_errno(response);
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+
 
 static struct fuse_operations rhizofs_oper = {
     .readdir    = Rhizofs_readdir,
     .init       = Rhizofs_init,
     .destroy    = Rhizofs_destroy,
     .getattr    = Rhizofs_getattr,
+    .mkdir      = Rhizofs_mkdir,
+    .rmdir      = Rhizofs_rmdir,
 };
 
 
