@@ -175,12 +175,15 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
             (*err) = EIO;
             goto error;
         }
+        zmq_msg_close(&msg_resp);
     }
     else {
         log_err("Failed to recieve response from server");
         (*err) = EIO;
         goto error;
     }
+
+    (*err) = Response_get_errno(response);
 
     return response;
 
@@ -251,7 +254,7 @@ Rhizofs_readdir(const char * path, void * buf,
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
-    returned_err = Response_get_errno(response);
+    check((returned_err == 0), "Server reported an error");
 
     Request_destroy(request);
 
@@ -284,7 +287,6 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
-    returned_err = Response_get_errno(response);
     check((returned_err == 0), "Server reported an error");
     check((response->attrs != NULL), "Response did not contain attrs");
 
@@ -315,7 +317,6 @@ Rhizofs_rmdir(const char * path)
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
-    returned_err = Response_get_errno(response);
     check((returned_err == 0), "Server reported an error");
 
     Request_destroy(request);
@@ -344,7 +345,60 @@ Rhizofs_mkdir(const char * path, mode_t mode)
 
     response = Rhizofs_communicate(request, &returned_err);
     check((response != NULL), "communicate failed");
-    returned_err = Response_get_errno(response);
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_unlink(const char * path)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_access(const char * path, int mask)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->modemask = mapping_mode_to_protocol((mode_t)mask);
+    request->has_modemask = 1;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
 
     Request_destroy(request);
@@ -367,6 +421,8 @@ static struct fuse_operations rhizofs_oper = {
     .getattr    = Rhizofs_getattr,
     .mkdir      = Rhizofs_mkdir,
     .rmdir      = Rhizofs_rmdir,
+    .unlink     = Rhizofs_unlink,
+    .access     = Rhizofs_access,
 };
 
 
