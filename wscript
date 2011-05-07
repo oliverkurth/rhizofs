@@ -31,8 +31,7 @@ def options(opt):
 
 
 def configure(conf):
-    # default variant
-    conf.setenv('release')
+    conf.env.NAME = 'default'
 
     conf.load('compiler_c')
 
@@ -53,17 +52,27 @@ def configure(conf):
     conf.check(lib='pthread', header_name='pthread.h', uselib_store='PTHREAD')
     conf.check_cfg(package='fuse', args=['--cflags', '--libs'], uselib_store='FUSE')
 
-    #conf.define('DEBUG', 0)
+
+
+    # set up the variants
+    v_debug = conf.env.copy()
+    v_release = conf.env.copy()
+
+    # release specific options
+    v_release.set_variant('release')
+    conf.set_env_name('release', v_release)
+    conf.setenv('release')
+    conf.env = v_release # seems to be necessary
     conf.env.CFLAGS = ['-Wall', '-O3']
-    #conf.write_config_header('release/config.h', remove=False) # disable remove to keep
-                                                               # the values for the debug
-                                                               # variant
+    conf.env.NAME = 'release'
 
     # debug variant
-    conf.set_env_name ('debug', env=conf.env.derive()) # start with a copy of release
-    #conf.define('DEBUG', 1)
-    conf.env.CFLAGS = ['-Wall', '-Wextra', '-O0', '-DDEBUG']
-    #conf.write_config_header('debug/config.h')
+    v_debug.set_variant('debug')
+    conf.set_env_name('debug', v_debug)
+    conf.setenv('debug')
+    conf.env = v_debug  # seems to be necessary
+    conf.env.CFLAGS = ['-Wall', '-Wextra', '-O0', '-DDEBUG=1']
+    conf.env.NAME = 'debug'
 
 
 

@@ -5,3 +5,4 @@ testtool/rhizofs_pb2.py
 *.pyc
 .waf-*
 .lock-wafbuild
+callgrind.out.*

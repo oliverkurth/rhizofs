@@ -9,7 +9,6 @@
  */
 typedef struct RhizoPriv {
     void * context;             /** the zeromq context */
-    pthread_t broker_thread;
 } RhizoPriv;
 
 typedef struct RhizoSettings {
@@ -56,22 +55,6 @@ static SocketPool socketpool;
 
 
 
-/**
- * broker function for a broker thread
- */
-void *
-Rhizofs_broker(void * data)
-{
-    RhizoPriv * priv = (RhizoPriv *) data;
-
-    debug("Starting broker");
-    Broker_run(priv->context, settings.host_socket, INTERNAL_SOCKET_NAME);
-    debug("Exiting broker");
-
-    pthread_exit(NULL);
-}
-
-
 
 /**
  * filesystem initialization
@@ -93,11 +76,8 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     priv->context = zmq_init(1);
     check((priv->context != NULL), "Could not create Zmq context");
 
-    // start up the broker thread
-    pthread_create(&(priv->broker_thread), NULL, Rhizofs_broker, priv);
-
     // create the socket pool
-    rc = SocketPool_init(&socketpool, priv->context, INTERNAL_SOCKET_NAME, ZMQ_REQ);
+    rc = SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ);
     check((rc == 0), "Could not initialize the socket pool");
 
     return priv;
@@ -108,11 +88,6 @@ error:
         if (priv->context != NULL) {
             zmq_term(priv->context);
             priv->context = NULL;
-        }
-
-        // thread will exit after destrying the zmq-context
-        if (priv->broker_thread) {
-            pthread_join(priv->broker_thread, NULL);
         }
 
         free(priv);
@@ -141,11 +116,6 @@ Rhizofs_destroy(void * data)
         if (priv->context != NULL) {
             zmq_term(priv->context);
             priv->context = NULL;
-        }
-
-        // thread will exit after destrying the zmq-context
-        if (priv->broker_thread) {
-            pthread_join(priv->broker_thread, NULL);
         }
         free(priv);
     }
