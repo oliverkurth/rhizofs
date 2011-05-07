@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "broker.h"
 #include "../mapping.h"
 #include "../request.h"
 #include "../response.h"
