@@ -562,7 +562,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     char * path = NULL;
     int fd = -1;
     ssize_t bytes_read;
-    uint8_t * databuf;
+    uint8_t * databuf = NULL;
     Rhizofs__Response * response = (*resp);
 
     debug("READ");
