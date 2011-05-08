@@ -38,8 +38,8 @@ static flag_pair errno_map[] = {
     { RHIZOFS__ERRNO__ERRNO_ROFS,      EROFS },
     { RHIZOFS__ERRNO__ERRNO_SPIPE,     ESPIPE },
 
-    // custom methods are located at the end of this list
-    { RHIZOFS__ERRNO__ERRNO_UNKNOWN,            EIO }, // everything unknown is an IO error
+    /* custom methods are located at the end of this list */
+    { RHIZOFS__ERRNO__ERRNO_UNKNOWN,            EIO }, /* everything unknown is an IO error */
     { RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST,    EINVAL },
     { RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE,     EIO }
 };
@@ -79,7 +79,7 @@ mapping_mode_to_protocol(mode_t mode, int include_filetype)
         }
 
         if (md == 0000) {
-            md |= RHI_FILETYPE_REG; // fallback to regular file
+            md |= RHI_FILETYPE_REG; /* fallback to regular file */
         }
     }
 
@@ -107,7 +107,7 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
         }
 
         if (mode == 0) {
-            mode |= S_IFREG; // fallback to regular file
+            mode |= S_IFREG; /* fallback to regular file */
         }
     }
 
@@ -123,7 +123,7 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
 int
 mapping_errno_to_protocol(int lerrno)
 {
-    int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; // default value
+    int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; /* default value */
     unsigned int i=0;
 
     for (i=0; i<flag_map_len(errno_map); ++i) {
@@ -140,7 +140,7 @@ mapping_errno_to_protocol(int lerrno)
 int
 mapping_errno_from_protocol(int perrno)
 {
-    int lerrno = EIO; // default value
+    int lerrno = EIO; /* default */
     unsigned int i=0;
 
     for (i=0; i<flag_map_len(errno_map); ++i) {
@@ -157,7 +157,7 @@ mapping_errno_from_protocol(int perrno)
 int
 mapping_openflags_to_protocol(int lflags)
 {
-    int pflags = 0; // default value
+    int pflags = 0; /* default */
     unsigned int i=0;
 
     for (i=0; i<flag_map_len(openflag_map); ++i) {
@@ -174,7 +174,7 @@ mapping_openflags_to_protocol(int lflags)
 int
 mapping_openflags_from_protocol(int pflags)
 {
-    int lflags = 0; // default value
+    int lflags = 0; /* default */
     unsigned int i=0;
 
     for (i=0; i<flag_map_len(openflag_map); ++i) {

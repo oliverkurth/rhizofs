@@ -83,7 +83,8 @@ worker_routine(void * wp)
     ServeDir * sd = NULL;
     WorkerParams * workerparams = (WorkerParams *) wp;
 
-    sd = ServeDir_create(workerparams->context, WORKER_SOCKET, workerparams->directory);
+    sd = ServeDir_create(workerparams->context, WORKER_SOCKET,
+            workerparams->directory);
     check((sd != NULL), "error serving directory.");
     // TODO: shutdown on error
     ServeDir_serve(sd);
@@ -102,14 +103,14 @@ error:
 int
 main(int argc, char *argv[])
 {
-    char *socket_name = DEFAULT_SOCKET; // name of the zeromq socket
-    char *directory = DEFAULT_DIRECTORY;   // name of the directory to server
+    char *socket_name = DEFAULT_SOCKET; /* name of the zeromq socket */
+    char *directory = DEFAULT_DIRECTORY; /* name of the directory to server */
     int i;
 
-    // log to stdout
+    /* log to stdout */
     LOG_FILE = stdout;
 
-    // skip the program name
+    /* skip the program name */
     argc -= optind;
     argv += optind;
 
@@ -146,26 +147,28 @@ main(int argc, char *argv[])
         }
     } while (*argv);
 
-    // initialize the zmq context
+    /* initialize the zmq context */
     context = zmq_init(1);
     check((context != NULL), "Could not create Zmq context");
 
-    // install signal handler
+    /* install signal handler */
     (void)signal(SIGTERM, shutdown);
     (void)signal(SIGINT, shutdown);
 
-    // create the sockets
+    /* create the sockets */
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
-    check((zmq_bind(in_socket, socket_name) == 0), "could not bind to socket %s", socket_name);
+    check((zmq_bind(in_socket, socket_name) == 0),
+            "could not bind to socket %s", socket_name);
 
-    //  Socket to talk to workers
+    /* Socket to talk to workers */
     worker_socket = zmq_socket (context, ZMQ_XREQ);
     check((worker_socket != NULL), "Could not create internal zmq worker socket");
-    check((zmq_bind(worker_socket, WORKER_SOCKET) == 0), "could not bind to socket %s", WORKER_SOCKET);
+    check((zmq_bind(worker_socket, WORKER_SOCKET) == 0),
+            "could not bind to socket %s", WORKER_SOCKET);
 
 
-    // startup the worker threads
+    /* startup the worker threads */
     WorkerParams workerparams;
     workerparams.context = context;
     workerparams.directory = directory;
@@ -174,15 +177,16 @@ main(int argc, char *argv[])
         pthread_create(&workers[t], NULL, worker_routine, (void *) &workerparams);
     }
 
-    // connect the worker threads to the incomming socket
-    check((zmq_device(ZMQ_QUEUE, in_socket, worker_socket) == 0), "Could not set up queue between sockets");
+    /* connect the worker threads to the incomming socket */
+    check((zmq_device(ZMQ_QUEUE, in_socket, worker_socket) == 0),
+            "Could not set up queue between sockets");
 
     shutdown(SIGTERM);
-    exit(exit_code); // surpress compiler warnings
+    exit(exit_code); /* surpress compiler warnings */
 
 error:
 
     exit_code = EXIT_FAILURE;
     shutdown(0);
-    exit(exit_code); // surpress compiler warnings
+    exit(exit_code); /* surpress compiler warnings */
 }

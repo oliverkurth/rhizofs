@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <limits.h> // for PATH_MAX
+#include <limits.h> /* for PATH_MAX */
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -50,4 +50,4 @@ int ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
 int ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 int ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 
-#endif // __server_servedir_h__
+#endif /* __server_servedir_h__ */

@@ -20,7 +20,8 @@ typedef struct SocketPool {
  * initialize a static socketpool struct
  * returns 0 on success or -1 on failure
  */
-int SocketPool_init(SocketPool * sp, void * context, const char * socket_name, int socket_type);
+int SocketPool_init(SocketPool * sp, void * context, const char * socket_name,
+    int socket_type);
 
 /**
  * returns the 0mq socket for the current thread

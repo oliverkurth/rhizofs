@@ -7,7 +7,6 @@ int main(int argc, char *argv[])
 {
     LOG_FILE = stderr;
 
-
-	umask(0);
-	return Rhizofs_run(argc, argv);
+    umask(0);
+    return Rhizofs_run(argc, argv);
 }

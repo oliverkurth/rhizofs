@@ -1,8 +1,13 @@
 #include "servedir.h"
 #include "../dbg.h"
 
-// check for memory and set response error on failure
-#define check_mem_response(A) if(!(A)) { log_err("Out of memory."); response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; errno=0; ; goto error; }
+/* check for memory and set response error on failure */
+#define check_mem_response(A) if(!(A)) { \
+    log_err("Out of memory."); \
+    response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; \
+    errno=0; \
+    goto error; \
+}
 
 
 
@@ -13,21 +18,23 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     check_mem(sd);
     sd->socket = NULL;
     sd->directory = NULL;
+    struct stat sr;
 
-    // get the absolute path to the directory
+    /* get the absolute path to the directory */
     sd->directory = calloc(sizeof(char), PATH_MAX);
     check_mem(sd->directory);
-    check((realpath(directory, sd->directory) != NULL), "Could not resolve directory path");
+    check((realpath(directory, sd->directory) != NULL),
+            "Could not resolve directory path");
 
-    // validate the directory
-    struct stat sr;
+    /* validate the directory */
     check((stat((const char*)directory, &sr) == 0), "could not stat %s", directory);
     check(S_ISDIR(sr.st_mode), "%s is not a directory.", directory);
 
     sd->socket = zmq_socket(context, ZMQ_REP);
     sd->socket_name = socket_name;
     check((sd->socket != NULL), "Could not create zmq socket");
-    check((zmq_connect(sd->socket, socket_name) == 0), "could not bind to socket %s", socket_name);
+    check((zmq_connect(sd->socket, socket_name) == 0),
+            "could not bind to socket %s", socket_name);
 
     return sd;
 
@@ -35,16 +42,13 @@ error:
 
     if (sd != NULL) {
         if (sd->directory != NULL) {
-            free(sd->directory); // free the memory allocated by realpath
+            free(sd->directory); /* free the memory allocated by realpath */
         }
-
         if (sd->socket) {
             zmq_close(sd->socket);
         }
-
         free(sd);
     }
-
     return NULL;
 }
 
@@ -52,11 +56,9 @@ error:
 void
 ServeDir_destroy(ServeDir * sd)
 {
-
     if (sd->directory != NULL) {
-        free(sd->directory); // free the memory allocated by realpath
+        free(sd->directory); /* free the memory allocated by realpath */
     }
-
     if (sd->socket != NULL) {
         zmq_close(sd->socket);
         sd->socket = NULL;

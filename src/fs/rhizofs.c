@@ -2,11 +2,7 @@
 
 #include "../dbg.h"
 
-/**
- * private data
- *
- * to be stored in the fuse context
- */
+/** private data to be stored in the fuse context */
 typedef struct RhizoPriv {
     void * context;             /** the zeromq context */
 } RhizoPriv;
@@ -16,9 +12,7 @@ typedef struct RhizoSettings {
 } RhizoSettings;
 
 
-/**
- * enumerations for commandline options
- */
+/** enumerations for commandline options */
 enum {
     KEY_HELP,
     KEY_VERSION,
@@ -42,8 +36,9 @@ static RhizoSettings settings;
 static SocketPool socketpool;
 
 
-#define  FUSE_METHOD_HEAD   int returned_err = EIO;
-
+#define  FUSE_OP_HEAD   int returned_err = EIO; \
+    Rhizofs__Request * request = NULL; \
+    Rhizofs__Response * response = NULL;
 
 
 #define CREATE_REQUEST(R) R = Request_create(); \
@@ -76,7 +71,7 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     priv->context = zmq_init(1);
     check((priv->context != NULL), "Could not create Zmq context");
 
-    // create the socket pool
+    /* create the socket pool */
     rc = SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ);
     check((rc == 0), "Could not initialize the socket pool");
 
@@ -142,7 +137,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     (*err) = 0;
 
-    /* get a socket from the socketpool, return an errno on failure*/
+    /* get a socket from the socketpool, return an errno on failure */
     sock = SocketPool_get_socket(&socketpool);
     if (sock == NULL) {
         log_err("Could not fetch socket from socketpool");
@@ -191,7 +186,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         goto error;
     }
 
-    rc = 1; /* set to an non-zero value to prevent exit of loop before a response arrived */
+    rc = 1; /* set to an non-zero value to prevent exit of loop
+             * before a response arrived */
     do {
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
@@ -270,7 +266,7 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
         stbuf->st_uid = fcontext->uid;
     }
     if (attrs->is_in_group != 0) {
-        /* this might be a bit to ambiguous .. think of something better*/
+        /* this might be a bit to ambiguous .. think of something better */
         stbuf->st_gid = fcontext->gid;
     }
 }
@@ -284,14 +280,12 @@ static int
 Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
+
     unsigned int entry_n = 0;
 
     (void) offset;
     (void) fi;
-
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -322,9 +316,7 @@ error:
 static int
 Rhizofs_getattr(const char *path, struct stat *stbuf)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -352,9 +344,7 @@ error:
 static int
 Rhizofs_rmdir(const char * path)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -378,9 +368,7 @@ error:
 static int
 Rhizofs_mkdir(const char * path, mode_t mode)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -406,9 +394,7 @@ error:
 static int
 Rhizofs_unlink(const char * path)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -432,9 +418,7 @@ error:
 static int
 Rhizofs_access(const char * path, int mask)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -460,9 +444,7 @@ error:
 static int
 Rhizofs_open(const char * path, struct fuse_file_info *fi)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
@@ -490,6 +472,7 @@ Rhizofs_release(const char *path, struct fuse_file_info *fi)
 {
     (void) path;
     (void) fi;
+
     return 0;
 }
 
@@ -500,6 +483,7 @@ Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
     (void) path;
     (void) isdatasync;
     (void) fi;
+
     return 0;
 }
 
@@ -508,9 +492,8 @@ static int
 Rhizofs_read(const char *path, char *buf, size_t size,
         off_t offset, struct fuse_file_info *fi)
 {
-    FUSE_METHOD_HEAD;
-    Rhizofs__Request * request = NULL;
-    Rhizofs__Response * response = NULL;
+    FUSE_OP_HEAD;
+
     int size_read = 0;
 
     (void) fi;
@@ -612,7 +595,7 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 
         case FUSE_OPT_KEY_NONOPT:
             if (!settings.host_socket) {
-                settings.host_socket = strdup(arg); // TODO: free this + handle failure
+                settings.host_socket = strdup(arg); /* TODO: free this + handle failure */
                 return 0;
             }
             return 1;
@@ -623,7 +606,6 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 
 /**
  * check the settings from the command line arguments
- *
  * returns -1 o failure, 0 on correct arguments
  */
 int

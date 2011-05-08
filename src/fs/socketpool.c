@@ -3,9 +3,7 @@
 #include "../dbg.h"
 
 
-/**
- * destroy a single 0mq socket
- **/
+/** destroy a single 0mq socket */
 void
 SocketPool_socket_destroy(void * sock)
 {
@@ -16,7 +14,8 @@ SocketPool_socket_destroy(void * sock)
 
 
 int
-SocketPool_init(SocketPool * socketpool, void * context, const char * socket_name, int socket_type)
+SocketPool_init(SocketPool * socketpool, void * context, const char * socket_name,
+        int socket_type)
 {
     int rc;
 

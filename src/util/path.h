@@ -21,4 +21,4 @@ int path_join(const char *, const char *, char **);
 
 int path_join_real(const char *, const char *, char **);
 
-#endif // __util_path_h__
+#endif /* __util_path_h__ */

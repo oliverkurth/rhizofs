@@ -6,27 +6,27 @@
 #include <fcntl.h>
 #include "proto/rhizofs.pb-c.h"
 
-// filetypes
-#define RHI_FILETYPE_DIR   0040000 // Directory
-#define RHI_FILETYPE_CHR   0020000 // Character device
-#define RHI_FILETYPE_BLK   0060000 // Block device
-#define RHI_FILETYPE_REG   0100000 // Regular file
-#define RHI_FILETYPE_IFO   0010000 // FIFO
-#define RHI_FILETYPE_LNK   0120000 // Symbolic link
-#define RHI_FILETYPE_SOCK  0140000 // Socket
+/* filetypes */
+#define RHI_FILETYPE_DIR   0040000 /* Directory */
+#define RHI_FILETYPE_CHR   0020000 /* Character device */
+#define RHI_FILETYPE_BLK   0060000 /* Block device */
+#define RHI_FILETYPE_REG   0100000 /* Regular file */
+#define RHI_FILETYPE_IFO   0010000 /* FIFO */
+#define RHI_FILETYPE_LNK   0120000 /* Symbolic link */
+#define RHI_FILETYPE_SOCK  0140000 /* Socket */
 
-// permissions
-#define RHI_PERM_RUSR 0400     // Read by owner
-#define RHI_PERM_WUSR 0200     // Write by owner
-#define RHI_PERM_XUSR 0100     // Execute by owner
-#define RHI_PERM_RGRP (RHI_PERM_RUSR >> 3)  // Read by group
-#define RHI_PERM_WGRP (RHI_PERM_WUSR >> 3)  // Write by group
-#define RHI_PERM_XGRP (RHI_PERM_XUSR >> 3)  // Execute by group
-#define RHI_PERM_ROTH (RHI_PERM_RGRP >> 3)  // Read by others
-#define RHI_PERM_WOTH (RHI_PERM_WGRP >> 3)  // Write by others
-#define RHI_PERM_XOTH (RHI_PERM_XGRP >> 3)  // Execute by others
+/* permissions */
+#define RHI_PERM_RUSR 0400     /* Read by owner */
+#define RHI_PERM_WUSR 0200     /* Write by owner */
+#define RHI_PERM_XUSR 0100     /* Execute by owner */
+#define RHI_PERM_RGRP (RHI_PERM_RUSR >> 3)  /* Read by group */
+#define RHI_PERM_WGRP (RHI_PERM_WUSR >> 3)  /* Write by group */
+#define RHI_PERM_XGRP (RHI_PERM_XUSR >> 3)  /* Execute by group */
+#define RHI_PERM_ROTH (RHI_PERM_RGRP >> 3)  /* Read by others */
+#define RHI_PERM_WOTH (RHI_PERM_WGRP >> 3)  /* Write by others */
+#define RHI_PERM_XOTH (RHI_PERM_XGRP >> 3)  /* Execute by others */
 
-// file open flags
+/* file open flags */
 #define RHI_OPEN_RDONLY         00
 #define RHI_OPEN_WRONLY         01
 #define RHI_OPEN_RDWR           02
@@ -54,8 +54,9 @@ typedef struct flag_pair {
 } flag_pair;
 
 
-// to_protocol = local to protocol
-// from_protocol = protocol to local
+/* to_protocol = local to protocol
+ * from_protocol = protocol to local
+ */
 
 unsigned int mapping_mode_to_protocol(mode_t mode, int include_filetype);
 mode_t mapping_mode_from_protocol(unsigned int, int include_filetype);
@@ -66,5 +67,5 @@ int mapping_errno_from_protocol(int perrno);
 int mapping_openflags_to_protocol(int flags);
 int mapping_openflags_from_protocol(int flags);
 
-#endif // __mapping_h__
+#endif /* __mapping_h__ */
 

@@ -52,7 +52,7 @@ path_join_real(const char * path1, const char * path2, char ** pathjoined)
 
     if ((rc = path_join(path1, path2, &realp)) != 0) {
         return rc;
-    } 
+    }
 
     if (((*pathjoined) = realpath(realp, NULL)) == NULL) {
         rc = -1;

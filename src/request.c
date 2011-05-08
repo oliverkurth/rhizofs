@@ -48,10 +48,8 @@ Request_create()
     return request;
 
 error:
-
     free(version);
     free(request);
-
     return NULL;
 }
 
@@ -62,14 +60,13 @@ Request_destroy(Rhizofs__Request * request)
     free(request->version);
     free(request);
     request = NULL;
-
 }
 
 
 int
 Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
 {
-    // serialize the reply
+    /* serialize the reply */
     size_t len = (size_t)rhizofs__request__get_packed_size(request);
     debug("Request will be %d bytes long", (int)len);
 
@@ -77,8 +74,8 @@ Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
     check((rhizofs__request__pack(request, zmq_msg_data(msg)) == len), "Could not pack message");
 
     return 0;
+
 error:
     zmq_msg_close(msg);
     return -1;
-
 }

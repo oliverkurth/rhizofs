@@ -25,10 +25,8 @@ Response_create()
     return response;
 
 error:
-
     free(version);
     free(response);
-
     return NULL;
 }
 
@@ -63,19 +61,21 @@ Response_destroy(Rhizofs__Response * response)
 int
 Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg)
 {
-    // serialize the reply
+    /* serialize the reply */
     size_t len = (size_t)rhizofs__response__get_packed_size(response);
     debug("Response will be %d bytes long", (int)len);
 
     check((zmq_msg_init_size(msg, len) == 0), "Could not initialize message");
-    check((rhizofs__response__pack(response, zmq_msg_data(msg)) == len), "Could not pack message");
+    check((rhizofs__response__pack(response, zmq_msg_data(msg)) == len),
+            "Could not pack message");
 
     return 0;
+
 error:
     zmq_msg_close(msg);
     return -1;
-
 }
+
 
 int
 Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
@@ -87,9 +87,11 @@ Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
     (*response)->has_data = 1;
 
     return 0;
+
 error:
     return -1;
 }
+
 
 void
 Response_set_errno(Rhizofs__Response ** response, int eno)
@@ -98,8 +100,8 @@ Response_set_errno(Rhizofs__Response ** response, int eno)
 
     debug("Setting protocol errno %d", perrno);
     (*response)->errnotype = perrno;
-
 }
+
 
 int
 Response_get_errno(const Rhizofs__Response * response)
@@ -130,5 +132,4 @@ Response_from_message_destroy(Rhizofs__Response * response)
         rhizofs__response__free_unpacked(response, NULL);
     }
 }
-
 

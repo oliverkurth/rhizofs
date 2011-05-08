@@ -29,7 +29,6 @@ uidgid_in_group(gid_t gid, int * result)
     return 0;
 
 error:
-
     free(group_ids);
     return -1;
 }

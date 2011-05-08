@@ -26,8 +26,6 @@ void Request_destroy(Rhizofs__Request * request);
 int Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg);
 
 
-
-
 /**
  * create an allocated request struct from a zmq_msg. returns NULL on
  * failure. the caller is responsible for freeing the struct
