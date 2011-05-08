@@ -22,7 +22,7 @@ static mode_pair mode_map_perm[] = {
     { RHI_PERM_XOTH,        S_IXOTH }
 };
 
-static errno_pair errno_map[] = {
+static flag_pair errno_map[] = {
     { RHIZOFS__ERRNO__ERRNO_NONE,      0 },
     { RHIZOFS__ERRNO__ERRNO_PERM,      EPERM },
     { RHIZOFS__ERRNO__ERRNO_NOENT,     ENOENT },
@@ -45,24 +45,42 @@ static errno_pair errno_map[] = {
 };
 
 
+static flag_pair openflag_map[] = {
+    { RHI_OPEN_RDONLY,      O_RDONLY },
+    { RHI_OPEN_WRONLY,      O_WRONLY },
+    { RHI_OPEN_RDWR,        O_RDWR },
+    { RHI_OPEN_CREAT,       O_CREAT },
+    { RHI_OPEN_EXCL,        O_EXCL },
+    { RHI_OPEN_NOCTTY,      O_NOCTTY },
+    { RHI_OPEN_TRUNC,       O_TRUNC },
+    { RHI_OPEN_APPEND,      O_APPEND },
+    { RHI_OPEN_NONBLOCK,    O_NONBLOCK },
+    { RHI_OPEN_NDELAY,      O_NDELAY },
+    { RHI_OPEN_SYNC,        O_SYNC },
+    { RHI_OPEN_FSYNC,       O_FSYNC },
+    { RHI_OPEN_ASYNC,       O_ASYNC }
+};
+
 #define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
-#define errno_map_len(em) (sizeof(em)/sizeof(errno_pair))
+#define flag_map_len(em) (sizeof(em)/sizeof(flag_pair))
 
 unsigned int
-mapping_mode_to_protocol(mode_t mode)
+mapping_mode_to_protocol(mode_t mode, int include_filetype)
 {
     unsigned int md = 0000;
     unsigned int i = 0;
 
-    for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
-        if (mode_map_filetype[i].local & mode) {
-            md |= mode_map_filetype[i].protocol;
-            break; /* break to avoid overwrite with other matching flags */
+    if (include_filetype) {
+        for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
+            if (mode_map_filetype[i].local & mode) {
+                md |= mode_map_filetype[i].protocol;
+                break; /* break to avoid overwrite with other matching flags */
+            }
         }
-    }
 
-    if (md == 0000) {
-        md |= RHI_FILETYPE_REG; // fallback to regular file
+        if (md == 0000) {
+            md |= RHI_FILETYPE_REG; // fallback to regular file
+        }
     }
 
     for (i=0; i<mode_map_len(mode_map_perm); ++i) {
@@ -75,20 +93,22 @@ mapping_mode_to_protocol(mode_t mode)
 
 
 mode_t
-mapping_mode_from_protocol(unsigned int md)
+mapping_mode_from_protocol(unsigned int md, int include_filetype)
 {
     mode_t mode = 0;
     unsigned int i = 0;
 
-    for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
-        if (mode_map_filetype[i].protocol & md) {
-            mode |= mode_map_filetype[i].local;
-            break; /* break to avoid overwrite with other matching flags */
+    if (include_filetype) {
+        for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
+            if (mode_map_filetype[i].protocol & md) {
+                mode |= mode_map_filetype[i].local;
+                break; /* break to avoid overwrite with other matching flags */
+            }
         }
-    }
 
-    if (mode == 0) {
-        mode |= S_IFREG; // fallback to regular file
+        if (mode == 0) {
+            mode |= S_IFREG; // fallback to regular file
+        }
     }
 
     for (i=0; i<mode_map_len(mode_map_perm); ++i) {
@@ -106,7 +126,7 @@ mapping_errno_to_protocol(int lerrno)
     int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; // default value
     unsigned int i=0;
 
-    for (i=0; i<errno_map_len(errno_map); ++i) {
+    for (i=0; i<flag_map_len(errno_map); ++i) {
         if (errno_map[i].local == lerrno) {
             perrno = errno_map[i].protocol;
             break;
@@ -117,12 +137,13 @@ mapping_errno_to_protocol(int lerrno)
 }
 
 
-int mapping_errno_from_protocol(int perrno)
+int
+mapping_errno_from_protocol(int perrno)
 {
     int lerrno = EIO; // default value
     unsigned int i=0;
 
-    for (i=0; i<errno_map_len(errno_map); ++i) {
+    for (i=0; i<flag_map_len(errno_map); ++i) {
         if (errno_map[i].protocol == perrno) {
             lerrno = errno_map[i].local;
             break;
@@ -131,5 +152,39 @@ int mapping_errno_from_protocol(int perrno)
 
     return lerrno;
 }
+
+
+int
+mapping_openflags_to_protocol(int lflags)
+{
+    int pflags = 0; // default value
+    unsigned int i=0;
+
+    for (i=0; i<flag_map_len(openflag_map); ++i) {
+        if (openflag_map[i].local == lflags) {
+            pflags |= openflag_map[i].protocol;
+        }
+    }
+
+    return pflags;
+}
+
+
+
+int
+mapping_openflags_from_protocol(int pflags)
+{
+    int lflags = 0; // default value
+    unsigned int i=0;
+
+    for (i=0; i<flag_map_len(openflag_map); ++i) {
+        if (openflag_map[i].protocol == pflags) {
+            lflags |= openflag_map[i].local;
+        }
+    }
+
+    return lflags;
+}
+
 
 
