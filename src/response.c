@@ -47,6 +47,12 @@ Response_destroy(Rhizofs__Response * response)
         free(response->directory_entries);
     }
 
+    if (response->has_data != 0) {
+        if (response->data.data != NULL) {
+            free(response->data.data);
+        }
+    }
+
     free(response->version);
     free(response);
     response = NULL;
@@ -69,6 +75,20 @@ error:
     zmq_msg_close(msg);
     return -1;
 
+}
+
+int
+Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
+{
+    check(((*response)->has_data == 0), "Response has aleady a data block");
+
+    (*response)->data.len = len;
+    (*response)->data.data = data;
+    (*response)->has_data = 1;
+
+    return 0;
+error:
+    return -1;
 }
 
 void

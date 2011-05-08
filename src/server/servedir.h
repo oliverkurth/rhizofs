@@ -42,5 +42,7 @@ int ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhiz
 int ServeDir_action_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 int ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 int ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
+int ServeDir_action_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
+int ServeDir_action_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
 
 #endif // __server_servedir_h__

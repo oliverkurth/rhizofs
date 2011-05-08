@@ -19,6 +19,8 @@ enum RequestType {
     ACCESS = 8;
     RENAME = 9;
     GETATTR = 10;
+    OPEN = 11;
+    READ = 12;
 }
 
 enum Errno {
@@ -74,6 +76,14 @@ message Request {
 
     // path to move/copy/link a file to
     optional string path_to = 6;
+
+    optional int32 openflags = 7;
+
+    optional bytes data = 8;
+
+    // number of bytes to read
+    optional int32 read_size = 9;
+    optional int32 offset = 10;
 }
 
 
@@ -82,11 +92,13 @@ message Response {
     required Version version = 2;
 
     // the errno returned by the server filesystem.
-    required Errno errnotype = 4 [default = ERRNO_NONE];
+    required Errno errnotype = 3 [default = ERRNO_NONE];
 
     // READDIR
-    repeated string directory_entries = 5;
+    repeated string directory_entries = 4;
 
     // attrs -- returned after getattr request
-    optional Attrs attrs = 6;
+    optional Attrs attrs = 5;
+
+    optional bytes data = 6;
 }

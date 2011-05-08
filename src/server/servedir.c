@@ -136,6 +136,14 @@ ServeDir_serve(ServeDir * sd)
                         action_rc = ServeDir_action_getattr(sd, request, &response);
                         break;
 
+                    case RHIZOFS__REQUEST_TYPE__OPEN:
+                        action_rc = ServeDir_action_open(sd, request, &response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__READ:
+                        action_rc = ServeDir_action_read(sd, request, &response);
+                        break;
+
                     default:
                         // dont know what to do with that request
                         //action_rc = action_invalid(sd, request, &response);
@@ -355,12 +363,12 @@ ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs_
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_from_protocol(request->modemask);
+    localmode = mapping_mode_from_protocol(request->modemask, 0);
 
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
-    debug("requested path: %s", path);
+    debug("requested path: %s; accesmode: %o", path, localmode);
     if (access(path, localmode) == -1) {
         Response_set_errno(&response, errno);
         debug("Could not call access on %s", path);
@@ -429,7 +437,7 @@ ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_from_protocol(request->modemask);
+    localmode = mapping_mode_from_protocol(request->modemask, 1);
 
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
@@ -474,7 +482,7 @@ ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs
         attrs->size = sb.st_size;
 
         debug("mode: %o", sb.st_mode );
-        attrs->modemask = mapping_mode_to_protocol(sb.st_mode);
+        attrs->modemask = mapping_mode_to_protocol(sb.st_mode, 1);
 
         /* user */
         if (getuid() == sb.st_uid) {
@@ -507,6 +515,106 @@ error:
 
     free(attrs);
     attrs = NULL;
+    free(path);
+    return -1;
+}
+
+
+int
+ServeDir_action_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path = NULL;
+    int openflags = 0;;
+    int fd;
+    Rhizofs__Response * response = (*resp);
+
+    debug("open");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
+
+    if (request->has_openflags == 0) {
+        log_err("the request did not specify open flags");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+    openflags = mapping_openflags_from_protocol(request->openflags);
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s, openflags: %o", path, openflags);
+    fd = open(path, openflags);
+    if (fd == -1) {
+        Response_set_errno(&response, errno);
+        debug("Could not call open on %s", path);
+    }
+
+    close(fd);
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+
+int
+ServeDir_action_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+{
+    char * path = NULL;
+    int fd = -1;
+    uint8_t * databuf;
+    Rhizofs__Response * response = (*resp);
+
+    debug("READ");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__READ;
+
+    if (!request->has_read_size) {
+        log_err("the request did not specify size of buffer to read");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+    if (!request->has_offset) {
+        log_err("the request did not specify a read offset");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+    fd = open(path, O_RDONLY);
+    if (fd != -1) {
+
+        databuf = calloc(sizeof(uint8_t), (int)request->read_size);
+        check_mem(databuf);
+
+        if (pread(fd, databuf, (size_t)request->read_size, 
+                (off_t)request->offset) != -1) {
+            Response_set_data(&response, databuf, (size_t)request->read_size); // TODO: check
+        }
+        else {
+            Response_set_errno(&response, errno);
+            debug("Could not read from on %s", path);
+            free(databuf);
+        }
+        close(fd);
+    }
+    else {
+        Response_set_errno(&response, errno);
+        debug("Could not call open on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    if (databuf != NULL) {
+        free(databuf);
+    }
+    if (fd == -1) {
+        close(fd);
+    }
     free(path);
     return -1;
 }

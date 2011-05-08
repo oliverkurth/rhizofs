@@ -37,6 +37,11 @@ int Response_get_errno(const Rhizofs__Response * response);
  */
 int Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
 
+/**
+ * will not make a copy of the data block, but destroying the response will also
+ * free the data
+ */
+int Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len);
 
 Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 

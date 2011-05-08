@@ -207,7 +207,7 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 
     memset(stbuf, 0, sizeof(struct stat));
     stbuf->st_size = attrs->size;
-    stbuf->st_mode = mapping_mode_from_protocol(attrs->modemask);
+    stbuf->st_mode = mapping_mode_from_protocol(attrs->modemask, 1);
     stbuf->st_atime  = attrs->atime;
     stbuf->st_ctime  = attrs->ctime;
     stbuf->st_mtime  = attrs->mtime;
@@ -339,7 +339,7 @@ Rhizofs_mkdir(const char * path, mode_t mode)
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->modemask = mapping_mode_to_protocol(mode);
+    request->modemask = mapping_mode_to_protocol(mode, 1);
     request->has_modemask = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
 
@@ -393,7 +393,7 @@ Rhizofs_access(const char * path, int mask)
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->modemask = mapping_mode_to_protocol((mode_t)mask);
+    request->modemask = mapping_mode_to_protocol((mode_t)mask, 0);
     request->has_modemask = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
@@ -412,7 +412,91 @@ error:
 }
 
 
+static int
+Rhizofs_open(const char * path, struct fuse_file_info *fi)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
 
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->modemask = mapping_openflags_to_protocol(fi->flags);
+    request->has_openflags = 1;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    check((returned_err == 0), "Server reported an error");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_release(const char *path, struct fuse_file_info *fi)
+{
+    (void) path;
+    (void) fi;
+    return 0;
+}
+
+
+static int
+Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
+{
+    (void) path;
+    (void) isdatasync;
+    (void) fi;
+    return 0;
+}
+
+
+static int
+Rhizofs_read(const char *path, char *buf, size_t size,
+        off_t offset, struct fuse_file_info *fi)
+{
+    FUSE_METHOD_HEAD;
+    Rhizofs__Request * request = NULL;
+    Rhizofs__Response * response = NULL;
+    int size_read = 0;
+
+    (void) fi;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->has_read_size = 1;
+    request->read_size = (int)size;
+    request->has_offset = 1;
+    request->offset = (int)offset;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check((response != NULL), "communicate failed");
+    check((returned_err == 0), "Server reported an error");
+    check((response->has_data != 0), "Server did send no data in response");
+
+    debug("read %d bytes of data from server", (int)response->data.len);
+    memcpy(buf, (char*)response->data.data, response->data.len);
+    size_read = response->data.len;
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return size_read;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+
+}
 
 static struct fuse_operations rhizofs_oper = {
     .readdir    = Rhizofs_readdir,
@@ -423,6 +507,10 @@ static struct fuse_operations rhizofs_oper = {
     .rmdir      = Rhizofs_rmdir,
     .unlink     = Rhizofs_unlink,
     .access     = Rhizofs_access,
+    .open       = Rhizofs_open,
+    .release    = Rhizofs_release,
+    .fsync      = Rhizofs_fsync,
+    .read       = Rhizofs_read,
 };
 
 

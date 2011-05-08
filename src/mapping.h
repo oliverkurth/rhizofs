@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 #include <errno.h>
+#include <fcntl.h>
 #include "proto/rhizofs.pb-c.h"
 
 // filetypes
@@ -25,26 +26,45 @@
 #define RHI_PERM_WOTH (RHI_PERM_WGRP >> 3)  // Write by others
 #define RHI_PERM_XOTH (RHI_PERM_XGRP >> 3)  // Execute by others
 
+// file open flags
+#define RHI_OPEN_RDONLY         00
+#define RHI_OPEN_WRONLY         01
+#define RHI_OPEN_RDWR           02
+#define RHI_OPEN_CREAT          0100
+#define RHI_OPEN_EXCL           0200
+#define RHI_OPEN_NOCTTY         0400
+#define RHI_OPEN_TRUNC          01000
+#define RHI_OPEN_APPEND         02000
+#define RHI_OPEN_NONBLOCK       04000
+#define RHI_OPEN_NDELAY         RHI_OPEN_NONBLOCK
+#define RHI_OPEN_SYNC           04010000
+#define RHI_OPEN_FSYNC          RHI_OPEN_SYNC
+#define RHI_OPEN_ASYNC          020000
+
+
 
 typedef struct mode_pair {
     unsigned int protocol;
     mode_t local;
 } mode_pair;
 
-typedef struct errno_pair {
+typedef struct flag_pair {
     int protocol;
     int local;
-} errno_pair;
+} flag_pair;
 
 
 // to_protocol = local to protocol
 // from_protocol = protocol to local
 
-unsigned int mapping_mode_to_protocol(mode_t mode);
-mode_t mapping_mode_from_protocol(unsigned int);
+unsigned int mapping_mode_to_protocol(mode_t mode, int include_filetype);
+mode_t mapping_mode_from_protocol(unsigned int, int include_filetype);
 
 int mapping_errno_to_protocol(int lerrno);
 int mapping_errno_from_protocol(int perrno);
+
+int mapping_openflags_to_protocol(int flags);
+int mapping_openflags_from_protocol(int flags);
 
 #endif // __mapping_h__
 
