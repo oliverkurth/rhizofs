@@ -67,23 +67,20 @@ message Request {
     required RequestType requesttype = 1;
     required Version version = 2;
 
-    // the share to connect to
-    required string endpoint = 3;
+    optional string path = 3;
 
-    optional string path = 4;
-
-    optional int32 modemask = 5;
+    optional int32 modemask = 4;
 
     // path to move/copy/link a file to
-    optional string path_to = 6;
+    optional string path_to = 5;
 
-    optional int32 openflags = 7;
+    optional int32 openflags = 6;
 
-    optional bytes data = 8;
+    optional bytes data = 7;
 
     // number of bytes to read
-    optional int32 read_size = 9;
-    optional int32 offset = 10;
+    optional int32 read_size = 8;
+    optional int32 offset = 9;
 }
 
 
