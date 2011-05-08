@@ -138,6 +138,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     Rhizofs__Response * response = NULL;
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
+    struct fuse_context * fcontext = fuse_get_context();
 
     (*err) = 0;
 
@@ -155,28 +156,42 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         goto error;
     }
 
-    if (zmq_send(sock, &msg_req, 0) != 0) {
-        /* TODO: might fail if the server is just starting up and
-         * the socket of the server has is not in the correct state
-         */
-        log_err("Could not send request [errno: %d]", errno);
-        (*err) = EIO;
-        goto error;
-    }
+    do {
+        rc = zmq_send(sock, &msg_req, 0);
 
-    zmq_msg_close(&msg_req);
+        if (rc != 0) {
+            if ((errno == EAGAIN) || (errno == EFSM)) {
+                /* sleep for a short time before retiying
+                 * also sleep on EFSM as the server might just be starting up
+                 * with the socket no being in the correct state.
+                 */
+                usleep(SEND_SLEEP_USEC);
+
+                if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+                    log_info("The request has been interrupted");
+                    (*err) = EINTR;
+                    goto error;
+                }
+            }
+            else {
+                log_err("Could not send request [errno: %d]", errno);
+                (*err) = EIO;
+                goto error;
+            }
+        }
+    } while (rc != 0);
 
     zmq_pollitem_t pollset[] = {
         { sock, 0, ZMQ_POLLIN, 0 }
     };
 
     if (zmq_msg_init(&msg_resp) != 0) {
-        log_err("Could not initialize request message");
+        log_err("Could not initialize response message");
         (*err) = ENOMEM;
         goto error;
     }
 
-    rc = 1; /* set to an non-zero value to prevent exit of loop before a response arrived*/
+    rc = 1; /* set to an non-zero value to prevent exit of loop before a response arrived */
     do {
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
@@ -189,7 +204,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
                     (*err) = EIO;
                     goto error;
                 }
-                zmq_msg_close(&msg_resp);
             }
 
             else {
@@ -203,7 +217,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
              * check if fuse has recieved a interrupt
              * while waiting for a response
              */
-            if (fuse_interrupted() != 0) {
+            if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
                 log_info("The request has been interrupted");
                 (*err) = EINTR;
                 goto error;
@@ -211,6 +225,11 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         }
     } while (rc != 0);
 
+    /* close request after recieving relpy as it sure 0mq does not
+     * hold a reference anymore */
+    zmq_msg_close(&msg_req);
+
+    zmq_msg_close(&msg_resp);
     (*err) = Response_get_errno(response);
     return response;
 
@@ -230,7 +249,7 @@ error:
 void
 Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 {
-    struct fuse_context * fctxt = fuse_get_context();
+    struct fuse_context * fcontext = fuse_get_context();
 
     memset(stbuf, 0, sizeof(struct stat));
     stbuf->st_size = attrs->size;
@@ -242,18 +261,17 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 
     debug("mode: %o",stbuf->st_mode );
 
-    /*
-        set the uid ad gid of the calling process
-        do not set anything if the server-user is
-        not the user / in the group. this will cause
-        the FS to return "root"
-    */
+    /* set the uid ad gid of the calling process
+     * do not set anything if the server-user is
+     * not the user / in the group. this will cause
+     * the FS to return "root"
+     */
     if (attrs->is_owner != 0) {
-        stbuf->st_uid = fctxt->uid;
+        stbuf->st_uid = fcontext->uid;
     }
     if (attrs->is_in_group != 0) {
         /* this might be a bit to ambiguous .. think of something better*/
-        stbuf->st_gid = fctxt->gid;
+        stbuf->st_gid = fcontext->gid;
     }
 }
 

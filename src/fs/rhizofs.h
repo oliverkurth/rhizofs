@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
 
@@ -22,8 +23,10 @@
 
 #define INTERNAL_SOCKET_NAME "inproc://fuse"
 
-/* response timeout after which interupts will be checked */
-#define POLL_TIMEOUT_USEC 1000
+/* response timeout after which interrupts will be checked */
+#define POLL_TIMEOUT_USEC 10000
+
+#define SEND_SLEEP_USEC 1
 
 int Rhizofs_run(int argc, char * argv[]);
 
