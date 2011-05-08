@@ -1,6 +1,11 @@
 #ifndef __server_servedir_h__
 #define __server_servedir_h__
 
+#ifdef linux
+#define _XOPEN_SOURCE 500   /* enable pread()/pwrite() */
+#endif
+
+
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
