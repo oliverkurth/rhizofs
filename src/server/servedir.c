@@ -561,6 +561,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 {
     char * path = NULL;
     int fd = -1;
+    ssize_t bytes_read;
     uint8_t * databuf;
     Rhizofs__Response * response = (*resp);
 
@@ -587,9 +588,16 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         databuf = calloc(sizeof(uint8_t), (int)request->read_size);
         check_mem(databuf);
 
-        if (pread(fd, databuf, (size_t)request->read_size, 
-                (off_t)request->offset) != -1) {
-            Response_set_data(&response, databuf, (size_t)request->read_size); // TODO: check
+        if (request->offset == 0) {
+            /* use read to enable reading from non-seekable files */
+            bytes_read = read(fd, databuf, (size_t)request->read_size);
+        }
+        else {
+            bytes_read = pread(fd, databuf, (size_t)request->read_size, (off_t)request->offset);
+        }
+
+        if (bytes_read != -1) {
+            Response_set_data(&response, databuf, (size_t)bytes_read); // TODO: check
         }
         else {
             Response_set_errno(&response, errno);
