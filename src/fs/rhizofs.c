@@ -134,6 +134,7 @@ Rhizofs__Response *
 Rhizofs_communicate(Rhizofs__Request * req, int * err)
 {
     void * sock = NULL;
+    int rc;
     Rhizofs__Response * response = NULL;
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
@@ -155,12 +156,19 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     }
 
     if (zmq_send(sock, &msg_req, 0) != 0) {
-        log_err("Could not send request");
+        /* TODO: might fail if the server is just starting up and
+         * the socket of the server has is not in the correct state
+         */
+        log_err("Could not send request [errno: %d]", errno);
         (*err) = EIO;
         goto error;
     }
 
     zmq_msg_close(&msg_req);
+
+    zmq_pollitem_t pollset[] = {
+        { sock, 0, ZMQ_POLLIN, 0 }
+    };
 
     if (zmq_msg_init(&msg_resp) != 0) {
         log_err("Could not initialize request message");
@@ -168,23 +176,42 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         goto error;
     }
 
-    if (zmq_recv(sock, &msg_resp, 0) == 0) {
-        response = Response_from_message(&msg_resp);
-        if (response == NULL) {
-            log_err("Could not unpack response");
-            (*err) = EIO;
-            goto error;
+    rc = 1; /* set to an non-zero value to prevent exit of loop before a response arrived*/
+    do {
+        zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
+
+        if (pollset[0].revents & ZMQ_POLLIN) {
+            rc = zmq_recv(sock, &msg_resp, 0);
+            if (rc == 0) {  /* successfuly recieved response */
+                response = Response_from_message(&msg_resp);
+                if (response == NULL) {
+                    log_err("Could not unpack response");
+                    (*err) = EIO;
+                    goto error;
+                }
+                zmq_msg_close(&msg_resp);
+            }
+
+            else {
+                log_err("Failed to recieve response from server");
+                (*err) = EIO;
+                goto error;
+            }
         }
-        zmq_msg_close(&msg_resp);
-    }
-    else {
-        log_err("Failed to recieve response from server");
-        (*err) = EIO;
-        goto error;
-    }
+        else {
+            /* no response available at this time
+             * check if fuse has recieved a interrupt
+             * while waiting for a response
+             */
+            if (fuse_interrupted() != 0) {
+                log_info("The request has been interrupted");
+                (*err) = EINTR;
+                goto error;
+            }
+        }
+    } while (rc != 0);
 
     (*err) = Response_get_errno(response);
-
     return response;
 
 error:
@@ -253,8 +280,8 @@ Rhizofs_readdir(const char * path, void * buf,
     request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
 
@@ -286,8 +313,8 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
     request->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
     check((response->attrs != NULL), "Response did not contain attrs");
 
     Request_destroy(request);
@@ -316,8 +343,8 @@ Rhizofs_rmdir(const char * path)
     request->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
     Response_from_message_destroy(response);
@@ -344,8 +371,8 @@ Rhizofs_mkdir(const char * path, mode_t mode)
     request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
     Response_from_message_destroy(response);
@@ -370,8 +397,8 @@ Rhizofs_unlink(const char * path)
     request->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
     Response_from_message_destroy(response);
@@ -398,8 +425,8 @@ Rhizofs_access(const char * path, int mask)
     request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
     Response_from_message_destroy(response);
@@ -426,8 +453,8 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
     request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
 
     Request_destroy(request);
     Response_from_message_destroy(response);
@@ -479,8 +506,8 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check((response != NULL), "communicate failed");
     check((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
     check((response->has_data != 0), "Server did send no data in response");
 
     debug("read %d bytes of data from server", (int)response->data.len);

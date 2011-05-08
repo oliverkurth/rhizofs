@@ -22,6 +22,9 @@
 
 #define INTERNAL_SOCKET_NAME "inproc://fuse"
 
+/* response timeout after which interupts will be checked */
+#define POLL_TIMEOUT_USEC 1000
+
 int Rhizofs_run(int argc, char * argv[]);
 
 #endif /* __fs_rhizofs_h__ */

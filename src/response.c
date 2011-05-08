@@ -126,7 +126,9 @@ Response_from_message(zmq_msg_t *msg)
 void
 Response_from_message_destroy(Rhizofs__Response * response)
 {
-    rhizofs__response__free_unpacked(response, NULL);
+    if (response != NULL) {
+        rhizofs__response__free_unpacked(response, NULL);
+    }
 }
 
 
