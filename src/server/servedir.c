@@ -1,5 +1,4 @@
 #include "servedir.h"
-
 #include "../dbg.h"
 
 // check for memory and set response error on failure
@@ -100,57 +99,56 @@ ServeDir_serve(ServeDir * sd)
                 response->errnotype = RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE;
             }
             else {
-                int action_rc = 0;
+                int op_rc = 0;
 
                 switch(request->requesttype) {
 
                     case RHIZOFS__REQUEST_TYPE__PING:
-                        action_rc = ServeDir_action_ping(&response);
+                        op_rc = ServeDir_op_ping(&response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__READDIR:
-                        action_rc = ServeDir_action_readdir(sd, request, &response);
+                        op_rc = ServeDir_op_readdir(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__RMDIR:
-                        action_rc = ServeDir_action_rmdir(sd, request, &response);
+                        op_rc = ServeDir_op_rmdir(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__UNLINK:
-                        action_rc = ServeDir_action_unlink(sd, request, &response);
+                        op_rc = ServeDir_op_unlink(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__ACCESS:
-                        action_rc = ServeDir_action_access(sd, request, &response);
+                        op_rc = ServeDir_op_access(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__RENAME:
-                        action_rc = ServeDir_action_rename(sd, request, &response);
+                        op_rc = ServeDir_op_rename(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__MKDIR:
-                        action_rc = ServeDir_action_mkdir(sd, request, &response);
+                        op_rc = ServeDir_op_mkdir(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__GETATTR:
-                        action_rc = ServeDir_action_getattr(sd, request, &response);
+                        op_rc = ServeDir_op_getattr(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__OPEN:
-                        action_rc = ServeDir_action_open(sd, request, &response);
+                        op_rc = ServeDir_op_open(sd, request, &response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__READ:
-                        action_rc = ServeDir_action_read(sd, request, &response);
+                        op_rc = ServeDir_op_read(sd, request, &response);
                         break;
 
                     default:
                         // dont know what to do with that request
-                        //action_rc = action_invalid(sd, request, &response);
-                        action_rc = ServeDir_action_invalid(&response);
+                        op_rc = ServeDir_op_invalid(&response);
                 }
 
-                if (action_rc != 0) {
+                if (op_rc != 0) {
                     log_warn("calling action failed");
                 }
 
@@ -205,7 +203,7 @@ error:
 
 
 int
-ServeDir_action_ping(Rhizofs__Response **resp)
+ServeDir_op_ping(Rhizofs__Response **resp)
 {
     Rhizofs__Response * response = (*resp);
 
@@ -217,7 +215,7 @@ ServeDir_action_ping(Rhizofs__Response **resp)
 
 
 int
-ServeDir_action_invalid(Rhizofs__Response **resp)
+ServeDir_op_invalid(Rhizofs__Response **resp)
 {
     Rhizofs__Response * response = (*resp);
 
@@ -232,7 +230,7 @@ ServeDir_action_invalid(Rhizofs__Response **resp)
 
 
 int
-ServeDir_action_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     DIR *dir = NULL;
     char * dirpath = NULL;
@@ -297,7 +295,7 @@ error:
 
 
 int
-ServeDir_action_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     Rhizofs__Response * response = (*resp);
@@ -323,7 +321,7 @@ error:
 
 
 int
-ServeDir_action_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     Rhizofs__Response * response = (*resp);
@@ -349,7 +347,7 @@ error:
 
 
 int
-ServeDir_action_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     mode_t localmode;
@@ -384,7 +382,7 @@ error:
 
 
 int
-ServeDir_action_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path_from = NULL;
     char * path_to = NULL;
@@ -423,7 +421,7 @@ error:
 
 
 int
-ServeDir_action_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     mode_t localmode;
@@ -459,7 +457,7 @@ error:
 
 
 int
-ServeDir_action_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     struct stat sb;
@@ -521,7 +519,7 @@ error:
 
 
 int
-ServeDir_action_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     int openflags = 0;;
@@ -559,11 +557,12 @@ error:
 
 
 int
-ServeDir_action_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
 {
     char * path = NULL;
     int fd = -1;
-    uint8_t * databuf;
+    ssize_t bytes_read;
+    uint8_t * databuf = NULL;
     Rhizofs__Response * response = (*resp);
 
     debug("READ");
@@ -589,9 +588,16 @@ ServeDir_action_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
         databuf = calloc(sizeof(uint8_t), (int)request->read_size);
         check_mem(databuf);
 
-        if (pread(fd, databuf, (size_t)request->read_size, 
-                (off_t)request->offset) != -1) {
-            Response_set_data(&response, databuf, (size_t)request->read_size); // TODO: check
+        if (request->offset == 0) {
+            /* use read to enable reading from non-seekable files */
+            bytes_read = read(fd, databuf, (size_t)request->read_size);
+        }
+        else {
+            bytes_read = pread(fd, databuf, (size_t)request->read_size, (off_t)request->offset);
+        }
+
+        if (bytes_read != -1) {
+            Response_set_data(&response, databuf, (size_t)bytes_read); // TODO: check
         }
         else {
             Response_set_errno(&response, errno);
@@ -618,4 +624,3 @@ error:
     free(path);
     return -1;
 }
-
