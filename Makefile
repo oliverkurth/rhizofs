@@ -24,6 +24,8 @@ install_debug: force
 
 all: build debug
 
+deb:
+	dpkg-buildpackage -us -uc -b -i.git -I.git
 
 # DEVELOPMENT targets ###############################################
 
