@@ -63,15 +63,20 @@ SocketPool_get_socket(SocketPool * sp)
 
     sock = pthread_getspecific(sp->key);
     if (sock == NULL) {
-        int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
-        int linger = 0;
 
         /* create a new socket */
         sock = zmq_socket(sp->context, sp->socket_type);
         check((sock != NULL), "Could not create 0mq socket");
 
+        int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
         zmq_setsockopt(sock, ZMQ_HWM, &hwm, sizeof(hwm));
+
+#ifdef ZMQ_MAKE_VERSION
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)
+        int linger = 0;
         zmq_setsockopt(sock, ZMQ_LINGER, &linger, sizeof(linger));
+#endif
+#endif
 
         check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
         check((pthread_setspecific(sp->key, sock) == 0), "could not set socket in thread");
