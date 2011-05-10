@@ -2,10 +2,10 @@ Source: rhizofs
 Section: net
 Priority: optional
 Maintainer: Nico Mandery <nico@nmandery.net>
-Build-Depends: debhelper (>= 6.0.7~), libzmq-dev (>= 2.0.10~), pkg-config, python,  libprotobuf-c0-dev (>= 0.12.3~), protobuf-c-compiler ( >= 0.12.3~)
+Build-Depends: debhelper (>= 6.0.7~), libzmq-dev (>= 2.0.10~), pkg-config, python,  libprotobuf-c0-dev (>= 0.12.3~), protobuf-c-compiler ( >= 0.12.3~), libfuse-dev ( >= 2.8~), libzmq0 (>= 2.0.10~)
 Standards-Version: 3.9.1
 
 Package: rhizofs
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends},  libzmq0 (>= 2.0.10~)
 Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c

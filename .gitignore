@@ -6,3 +6,9 @@ testtool/rhizofs_pb2.py
 .waf-*
 .lock-wafbuild
 callgrind.out.*
+build-stamp
+configure-stamp
+debian/files
+debian/rhizofs.debhelper.log
+debian/rhizofs.substvars
+debian/rhizofs/
