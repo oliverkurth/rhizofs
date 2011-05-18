@@ -627,12 +627,23 @@ int
 Rhizofs_run(int argc, char * argv[])
 {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    char tmpbuf[1024];
     int rc;
 
     memset(&settings, 0, sizeof(settings));
 
     fuse_opt_parse(&args, &settings, rhizo_opts, Rhizofs_opt_proc);
     check_debug((Rhizofs_check_settings() == 0), "Invalid command line arguments");
+
+    /* set the host/socket to show in /etc/mtab */
+    if (settings.host_socket != NULL) {
+#if FUSE_VERSION >= 27
+        sprintf(tmpbuf, "-osubtype=rhizofs,fsname=%.1000s", settings.host_socket);
+#else
+        sprintf(tmpbuf, "-ofsname=rhizofs#%.1000s", settings.host_socket);
+#endif
+        fuse_opt_insert_arg(&args, 1, tmpbuf);
+    }
 
     rc = Rhizofs_fuse_main(&args);
 
