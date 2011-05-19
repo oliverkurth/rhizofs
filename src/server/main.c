@@ -3,54 +3,106 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <getopt.h> // for optind, getopt
+#include <getopt.h>
 #include <pthread.h>
 
 #include "../dbg.h"
 #include "servedir.h"
 
-#define DEFAULT_DIRECTORY "."
-#define DEFAULT_SOCKET "tcp://0.0.0.0:15656"
+#define DEFAULT_N_WORKER_THREADS 5
+#define MAX_N_WORKER_THREADS 200
 #define WORKER_SOCKET "inproc://workers"
-#define NUM_WORKER_THREADS 5
 
-typedef struct WorkerParams {
+struct option opts_long[] = {
+    {"numworkers", 1, 0, 'n'},
+    {"help", 0, 0, 'h'},
+    {"version", 0, 0, 'v'},
+    {"verbose", 0, 0, 'V'},
+    {0, 0, 0, 0}
+};
+
+static const char *opts_short = "hvn:V";
+
+static const char *opts_desc =
+    "  -n --numworkers=NUMBER  Number of worker threads to start [default=5]\n"
+    "  -h --help\n"
+    "  -v --version\n"
+    "  -V --verbose\n";
+
+
+typedef struct ServerSettings {
     char * directory;
-    void * context;
-} WorkerParams;
+    char * socketname;
+    int n_worker_threads;
+    int verbose;
+} ServerSettings;
+static ServerSettings settings;
 
 
 FILE *LOG_FILE = NULL;
 
 /** zmq context */
 static void * context = NULL;
+
 static void * in_socket = NULL;
 static void * worker_socket = NULL;
 static int exit_code = EXIT_SUCCESS;
-static pthread_t workers[NUM_WORKER_THREADS] = {(pthread_t)NULL};
+static pthread_t * workers = NULL;
 
+
+/* prototypes */
+void print_wrong_arg(const char *);
+void print_version();
+void print_usage(const char *);
+void shutdown(int);
+void * worker_routine(void *);
 
 
 void
 print_wrong_arg(const char *msg)
 {
-    fprintf(stderr, "Error parsing parameters: %s\n\
-Use --help for help.\n", msg);
+    fprintf(stderr,
+        "Error parsing parameters: %s"
+        "\nUse --help for help.\n", msg
+    );
+    shutdown(0);
 }
 
+
 void
-print_usage()
+print_version()
 {
-    fprintf(stdout, "prgram <socket> <directory>\n");
+    fprintf(stdout, RHI_NAME " v" RHI_VERSION_FULL "\n");
 }
 
 
 void
-shutdown(int UNUSED_PARAMETER(sig))
+print_usage(const char * progname)
+{
+    fprintf(stderr,
+        "%s SOCKET DIRECTORY\n"
+        "\nIt's possible to specify all socket types supported by zeromq,"
+        "\nalthough socket types like inproc (local in-process communication)"
+        "\nare probably pretty useless for this case."
+        "\n\nOptions:"
+        "\n%s"
+        "\nExample:"
+        "\nServe the directory /home/myself/files on all network interfaces"
+        "\non port 11555"
+        "\n  rhizofs tcp://0.0.0.0:11555 /home/myself/files"
+        "\n", progname, opts_desc
+    );
+}
+
+
+void
+shutdown(int sig)
 {
     int t = 0;
 
-    fprintf(stdout, "Shuting down...\n");
+    (void) sig;
+
+    debug("Shuting down");
 
     if (in_socket != NULL) {
         zmq_close(in_socket);
@@ -69,8 +121,12 @@ shutdown(int UNUSED_PARAMETER(sig))
         context = NULL;
     }
 
-    for (t=0; t<NUM_WORKER_THREADS; ++t) {
-        pthread_join(workers[t], NULL);
+    if (workers != NULL) {
+        while (t<settings.n_worker_threads) {
+            pthread_join(workers[t], NULL);
+            t++;
+        }
+        free(workers);
     }
 
     exit(exit_code);
@@ -81,10 +137,11 @@ void *
 worker_routine(void * wp)
 {
     ServeDir * sd = NULL;
-    WorkerParams * workerparams = (WorkerParams *) wp;
 
-    sd = ServeDir_create(workerparams->context, WORKER_SOCKET,
-            workerparams->directory);
+    (void) wp;
+
+    sd = ServeDir_create(context, WORKER_SOCKET,
+            settings.directory);
     check((sd != NULL), "error serving directory.");
     // TODO: shutdown on error
     ServeDir_serve(sd);
@@ -103,49 +160,62 @@ error:
 int
 main(int argc, char *argv[])
 {
-    char *socket_name = DEFAULT_SOCKET; /* name of the zeromq socket */
-    char *directory = DEFAULT_DIRECTORY; /* name of the directory to server */
-    int i;
+    int optc;
+    const char * progname = argv[0];
 
     /* log to stdout */
     LOG_FILE = stdout;
 
-    /* skip the program name */
-    argc -= optind;
-    argv += optind;
+    /* defaults */
+    settings.n_worker_threads = DEFAULT_N_WORKER_THREADS;
+    settings.verbose = 0;
 
-    if (argc == 0) {
-        print_wrong_arg("No or wrong parameters given.");
-        print_usage();
-        goto error;
+
+    while ((optc = getopt_long(argc, argv, opts_short, opts_long, NULL)) != -1) {
+
+        switch (optc) {
+            case 'n':
+                settings.n_worker_threads = atoi(optarg);
+                if ((settings.n_worker_threads < 1)
+                        || (settings.n_worker_threads > MAX_N_WORKER_THREADS))
+                    {
+                    print_wrong_arg("Illegal value for numworkers");
+                }
+                break;
+
+            case 'h':
+                print_usage(progname);
+                shutdown(0);
+                exit(0);
+                break;
+
+            case 'v':
+                print_version();
+                shutdown(0);
+                exit(0);
+                break;
+
+            case 'V':
+                settings.verbose = 1;
+                break;
+
+            default:
+                print_wrong_arg("Unknown option");
+                break;
+        }
     }
 
+    debug("optind:%d; argv:%d", optind, argc);
+    if (argc < (optind + 2)) {
+        print_wrong_arg("Missing socket and/or directory");
+    }
+    settings.socketname = argv[optind];
+    settings.directory = argv[optind + 1];
 
-    i = 0;
-    do {
-        if (*argv) {
-
-            switch (i) {
-                case 0:
-                    socket_name = (*argv);
-                    debug("socket_name : %s", socket_name);
-                    break;
-
-                case 1:
-                    directory = (*argv);
-                    debug("directory : %s", directory);
-                    break;
-
-                default:
-                    print_wrong_arg("No or wrong parameters given.");
-                    print_usage();
-                    goto error;
-            }
-
-            ++argv;
-            ++i;
-        }
-    } while (*argv);
+    if (settings.verbose) {
+        fprintf(stdout, "Serving directory %s on socket %s\n",
+                settings.directory, settings.socketname);
+    }
 
     /* initialize the zmq context */
     context = zmq_init(1);
@@ -158,8 +228,8 @@ main(int argc, char *argv[])
     /* create the sockets */
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
-    check((zmq_bind(in_socket, socket_name) == 0),
-            "could not bind to socket %s", socket_name);
+    check((zmq_bind(in_socket, settings.socketname) == 0),
+            "could not bind to socket %s", settings.socketname);
 
     /* Socket to talk to workers */
     worker_socket = zmq_socket (context, ZMQ_XREQ);
@@ -169,12 +239,12 @@ main(int argc, char *argv[])
 
 
     /* startup the worker threads */
-    WorkerParams workerparams;
-    workerparams.context = context;
-    workerparams.directory = directory;
+    workers = calloc(sizeof(pthread_t), settings.n_worker_threads);
+    check_mem(workers);
     int t = 0;
-    for (t=0; t<NUM_WORKER_THREADS; ++t) {
-        pthread_create(&workers[t], NULL, worker_routine, (void *) &workerparams);
+    while (t<settings.n_worker_threads) {
+        pthread_create(&workers[t], NULL, worker_routine, NULL);
+        t++;
     }
 
     /* connect the worker threads to the incomming socket */
