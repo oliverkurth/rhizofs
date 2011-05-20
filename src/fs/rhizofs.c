@@ -637,11 +637,12 @@ Rhizofs_run(int argc, char * argv[])
 
     /* set the host/socket to show in /etc/mtab */
     if (settings.host_socket != NULL) {
-#if FUSE_VERSION >= 27
-        sprintf(tmpbuf, "-osubtype=%.20s,fsname=%.990s", RHI_NAME_LOWER, settings.host_socket);
-#else
-        sprintf(tmpbuf, "-ofsname=%.20s#%.990s", RHI_NAME_LOWER, settings.host_socket);
-#endif
+        if (fuse_version() >= 27) {
+            sprintf(tmpbuf, "-osubtype=%.20s,fsname=%.990s", RHI_NAME_LOWER, settings.host_socket);
+        }
+        else {
+            sprintf(tmpbuf, "-ofsname=%.20s#%.990s", RHI_NAME_LOWER, settings.host_socket);
+        }
         fuse_opt_insert_arg(&args, 1, tmpbuf);
     }
 
