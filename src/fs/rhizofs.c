@@ -49,8 +49,6 @@ static SocketPool socketpool;
     }
 
 
-
-
 /**
  * filesystem initialization
  *
@@ -479,7 +477,7 @@ error:
     return -returned_err;
 }
 
-
+/*
 static int
 Rhizofs_release(const char *path, struct fuse_file_info *fi)
 {
@@ -499,7 +497,7 @@ Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 
     return 0;
 }
-
+*/
 
 static int
 Rhizofs_read(const char *path, char *buf, size_t size,
@@ -549,8 +547,10 @@ static struct fuse_operations rhizofs_oper = {
     .unlink     = Rhizofs_unlink,
     .access     = Rhizofs_access,
     .open       = Rhizofs_open,
+/*
     .release    = Rhizofs_release,
     .fsync      = Rhizofs_fsync,
+*/
     .read       = Rhizofs_read,
 };
 
@@ -565,7 +565,7 @@ void
 Rhizofs_usage(const char * progname)
 {
     fprintf(stderr,
-        "usage: %s socket mountpoint [options]\n"
+        "usage: %s SOCKET MOUNTPOINT [options]\n"
         "\n"
         "general options:\n"
         "    -h   --help      print help\n"
