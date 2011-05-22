@@ -49,8 +49,6 @@ static SocketPool socketpool;
     }
 
 
-
-
 /**
  * filesystem initialization
  *
@@ -131,8 +129,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     void * sock = NULL;
     int rc;
     Rhizofs__Response * response = NULL;
-    zmq_msg_t msg_req;
-    zmq_msg_t msg_resp;
+    zmq_msg_t * msg_req = NULL;
+    zmq_msg_t * msg_resp = NULL;
     struct fuse_context * fcontext = fuse_get_context();
 
     (*err) = 0;
@@ -145,15 +143,17 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         goto error;
     };
 
-    if (Request_pack(req, &msg_req) != 0) {
+    msg_req = calloc(sizeof(zmq_msg_t), 1);
+    check_mem(msg_req);
+
+    if (Request_pack(req, msg_req) != 0) {
         log_err("Could not pack request");
         (*err) = errno;
         goto error;
     }
 
     do {
-        rc = zmq_send(sock, &msg_req, 0);
-
+        rc = zmq_send(sock, msg_req, 0);
         if (rc != 0) {
             if ((errno == EAGAIN) || (errno == EFSM)) {
                 /* sleep for a short time before retiying
@@ -180,7 +180,10 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         { sock, 0, ZMQ_POLLIN, 0 }
     };
 
-    if (zmq_msg_init(&msg_resp) != 0) {
+    msg_resp = calloc(sizeof(zmq_msg_t), 1);
+    check_mem(msg_resp);
+
+    if (zmq_msg_init(msg_resp) != 0) {
         log_err("Could not initialize response message");
         (*err) = ENOMEM;
         goto error;
@@ -192,9 +195,9 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
         if (pollset[0].revents & ZMQ_POLLIN) {
-            rc = zmq_recv(sock, &msg_resp, 0);
+            rc = zmq_recv(sock, msg_resp, 0);
             if (rc == 0) {  /* successfuly recieved response */
-                response = Response_from_message(&msg_resp);
+                response = Response_from_message(msg_resp);
                 if (response == NULL) {
                     log_err("Could not unpack response");
                     (*err) = EIO;
@@ -223,15 +226,23 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     /* close request after recieving relpy as it sure 0mq does not
      * hold a reference anymore */
-    zmq_msg_close(&msg_req);
+    zmq_msg_close(msg_req);
+    free(msg_req);
+    zmq_msg_close(msg_resp);
+    free(msg_resp);
 
-    zmq_msg_close(&msg_resp);
     (*err) = Response_get_errno(response);
     return response;
 
 error:
-    zmq_msg_close(&msg_resp);
-    zmq_msg_close(&msg_req);
+    if (msg_req != NULL) {
+        zmq_msg_close(msg_req);
+        free(msg_req);
+    }
+    if (msg_resp != NULL) {
+        zmq_msg_close(msg_resp);
+        free(msg_resp);
+    }
     return NULL;
 }
 
@@ -466,7 +477,7 @@ error:
     return -returned_err;
 }
 
-
+/*
 static int
 Rhizofs_release(const char *path, struct fuse_file_info *fi)
 {
@@ -486,7 +497,7 @@ Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
 
     return 0;
 }
-
+*/
 
 static int
 Rhizofs_read(const char *path, char *buf, size_t size,
@@ -536,8 +547,10 @@ static struct fuse_operations rhizofs_oper = {
     .unlink     = Rhizofs_unlink,
     .access     = Rhizofs_access,
     .open       = Rhizofs_open,
+/*
     .release    = Rhizofs_release,
     .fsync      = Rhizofs_fsync,
+*/
     .read       = Rhizofs_read,
 };
 
@@ -552,7 +565,7 @@ void
 Rhizofs_usage(const char * progname)
 {
     fprintf(stderr,
-        "usage: %s socket mountpoint [options]\n"
+        "usage: %s SOCKET MOUNTPOINT [options]\n"
         "\n"
         "general options:\n"
         "    -h   --help      print help\n"
