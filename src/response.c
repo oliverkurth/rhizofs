@@ -87,7 +87,7 @@ Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
     check_mem(datablock);
 
     check(( DataBlock_set_data(datablock, data, len,
-           RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) == 0), "could not set response data");
+           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == 0), "could not set response data");
 
     (*response)->datablock = datablock;
 
