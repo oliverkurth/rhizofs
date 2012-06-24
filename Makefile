@@ -22,10 +22,10 @@ dev: all
 build:
 	@[ -d bin ] || mkdir bin
 
-bin/rhizosrv: ${SERVER_OBJECTS}
+bin/rhizosrv: ${SERVER_OBJECTS} build
 	$(CC) -o bin/rhizosrv ${SERVER_OBJECTS} $(CFLAGS) $(LIBS)
 
-bin/rhizofs: ${FS_OBJECTS}
+bin/rhizofs: ${FS_OBJECTS} build
 	$(CC) -o bin/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
 
 %.o: %.c
