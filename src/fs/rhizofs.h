@@ -10,6 +10,7 @@
 #include "../mapping.h"
 #include "../request.h"
 #include "../response.h"
+#include "../datablock.h"
 #include "socketpool.h"
 #include "../version.h"
 

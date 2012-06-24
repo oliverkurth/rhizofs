@@ -43,6 +43,22 @@ enum Errno {
     ERRNO_UNSERIALIZABLE = 16;
 };
 
+enum CompressionType {
+    COMPR_NONE = 0;
+    COMPR_LZ4 = 1;
+};
+
+message DataBlock {
+
+    // the (uncompressed) size of the data
+    required int64 size = 1;
+
+    // the data itself
+    required bytes data = 2;
+
+    // compression-method used
+    required CompressionType compression = 3 [default = COMPR_NONE];
+};
 
 message Attrs {
     // filesire in bytes
@@ -76,7 +92,7 @@ message Request {
 
     optional int32 openflags = 6;
 
-    optional bytes data = 7;
+    optional DataBlock datablock = 7;
 
     // number of bytes to read
     optional int32 read_size = 8;
@@ -97,5 +113,5 @@ message Response {
     // attrs -- returned after getattr request
     optional Attrs attrs = 5;
 
-    optional bytes data = 6;
+    optional DataBlock datablock = 6;
 }

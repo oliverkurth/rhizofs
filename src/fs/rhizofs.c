@@ -520,11 +520,10 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     response = Rhizofs_communicate(request, &returned_err);
     check((returned_err == 0), "Server reported an error");
     check((response != NULL), "communicate failed");
-    check((response->has_data != 0), "Server did send no data in response");
+    check((Response_has_data(response) != 0), "Server did send no data in response");
 
-    debug("read %d bytes of data from server", (int)response->data.len);
-    memcpy(buf, (char*)response->data.data, response->data.len);
-    size_read = response->data.len;
+    size_read = DataBlock_get_data_noalloc(response->datablock, (char*)buf, size);
+    check((size_read > 0), "Could not read data");
 
     Request_destroy(request);
     Response_from_message_destroy(response);

@@ -47,4 +47,12 @@ Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 
 void Response_from_message_destroy(Rhizofs__Response * response);
 
+/**
+ * check if a response has any data associated with it
+ *
+ * returns the lenght of the if there is data, and -1 if there
+ * is no datablock
+ */
+int Response_has_data(Rhizofs__Response * response);
+
 #endif /* __server_response_h__ */

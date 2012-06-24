@@ -1,4 +1,5 @@
 #include "response.h"
+#include "datablock.h"
 
 #include "dbg.h"
 
@@ -45,10 +46,8 @@ Response_destroy(Rhizofs__Response * response)
         free(response->directory_entries);
     }
 
-    if (response->has_data != 0) {
-        if (response->data.data != NULL) {
-            free(response->data.data);
-        }
+    if (response->datablock != NULL) {
+        DataBlock_destroy(response->datablock);
     }
 
     free(response->version);
@@ -80,15 +79,22 @@ error:
 int
 Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
 {
-    check(((*response)->has_data == 0), "Response has aleady a data block");
+    Rhizofs__DataBlock * datablock = NULL;
 
-    (*response)->data.len = len;
-    (*response)->data.data = data;
-    (*response)->has_data = 1;
+    check(((*response)->datablock == NULL), "Response has aleady a data block");
+
+    datablock = DataBlock_create();
+    check_mem(datablock);
+
+    check(( DataBlock_set_data(datablock, data, len,
+           RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) == 0), "could not set response data");
+
+    (*response)->datablock = datablock;
 
     return 0;
 
 error:
+    DataBlock_destroy(datablock);
     return -1;
 }
 
@@ -133,3 +139,15 @@ Response_from_message_destroy(Rhizofs__Response * response)
     }
 }
 
+
+int
+Response_has_data(Rhizofs__Response * response)
+{
+    if (response != NULL) {
+        if (response->datablock != NULL) {
+            return response->datablock->size;;
+        }
+    }
+
+    return -1;
+}

@@ -1,3 +1,15 @@
+Roadmap
+-------
+
+* support more of the fuse methods
+* DataBlock messagetype supporting LZ4 compression
+* better logging to also support syslog (for fuse filesystem implementation)
+* Wrap permission bitmask in protobuf message object
+* replace usage of threads in server with libev
+
+
+Links
+-----
 
 errno thread safety
     Yes, errno is thread-safe on all platforms that support POSIX

@@ -1,69 +1,53 @@
-WAF=./waf
+CFLAGS=-g -Wall -Isrc -I. $(shell pkg-config fuse --cflags) -O2
+LIBS=-lzmq -lprotobuf-c -lpthread
+FUSE_LIBS=$(shell pkg-config fuse --libs)
 
-.PHONY: force
+# tools
+PROTOCC=protoc-c
+PROTOC=protoc
+#CC=clang
 
-default: release
-
-clean: force
-	$(WAF) clean
-
-distclean: force
-	$(WAF) distclean
-
-debug: force
-	$(WAF) build_debug
-
-release: force
-	$(WAF) build_release
-
-install: force
-	$(WAF) install_release
-
-install_debug: force
-	$(WAF) install_debug
-
-all: build debug
-
-deb:
-	dpkg-buildpackage -us -uc -b -i.git -I.git
-
-# DEVELOPMENT targets ###############################################
-
-VALGRIND=valgrind
-VALGRIND_OPTS=--leak-check=full --show-reachable=yes --track-origins=yes
-TEST_MOUNTPOINT=/tmp/rhizo-mp
-SPLINT=splint
-CPPCHECK=cppcheck
-SOCKET_NAME=tcp://0.0.0.0:11555
-
-valgrind-fs: debug
-	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
-	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
-
-callgrind-fs: debug
-	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
-	$(VALGRIND) --tool=callgrind ./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
+# input files
+SERVER_SOURCES=$(wildcard src/util/*.c src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c
+SERVER_OBJECTS=$(patsubst %.c,%.o,${SERVER_SOURCES})
+FS_SOURCES=$(wildcard src/util/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
+FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
-run-fs: debug
-	[ -d $(TEST_MOUNTPOINT) ] || mkdir $(TEST_MOUNTPOINT)
-	./build/debug/rhizofs -f $(SOCKET_NAME) $(TEST_MOUNTPOINT)
+all: build proto bin/rhizosrv bin/rhizofs testtool
 
-valgrind-srv: debug
-	$(VALGRIND) $(VALGRIND_OPTS) ./build/debug/rhizosrv $(SOCKET_NAME) .
+dev: CFLAGS+=-Wextra -DDEBUG -O0
+dev: all
 
-run-srv: debug
-	./build/debug/rhizosrv $(SOCKET_NAME) .
+build:
+	@[ -d bin ] || mkdir bin
+
+bin/rhizosrv: ${SERVER_OBJECTS}
+	$(CC) -o bin/rhizosrv ${SERVER_OBJECTS} $(CFLAGS) $(LIBS)
+
+bin/rhizofs: ${FS_OBJECTS}
+	$(CC) -o bin/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 
-splint:
-	@# need to add the build directory for the generated protobuf-c code
-	find src/ -name '*.c' -o -name '*.h' | xargs $(SPLINT) \
-		-I src \
-		-I build/debug/src \
-		-posix-strict-lib
+proto: src/proto/rhizofs.pb-c.c
 
-cppcheck:
-	$(CPPCHECK) -q --enable=all \
-		-I src -I build/debug/src \
-		src build/debug/src
+src/proto/rhizofs.pb-c.c:
+	$(PROTOCC) --c_out=./ src/proto/rhizofs.proto
+
+clean:
+	rm -f src/proto/*.c src/proto/*.h ${SERVER_OBJECTS} ${FS_OBJECTS}
+	rm -rf bin
+	rm -f testtool/rhizofs_pb.py
+
+.PHONY: testtool src/proto/rhizofs.pb-c.c
+
+testtool:
+	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto
+	mv ./testtool/src/proto/* ./testtool
+	rmdir ./testtool/src/proto ./testtool/src
+
+valgrind-srv: dev bin/rhizosrv
+	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/

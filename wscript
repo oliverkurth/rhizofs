@@ -63,7 +63,7 @@ def configure(conf):
     conf.set_env_name('release', v_release)
     conf.setenv('release')
     conf.env = v_release # seems to be necessary
-    conf.env.CFLAGS = ['-Wall', '-O3']
+    conf.env.CFLAGS = ['-Wall', '-O3', '-std=C99']
     conf.env.NAME = 'release'
 
     # debug variant
@@ -71,7 +71,7 @@ def configure(conf):
     conf.set_env_name('debug', v_debug)
     conf.setenv('debug')
     conf.env = v_debug  # seems to be necessary
-    conf.env.CFLAGS = ['-Wall', '-Wextra', '-O0', '-DDEBUG=1']
+    conf.env.CFLAGS = ['-Wall', '-Wextra', '-O0', '-DDEBUG=1', '-std=C99']
     conf.env.NAME = 'debug'
 
 
