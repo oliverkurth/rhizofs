@@ -48,6 +48,29 @@ enum CompressionType {
     COMPR_LZ4 = 1;
 };
 
+enum FileType {
+    DIRECTORY = 0;
+    CHARACTER_DEVICE = 1;
+    BLOCK_DEVICE = 2;
+    REGULAR_FILE = 3;
+    FIFO = 4;
+    SYMLINK = 5;
+    SOCKET = 6;
+};
+
+message PermTriple {
+    required bool read = 1;
+    required bool write = 2;
+    required bool execute = 3;
+};
+
+message Permissions {
+    required PermTriple owner = 1;
+    required PermTriple group = 2;
+    required PermTriple world = 3;
+};
+
+
 message DataBlock {
 
     // the (uncompressed) size of the data
