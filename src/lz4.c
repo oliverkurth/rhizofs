@@ -54,7 +54,7 @@
 // Since the compression function stops working prematurely, it results in a speed gain
 // The output however is unusable. Compression function result will be zero.
 // Default : 0 = disabled
-#define LZ4_COMPRESSMIN 0
+#define LZ4_COMPRESSMIN 20
 
 // BIG_ENDIAN_NATIVE_BUT_INCOMPATIBLE :
 // This will provide a boost to performance for big endian cpu, but the resulting compressed stream will be incompatible with little-endian CPU.

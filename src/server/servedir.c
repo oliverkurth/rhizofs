@@ -599,12 +599,14 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         }
 
         if (bytes_read != -1) {
-            Response_set_data(&response, databuf, (size_t)bytes_read); // TODO: check
+            check((Response_set_data(&response, databuf, (size_t)bytes_read) == 0),
+                    "could not set response data"); 
         }
         else {
             Response_set_errno(&response, errno);
             debug("Could not read from on %s", path);
             free(databuf);
+            databuf = NULL;
         }
         close(fd);
     }

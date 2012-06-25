@@ -1,1 +1,3 @@
 source: http://code.google.com/p/lz4
+
+LZ4_COMPRESSMIN must be set to 20

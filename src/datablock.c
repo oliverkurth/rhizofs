@@ -18,6 +18,8 @@ DataBlock_create()
     datablock = calloc(sizeof(Rhizofs__DataBlock), 1);
     check_mem(datablock);
     rhizofs__data_block__init(datablock);
+    datablock->data.data = NULL;
+    datablock->data.len = 0;
 
     return datablock;
 
@@ -33,9 +35,11 @@ DataBlock_destroy(Rhizofs__DataBlock * dblk)
     if (dblk != NULL) {
         if (dblk->data.data != NULL) {
             free(dblk->data.data);
+            dblk->data.data = NULL;
         }
         free(dblk);
     }
+    dblk = NULL;
 }
 
 int
@@ -49,11 +53,20 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
             dblk->data.len = len;
             dblk->data.data = data;
+            dblk->compression = compression;
             break;
 
         case RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4:
             {
-                check(set_lz4_compressed_data(dblk, data, len), "could not lz4 compress");
+                if (set_lz4_compressed_data(dblk, data, len) == 0) {
+                    dblk->compression = compression;
+                }
+                else {
+                    debug("could not lz4 compress - fallback to use no compression");
+                    dblk->data.len = len;
+                    dblk->data.data = data;
+                    dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+                }
             }
             break;
 
@@ -62,10 +75,19 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
     }
 
     dblk->size = len;
-    dblk->compression = compression;
     return 0;
 
 error:
+
+    if (data) {
+        free(data);
+        data=NULL;
+    }
+
+    if (dblk) {
+        dblk->data.data = NULL;
+        dblk->data.len = 0;
+    }
     return -1;
 }
 
@@ -101,6 +123,7 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t * data)
 error:
     if (data != NULL) {
         free(data);
+        data = NULL;
     }
     return -1;
 }
@@ -182,7 +205,7 @@ error:
  *
  * returns 0 on success and -1 on failure
  **/
-static int
+int
 set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t len)
 {
     size_t bytes_compressed = 0;
@@ -190,21 +213,24 @@ set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t 
     check((dblk != NULL), "passed datablock is null");
     check((data != NULL), "passed data is null");
 
-    dblk->data.data = calloc(sizeof(uint8_t), len);
+    dblk->data.data = calloc(sizeof(uint8_t), len); /// TODO: GETS LOST -- already allocated???
     check_mem(dblk->data.data);
 
     bytes_compressed = LZ4_compress((const char*)data, (char*)dblk->data.data, len);
-    check((bytes_compressed != 0), "LZ4_compress failed");
+    check_debug((bytes_compressed != 0), "LZ4_compress failed");
 
     dblk->data.len = bytes_compressed;
 
     free(data);
+    data = NULL;
 
     return bytes_compressed;
 
 error:
-    if (dblk) {
+    if (dblk != NULL) {
         free(dblk->data.data);
+        dblk->data.data = NULL;
+        dblk->data.len = 0;
     }
     return -1;
 }
@@ -231,7 +257,7 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
                 (char*)data, len);
     check((bytes_uncompressed >= 0), "LZ4_uncompress failed");
     check((dblk->data.len == bytes_uncompressed), "could not decompress the whole block "
-                "(only %ld bytes of %ld bytes)", bytes_uncompressed, dblk->data.len);
+                "(only %d bytes of %ld bytes)", bytes_uncompressed, dblk->data.len);
 
     return len;
 
