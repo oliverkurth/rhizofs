@@ -1,4 +1,13 @@
-CFLAGS=-g -Wall -Isrc -I. $(shell pkg-config fuse --cflags) -O2
+CFLAGS=-g \
+	-Wall \
+	-Wextra \
+	-Wno-format-extra-args \
+	-Wformat-nonliteral \
+	-Wformat-security \
+	-Wformat=2 \
+	-Isrc \
+	-I. $(shell pkg-config fuse --cflags)
+
 LIBS=-lzmq -lprotobuf-c -lpthread
 FUSE_LIBS=$(shell pkg-config fuse --libs)
 
@@ -14,10 +23,13 @@ FS_SOURCES=$(wildcard src/util/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
-all: build proto bin/rhizosrv bin/rhizofs testtool
+release: CFLAGS+=-DNDEBUG -O2
+release: all
 
-dev: CFLAGS+=-Wextra -DDEBUG -O0
+dev: CFLAGS+=-DDEBUG -O0
 dev: all
+
+all: build proto bin/rhizosrv bin/rhizofs testtool
 
 build:
 	@[ -d bin ] || mkdir bin
