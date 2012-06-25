@@ -58,7 +58,7 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
 
         case RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4:
             {
-                if (set_lz4_compressed_data(dblk, data, len) == 0) {
+                if (set_lz4_compressed_data(dblk, data, len) != -1) {
                     dblk->compression = compression;
                 }
                 else {
