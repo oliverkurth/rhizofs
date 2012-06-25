@@ -43,9 +43,8 @@ static SocketPool socketpool;
 
 #define CREATE_REQUEST(R) R = Request_create(); \
     if (R == NULL ) { \
-        log_err("Could not create Request"); \
         returned_err = ENOMEM; \
-        goto error; \
+        log_and_error("Could not create Request"); \
     }
 
 
@@ -138,18 +137,16 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     /* get a socket from the socketpool, return an errno on failure */
     sock = SocketPool_get_socket(&socketpool);
     if (sock == NULL) {
-        log_err("Could not fetch socket from socketpool");
         (*err) = ENOTSOCK; /* Socket operation on non-socket */
-        goto error;
+        log_and_error("Could not fetch socket from socketpool");
     };
 
     msg_req = calloc(sizeof(zmq_msg_t), 1);
     check_mem(msg_req);
 
     if (Request_pack(req, msg_req) != 0) {
-        log_err("Could not pack request");
         (*err) = errno;
-        goto error;
+        log_and_error("Could not pack request");
     }
 
     do {
@@ -163,15 +160,14 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
                 usleep(SEND_SLEEP_USEC);
 
                 if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
-                    log_info("The request has been interrupted");
                     (*err) = EINTR;
+                    log_info("The request has been interrupted");
                     goto error;
                 }
             }
             else {
-                log_err("Could not send request [errno: %d]", errno);
                 (*err) = EIO;
-                goto error;
+                log_and_error("Could not send request [errno: %d]", errno);
             }
         }
     } while (rc != 0);
@@ -184,9 +180,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     check_mem(msg_resp);
 
     if (zmq_msg_init(msg_resp) != 0) {
-        log_err("Could not initialize response message");
         (*err) = ENOMEM;
-        goto error;
+        log_and_error("Could not initialize response message");
     }
 
     rc = 1; /* set to an non-zero value to prevent exit of loop
@@ -199,16 +194,14 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
             if (rc == 0) {  /* successfuly recieved response */
                 response = Response_from_message(msg_resp);
                 if (response == NULL) {
-                    log_err("Could not unpack response");
                     (*err) = EIO;
-                    goto error;
+                    log_and_error("Could not unpack response");
                 }
             }
 
             else {
-                log_err("Failed to recieve response from server");
                 (*err) = EIO;
-                goto error;
+                log_and_error("Failed to recieve response from server");
             }
         }
         else {
