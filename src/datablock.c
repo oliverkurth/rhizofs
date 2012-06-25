@@ -256,7 +256,7 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
     bytes_uncompressed = LZ4_uncompress((const char*)dblk->data.data,
                 (char*)data, len);
     check((bytes_uncompressed >= 0), "LZ4_uncompress failed");
-    check((dblk->data.len == bytes_uncompressed), "could not decompress the whole block "
+    check((dblk->data.len == (size_t)bytes_uncompressed), "could not decompress the whole block "
                 "(only %d bytes of %ld bytes)", bytes_uncompressed, dblk->data.len);
 
     return len;

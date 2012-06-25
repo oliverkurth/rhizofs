@@ -522,7 +522,7 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     check((response != NULL), "communicate failed");
     check((Response_has_data(response) != 0), "Server did send no data in response");
 
-    size_read = DataBlock_get_data_noalloc(response->datablock, (char*)buf, size);
+    size_read = DataBlock_get_data_noalloc(response->datablock, (uint8_t *)buf, size);
     check((size_read > 0), "Could not read data");
 
     Request_destroy(request);
