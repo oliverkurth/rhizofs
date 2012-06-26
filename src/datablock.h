@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "proto/rhizofs.pb-c.h"
 
 
@@ -27,9 +28,9 @@ void DataBlock_destroy(Rhizofs__DataBlock * dblk);
  * the allocated memory of passed data pointer
  * and will free it
  *
- * returns 0 on success and -1 on failure
+ * returns true on success and false on failure
  */
-int DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data, 
+bool DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data, 
         size_t len, Rhizofs__CompressionType compression);
 
 

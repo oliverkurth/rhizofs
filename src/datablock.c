@@ -42,7 +42,7 @@ DataBlock_destroy(Rhizofs__DataBlock * dblk)
     dblk = NULL;
 }
 
-int
+bool
 DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data, 
         size_t len, Rhizofs__CompressionType compression)
 {
@@ -75,7 +75,7 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
     }
 
     dblk->size = len;
-    return 0;
+    return true;
 
 error:
 
@@ -88,7 +88,7 @@ error:
         dblk->data.data = NULL;
         dblk->data.len = 0;
     }
-    return -1;
+    return false;
 }
 
 
@@ -203,7 +203,8 @@ error:
 /**
  * compress the given data into the datablock
  *
- * returns 0 on success and -1 on failure
+ * returns the number of compressed bytes on success 
+ * and -1 on failure
  **/
 int
 set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t len)

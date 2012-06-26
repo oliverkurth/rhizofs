@@ -1,5 +1,16 @@
 #include "servedir.h"
+
 #include "../dbg.h"
+
+#include <limits.h> /* for PATH_MAX */
+#include <stdbool.h>
+
+
+#if !defined PATH_MAX && defined _PC_PATH_MAX
+#define PATH_MAX (pathconf ("/", _PC_PATH_MAX) < 1 ? 4096 \
+            : pathconf ("/", _PC_PATH_MAX))
+#endif
+
 
 /* check for memory and set response error on failure */
 #define check_mem_response(A) if(!(A)) { \
@@ -598,7 +609,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         }
 
         if (bytes_read != -1) {
-            check((Response_set_data(&response, databuf, (size_t)bytes_read) == 0),
+            check((Response_set_data(&response, databuf, (size_t)bytes_read) == true),
                     "could not set response data"); 
         }
         else {
