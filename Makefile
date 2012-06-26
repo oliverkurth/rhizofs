@@ -1,12 +1,14 @@
-CFLAGS=-g \
-	-Wall \
+CFLAGS= -Wall \
 	-Wextra \
 	-Wno-format-extra-args \
 	-Wformat-nonliteral \
 	-Wformat-security \
 	-Wformat=2 \
 	-Isrc \
+	-std=c99 \
+	-D_XOPEN_SOURCE=500 \
 	-I. $(shell pkg-config fuse --cflags)
+	#-D_BSD_SOURCE \
 
 LIBS=-lzmq -lprotobuf-c -lpthread
 FUSE_LIBS=$(shell pkg-config fuse --libs)
@@ -26,7 +28,7 @@ FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 release: CFLAGS+=-DNDEBUG -O2
 release: all
 
-dev: CFLAGS+=-DDEBUG -O0
+dev: CFLAGS+=-DDEBUG -O0 -g
 dev: all
 
 all: build proto bin/rhizosrv bin/rhizofs testtool
@@ -54,7 +56,7 @@ clean:
 	rm -rf bin
 	rm -f testtool/rhizofs_pb.py
 
-.PHONY: testtool src/proto/rhizofs.pb-c.c
+.PHONY: testtool src/proto/rhizofs.pb-c.c build
 
 testtool:
 	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto

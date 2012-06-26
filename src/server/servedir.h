@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <limits.h> /* for PATH_MAX */
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>

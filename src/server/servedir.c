@@ -1,5 +1,15 @@
 #include "servedir.h"
+
 #include "../dbg.h"
+
+#include <limits.h> /* for PATH_MAX */
+
+
+#if !defined PATH_MAX && defined _PC_PATH_MAX
+#define PATH_MAX (pathconf ("/", _PC_PATH_MAX) < 1 ? 4096 \
+            : pathconf ("/", _PC_PATH_MAX))
+#endif
+
 
 /* check for memory and set response error on failure */
 #define check_mem_response(A) if(!(A)) { \
