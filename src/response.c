@@ -76,7 +76,7 @@ error:
 }
 
 
-int
+bool
 Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
 {
     Rhizofs__DataBlock * datablock = NULL;
@@ -87,15 +87,15 @@ Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
     check_mem(datablock);
 
     check(( DataBlock_set_data(datablock, data, len,
-           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == 0), "could not set response data");
+           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == true), "could not set datablock data");
 
     (*response)->datablock = datablock;
 
-    return 0;
+    return true;
 
 error:
     DataBlock_destroy(datablock);
-    return -1;
+    return false;
 }
 
 

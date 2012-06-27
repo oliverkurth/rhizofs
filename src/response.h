@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <zmq.h>
 #include "version.h"
@@ -40,8 +41,10 @@ int Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
 /**
  * will not make a copy of the data block, but destroying the response will also
  * free the data
+ *
+ * returns true on success, otherwise false
  */
-int Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len);
+bool Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len);
 
 Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 

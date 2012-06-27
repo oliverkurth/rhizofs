@@ -49,11 +49,10 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
     check((dblk != NULL), "passed datablock is null");
     check((len != 0), "passed length of datablock is 0");
 
+    bool compression_failed = false;
     switch (compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
-            dblk->data.len = len;
-            dblk->data.data = data;
-            dblk->compression = compression;
+            // skip. data will be added in fallback
             break;
 
         case RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4:
@@ -62,10 +61,8 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
                     dblk->compression = compression;
                 }
                 else {
-                    debug("could not lz4 compress - fallback to use no compression");
-                    dblk->data.len = len;
-                    dblk->data.data = data;
-                    dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+                    compression_failed = true;
+                    debug("could not lz4 compress");
                 }
             }
             break;
@@ -73,6 +70,19 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
         default:
             log_and_error("Unsupported compression type %d", compression);
     }
+
+    // fallback to no compression
+    if ((compression == RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) || (compression_failed == true )) {
+        dblk->data.len = len;
+        dblk->data.data = data;
+        dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+    }
+
+#ifdef DEBUG
+    if (len != 0) {
+        debug("compressed datablock to %d%% of original size", ((100*dblk->data.len) / len));
+    }
+#endif
 
     dblk->size = len;
     return true;
