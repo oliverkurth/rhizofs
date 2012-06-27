@@ -77,11 +77,11 @@ error:
 
 
 bool
-Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
+Response_set_data(Rhizofs__Response * response, uint8_t * data, size_t len)
 {
     Rhizofs__DataBlock * datablock = NULL;
 
-    check(((*response)->datablock == NULL), "Response has aleady a data block");
+    check((response->datablock == NULL), "Response has aleady a data block");
 
     datablock = DataBlock_create();
     check_mem(datablock);
@@ -89,7 +89,7 @@ Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len)
     check(( DataBlock_set_data(datablock, data, len,
            RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == true), "could not set datablock data");
 
-    (*response)->datablock = datablock;
+    response->datablock = datablock;
 
     return true;
 
@@ -100,12 +100,12 @@ error:
 
 
 void
-Response_set_errno(Rhizofs__Response ** response, int eno)
+Response_set_errno(Rhizofs__Response * response, int eno)
 {
     int perrno = mapping_errno_to_protocol(eno);
 
     debug("Setting protocol errno %d", perrno);
-    (*response)->errnotype = perrno;
+    response->errnotype = perrno;
 }
 
 
@@ -124,8 +124,8 @@ Response_from_message(zmq_msg_t *msg)
     debug("Response is %d bytes long", (int)zmq_msg_size(msg));
 
     response = rhizofs__response__unpack(NULL,
-        zmq_msg_size(&(*msg)),
-        zmq_msg_data(&(*msg)));
+        zmq_msg_size(msg),
+        zmq_msg_data(msg));
 
     return response;
 }

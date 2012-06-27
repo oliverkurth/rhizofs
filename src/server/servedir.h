@@ -35,18 +35,18 @@ void ServeDir_destroy(ServeDir * sd);
 int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath);
 
 /* actions */
-int ServeDir_op_ping(Rhizofs__Response **resp);
-int ServeDir_op_invalid(Rhizofs__Response **resp);
+int ServeDir_op_ping(Rhizofs__Response * response);
+int ServeDir_op_invalid(Rhizofs__Response * response);
 
 /* filesystem actions */
-int ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
-int ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp);
+int ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+int ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
 
 #endif /* __server_servedir_h__ */

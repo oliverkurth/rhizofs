@@ -20,7 +20,7 @@ void Response_destroy(Rhizofs__Response * response);
  * setting will convert the value to the corresponding protocol-errno
  * value
  */
-void Response_set_errno(Rhizofs__Response ** response, int eno);
+void Response_set_errno(Rhizofs__Response * response, int eno);
 
 
 /**
@@ -44,7 +44,7 @@ int Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
  *
  * returns true on success, otherwise false
  */
-bool Response_set_data(Rhizofs__Response ** response, uint8_t * data, size_t len);
+bool Response_set_data(Rhizofs__Response * response, uint8_t * data, size_t len);
 
 Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 

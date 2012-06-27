@@ -24,8 +24,10 @@
 ServeDir *
 ServeDir_create(void *context, char *socket_name, char *directory)
 {
-    ServeDir * sd = (ServeDir *)calloc(sizeof(ServeDir), 1);
+    ServeDir * sd = NULL;
+    sd = (ServeDir *)calloc(sizeof(ServeDir), 1);
     check_mem(sd);
+
     sd->socket = NULL;
     sd->directory = NULL;
     struct stat sr;
@@ -83,7 +85,7 @@ ServeDir_serve(ServeDir * sd)
     zmq_msg_t msg_req;
     zmq_msg_t msg_rep;
     int term_loop = 0;
-    Rhizofs__Request *request;
+    Rhizofs__Request *request = NULL;
     Rhizofs__Response *response = NULL;
 
     debug("Serving directory <%s> on <%s>", sd->directory, sd->socket_name);
@@ -116,48 +118,48 @@ ServeDir_serve(ServeDir * sd)
                 switch(request->requesttype) {
 
                     case RHIZOFS__REQUEST_TYPE__PING:
-                        op_rc = ServeDir_op_ping(&response);
+                        op_rc = ServeDir_op_ping(response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__READDIR:
-                        op_rc = ServeDir_op_readdir(sd, request, &response);
+                        op_rc = ServeDir_op_readdir(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__RMDIR:
-                        op_rc = ServeDir_op_rmdir(sd, request, &response);
+                        op_rc = ServeDir_op_rmdir(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__UNLINK:
-                        op_rc = ServeDir_op_unlink(sd, request, &response);
+                        op_rc = ServeDir_op_unlink(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__ACCESS:
-                        op_rc = ServeDir_op_access(sd, request, &response);
+                        op_rc = ServeDir_op_access(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__RENAME:
-                        op_rc = ServeDir_op_rename(sd, request, &response);
+                        op_rc = ServeDir_op_rename(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__MKDIR:
-                        op_rc = ServeDir_op_mkdir(sd, request, &response);
+                        op_rc = ServeDir_op_mkdir(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__GETATTR:
-                        op_rc = ServeDir_op_getattr(sd, request, &response);
+                        op_rc = ServeDir_op_getattr(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__OPEN:
-                        op_rc = ServeDir_op_open(sd, request, &response);
+                        op_rc = ServeDir_op_open(sd, request, response);
                         break;
 
                     case RHIZOFS__REQUEST_TYPE__READ:
-                        op_rc = ServeDir_op_read(sd, request, &response);
+                        op_rc = ServeDir_op_read(sd, request, response);
                         break;
 
                     default:
                         // dont know what to do with that request
-                        op_rc = ServeDir_op_invalid(&response);
+                        op_rc = ServeDir_op_invalid(response);
                 }
 
                 if (op_rc != 0) {
@@ -215,10 +217,8 @@ error:
 
 
 int
-ServeDir_op_ping(Rhizofs__Response **resp)
+ServeDir_op_ping(Rhizofs__Response * response)
 {
-    Rhizofs__Response * response = (*resp);
-
     debug("PING");
     response->requesttype = RHIZOFS__REQUEST_TYPE__PING;
 
@@ -227,10 +227,8 @@ ServeDir_op_ping(Rhizofs__Response **resp)
 
 
 int
-ServeDir_op_invalid(Rhizofs__Response **resp)
+ServeDir_op_invalid(Rhizofs__Response * response)
 {
-    Rhizofs__Response * response = (*resp);
-
     log_warn("INVALID REQUEST");
 
     // dont know what to do with that request
@@ -242,13 +240,12 @@ ServeDir_op_invalid(Rhizofs__Response **resp)
 
 
 int
-ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     DIR *dir = NULL;
     char * dirpath = NULL;
-    struct dirent *de;
+    struct dirent *de = NULL;
     size_t entry_count = 0;
-    Rhizofs__Response * response = (*resp);
 
     debug("READDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
@@ -258,7 +255,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     debug("requested directory path: %s", dirpath);
     dir = opendir(dirpath);
     if (dir == NULL) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not open directory %s", dirpath);
 
         free(dirpath);
@@ -307,10 +304,9 @@ error:
 
 
 int
-ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
-    Rhizofs__Response * response = (*resp);
 
     debug("RMDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
@@ -319,7 +315,7 @@ ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
             "Could not assemble directory path.");
     debug("requested directory path: %s", path);
     if (rmdir(path) == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not remove directory %s", path);
     }
 
@@ -333,10 +329,9 @@ error:
 
 
 int
-ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
-    Rhizofs__Response * response = (*resp);
 
     debug("UNLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
@@ -345,7 +340,7 @@ ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
             "Could not assemble file path.");
     debug("requested path: %s", path);
     if (unlink(path) == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not unlink %s", path);
     }
 
@@ -359,11 +354,10 @@ error:
 
 
 int
-ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
     mode_t localmode;
-    Rhizofs__Response * response = (*resp);
 
     debug("ACCESS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
@@ -380,7 +374,7 @@ ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
             "Could not assemble path.");
     debug("requested path: %s; accesmode: %o", path, localmode);
     if (access(path, localmode) == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not call access on %s", path);
     }
 
@@ -394,11 +388,10 @@ error:
 
 
 int
-ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path_from = NULL;
     char * path_to = NULL;
-    Rhizofs__Response * response = (*resp);
 
     debug("RENAME");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
@@ -417,7 +410,7 @@ ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
             "Could not assemble path.");
     debug("requested path: %s -> %s", path_from, path_to);
     if (rename(path_from, path_to) == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not rename %s to %s", path_from, path_to);
     }
 
@@ -433,11 +426,10 @@ error:
 
 
 int
-ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
     mode_t localmode;
-    Rhizofs__Response * response = (*resp);
 
     debug("MKDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
@@ -454,7 +446,7 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
             "Could not assemble path.");
     debug("requested path: %s", path);
     if (mkdir(path, localmode) == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not call mkdir on %s", path);
     }
 
@@ -469,12 +461,10 @@ error:
 
 
 int
-ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
     struct stat sb;
-
-    Rhizofs__Response * response = (*resp);
     Rhizofs__Attrs * attrs = NULL;
 
     debug("GETATTR");
@@ -511,10 +501,10 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         attrs->mtime = (int)sb.st_mtime;
         attrs->ctime = (int)sb.st_ctime;
 
-        response->attrs = &(*attrs);
+        response->attrs = attrs;
     }
     else {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not stat %s", path);
     }
 
@@ -531,12 +521,11 @@ error:
 
 
 int
-ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
     int openflags = 0;;
     int fd;
-    Rhizofs__Response * response = (*resp);
 
     debug("open");
     response->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
@@ -553,7 +542,7 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     debug("requested path: %s, openflags: %o", path, openflags);
     fd = open(path, openflags);
     if (fd == -1) {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not call open on %s", path);
     }
 
@@ -569,13 +558,12 @@ error:
 
 
 int
-ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response **resp)
+ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
     int fd = -1;
     ssize_t bytes_read;
     uint8_t * databuf = NULL;
-    Rhizofs__Response * response = (*resp);
 
     debug("READ");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READ;
@@ -609,11 +597,11 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         }
 
         if (bytes_read != -1) {
-            check((Response_set_data(&response, databuf, (size_t)bytes_read) == true),
+            check((Response_set_data(response, databuf, (size_t)bytes_read) == true),
                     "could not set response data"); 
         }
         else {
-            Response_set_errno(&response, errno);
+            Response_set_errno(response, errno);
             debug("Could not read from on %s", path);
             free(databuf);
             databuf = NULL;
@@ -621,7 +609,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         close(fd);
     }
     else {
-        Response_set_errno(&response, errno);
+        Response_set_errno(response, errno);
         debug("Could not call open on %s", path);
     }
 
