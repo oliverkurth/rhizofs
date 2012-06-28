@@ -19,8 +19,6 @@ enum {
 };
 
 
-#define RHIZOFS_OPT(t, p, v) { t, offsetof(RhizoSettings, p), v }
-
 static struct fuse_opt rhizo_opts[] = {
     FUSE_OPT_KEY("-V",             KEY_VERSION),
     FUSE_OPT_KEY("--version",      KEY_VERSION),
