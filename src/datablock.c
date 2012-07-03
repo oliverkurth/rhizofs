@@ -216,7 +216,7 @@ error:
  * returns the number of compressed bytes on success 
  * and -1 on failure
  **/
-int
+static int
 set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t len)
 {
     size_t bytes_compressed = 0;

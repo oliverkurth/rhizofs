@@ -79,7 +79,7 @@ ServeDir_destroy(ServeDir * sd)
 }
 
 
-int
+bool
 ServeDir_serve(ServeDir * sd)
 {
     zmq_msg_t msg_req;
@@ -169,14 +169,14 @@ ServeDir_serve(ServeDir * sd)
                 Request_from_message_destroy(request);
             }
 
-            zmq_msg_close (&msg_req);
+            zmq_msg_close(&msg_req);
 
             // serialize the reply
-            check((Response_pack(response, &msg_rep) == 0), "Could not pack message");
+            check((Response_pack(response, &msg_rep) == true), "Could not pack message");
 
             //  Send reply back to client
             check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
-            zmq_msg_close (&msg_rep);
+            zmq_msg_close(&msg_rep);
 
             Response_destroy(response);
         }
@@ -190,7 +190,7 @@ ServeDir_serve(ServeDir * sd)
     }
 
     debug("Exiting ServeDir_Serve");
-    return 0;
+    return true;
 
 error:
 
@@ -199,7 +199,7 @@ error:
 
     Response_destroy(response);
 
-    return -1;
+    return false;
 }
 
 

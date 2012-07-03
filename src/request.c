@@ -63,7 +63,7 @@ Request_destroy(Rhizofs__Request * request)
 }
 
 
-int
+bool
 Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
 {
     /* serialize the reply */
@@ -73,9 +73,9 @@ Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
     check((zmq_msg_init_size(msg, len) == 0), "Could not initialize message");
     check((rhizofs__request__pack(request, zmq_msg_data(msg)) == len), "Could not pack message");
 
-    return 0;
+    return true;
 
 error:
     zmq_msg_close(msg);
-    return -1;
+    return false;
 }

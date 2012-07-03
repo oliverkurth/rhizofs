@@ -57,7 +57,7 @@ Response_destroy(Rhizofs__Response * response)
 }
 
 
-int
+bool
 Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg)
 {
     /* serialize the reply */
@@ -68,11 +68,11 @@ Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg)
     check((rhizofs__response__pack(response, zmq_msg_data(msg)) == len),
             "Could not pack message");
 
-    return 0;
+    return true;
 
 error:
     zmq_msg_close(msg);
-    return -1;
+    return false;
 }
 
 

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <zmq.h>
 
@@ -21,9 +22,9 @@ void Request_destroy(Rhizofs__Request * request);
  * the message will be initialized to the correct size
  * and has to be zmq_msg_closed
  *
- * 0 = success
+ * true = success
  */
-int Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg);
+bool Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg);
 
 
 /**
