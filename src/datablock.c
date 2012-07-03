@@ -80,7 +80,7 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
 
 #ifdef DEBUG
     if (len != 0) {
-        debug("compressed datablock to %d%% of original size", ((100*dblk->data.len) / len));
+        debug("compressed datablock to %d%% of original size", (int)((100*dblk->data.len) / len));
     }
 #endif
 
@@ -224,7 +224,7 @@ set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t 
     check((dblk != NULL), "passed datablock is null");
     check((data != NULL), "passed data is null");
 
-    dblk->data.data = calloc(sizeof(uint8_t), len); /// TODO: GETS LOST -- already allocated???
+    dblk->data.data = calloc(sizeof(uint8_t), len);
     check_mem(dblk->data.data);
 
     bytes_compressed = LZ4_compress((const char*)data, (char*)dblk->data.data, len);

@@ -274,7 +274,8 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
 
-        response->directory_entries[response->n_directory_entries] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
+        response->directory_entries[response->n_directory_entries] =
+                    (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
         check_mem_response(response->directory_entries[response->n_directory_entries]);
         strcpy(response->directory_entries[response->n_directory_entries], de->d_name);
 
@@ -598,7 +599,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
         if (bytes_read != -1) {
             check((Response_set_data(response, databuf, (size_t)bytes_read) == true),
-                    "could not set response data"); 
+                    "could not set response data");
         }
         else {
             Response_set_errno(response, errno);
