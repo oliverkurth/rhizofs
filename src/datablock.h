@@ -24,13 +24,11 @@ void DataBlock_destroy(Rhizofs__DataBlock * dblk);
 /**
  * set the data of the datablock
  *
- * the function will take ownership of
- * the allocated memory of passed data pointer
- * and will free it
+ * the data will not be modified or freed
  *
  * returns true on success and false on failure
  */
-bool DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data, 
+bool DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data, 
         size_t len, Rhizofs__CompressionType compression);
 
 
@@ -42,7 +40,7 @@ bool DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
  *
  * returns the number of bytes of "data" or -1 on failure
  */
-int DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t * data);
+int DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data);
 
 
 /**

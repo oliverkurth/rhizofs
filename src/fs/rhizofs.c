@@ -449,7 +449,7 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->modemask = mapping_openflags_to_protocol(fi->flags);
+    request->openflags = mapping_openflags_to_protocol(fi->flags);
     request->has_openflags = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
 
@@ -501,8 +501,8 @@ Rhizofs_read(const char *path, char *buf, size_t size,
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->has_read_size = 1;
-    request->read_size = (int)size;
+    request->has_size = 1;
+    request->size = (int)size;
     request->has_offset = 1;
     request->offset = (int)offset;
     request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
@@ -526,6 +526,45 @@ error:
 
 }
 
+
+static int
+Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
+		      struct fuse_file_info * fi)
+{
+    FUSE_OP_HEAD;
+
+    int size_write = 0;
+    (void) fi;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->has_size = 1;
+    request->size = (int)size;
+    request->has_offset = 1;
+    request->offset = (int)offset;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
+    check((Request_set_data(request, (const uint8_t *) buf, (size_t)size) == true),
+            "could not set request data");
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check_debug((returned_err == 0), "Server reported an error");
+    check((response != NULL), "communicate failed");
+
+    check((response->has_size == 1), "response did not contain the number of bytes written");
+    size_write = response->size;
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return size_write;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
+
+
+
 static struct fuse_operations rhizofs_oper = {
     .readdir    = Rhizofs_readdir,
     .init       = Rhizofs_init,
@@ -541,6 +580,7 @@ static struct fuse_operations rhizofs_oper = {
     .fsync      = Rhizofs_fsync,
 */
     .read       = Rhizofs_read,
+    .write      = Rhizofs_write
 };
 
 

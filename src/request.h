@@ -40,4 +40,22 @@ Rhizofs__Request * Request_from_message(zmq_msg_t * msg);
  */
 void Request_from_message_destroy(Rhizofs__Request * request);
 
+/**
+ * passed data will not be freed
+ *
+ * returns true on success, otherwise false
+ */
+bool Request_set_data(Rhizofs__Request * response, const uint8_t * data, size_t len);
+
+/**
+ * check if a request has any data associated with it
+ *
+ * returns the length of the if there is data, and -1 if there
+ * is no datablock
+ */
+int Request_has_data(Rhizofs__Request * response);
+
+
+
+
 #endif /* __server_request_h__ */

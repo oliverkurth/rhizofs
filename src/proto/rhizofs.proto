@@ -21,6 +21,7 @@ enum RequestType {
     GETATTR = 10;
     OPEN = 11;
     READ = 12;
+    WRITE = 13;
 }
 
 enum Errno {
@@ -94,8 +95,8 @@ message Request {
 
     optional DataBlock datablock = 7;
 
-    // number of bytes to read
-    optional int32 read_size = 8;
+    // number of bytes to read/write
+    optional int32 size = 8;
     optional int32 offset = 9;
 }
 
@@ -114,4 +115,7 @@ message Response {
     optional Attrs attrs = 5;
 
     optional DataBlock datablock = 6;
+
+    // number of bytes to read/write
+    optional int32 size = 8;
 }

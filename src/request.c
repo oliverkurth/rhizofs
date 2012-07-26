@@ -1,4 +1,5 @@
 #include "request.h"
+#include "datablock.h"
 
 #include "dbg.h"
 
@@ -57,7 +58,13 @@ error:
 void
 Request_destroy(Rhizofs__Request * request)
 {
-    free(request->version);
+    if (request) {
+        free(request->version);
+        if (request->datablock != NULL) {
+            DataBlock_destroy(request->datablock);
+        }
+    }
+
     free(request);
     request = NULL;
 }
@@ -78,4 +85,40 @@ Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
 error:
     zmq_msg_close(msg);
     return false;
+}
+
+
+bool
+Request_set_data(Rhizofs__Request * request, const uint8_t * data, size_t len)
+{
+    Rhizofs__DataBlock * datablock = NULL;
+
+    check((request->datablock == NULL), "Request has aleady a data block");
+
+    datablock = DataBlock_create();
+    check_mem(datablock);
+
+    check(( DataBlock_set_data(datablock, data, len,
+           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == true), "could not set datablock data");
+
+    request->datablock = datablock;
+
+    return true;
+
+error:
+    DataBlock_destroy(datablock);
+    return false;
+}
+
+
+int
+Request_has_data(Rhizofs__Request * request)
+{
+    if (request != NULL) {
+        if (request->datablock != NULL) {
+            return request->datablock->size;;
+        }
+    }
+
+    return -1;
 }

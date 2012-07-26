@@ -77,7 +77,7 @@ error:
 
 
 bool
-Response_set_data(Rhizofs__Response * response, uint8_t * data, size_t len)
+Response_set_data(Rhizofs__Response * response, const uint8_t * data, size_t len)
 {
     Rhizofs__DataBlock * datablock = NULL;
 

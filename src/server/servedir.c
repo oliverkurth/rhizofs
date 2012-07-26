@@ -1,6 +1,7 @@
 #include "servedir.h"
 
 #include "../dbg.h"
+#include "../datablock.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
@@ -19,6 +20,9 @@
     log_and_error("Out of memory."); \
 }
 
+// default permissions for file creation. the same permission set is used
+// by the GNU coreutils touch command
+static const int default_file_creation_permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 
 ServeDir *
@@ -155,6 +159,10 @@ ServeDir_serve(ServeDir * sd)
 
                     case RHIZOFS__REQUEST_TYPE__READ:
                         op_rc = ServeDir_op_read(sd, request, response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__WRITE:
+                        op_rc = ServeDir_op_write(sd, request, response);
                         break;
 
                     default:
@@ -528,7 +536,7 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     int openflags = 0;;
     int fd;
 
-    debug("open");
+    debug("OPEN");
     response->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
 
     if (request->has_openflags == 0) {
@@ -541,10 +549,11 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
     debug("requested path: %s, openflags: %o", path, openflags);
-    fd = open(path, openflags);
+    fd = open(path, openflags, default_file_creation_permissions);
     if (fd == -1) {
         Response_set_errno(response, errno);
-        debug("Could not call open on %s", path);
+        debug("Could not call open on %s: %s", path, strerror(errno));
+        errno = 0;
     }
 
     close(fd);
@@ -569,7 +578,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     debug("READ");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
-    if (!request->has_read_size) {
+    if (!request->has_size) {
         log_err("the request did not specify size of buffer to read");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
@@ -586,15 +595,15 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     fd = open(path, O_RDONLY);
     if (fd != -1) {
 
-        databuf = calloc(sizeof(uint8_t), (int)request->read_size);
+        databuf = calloc(sizeof(uint8_t), (int)request->size);
         check_mem(databuf);
 
         if (request->offset == 0) {
             /* use read to enable reading from non-seekable files */
-            bytes_read = read(fd, databuf, (size_t)request->read_size);
+            bytes_read = read(fd, databuf, (size_t)request->size);
         }
         else {
-            bytes_read = pread(fd, databuf, (size_t)request->read_size, (off_t)request->offset);
+            bytes_read = pread(fd, databuf, (size_t)request->size, (off_t)request->offset);
         }
 
         if (bytes_read != -1) {
@@ -614,6 +623,10 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         debug("Could not call open on %s", path);
     }
 
+    if (databuf != NULL) {
+        free(databuf);
+    }
+
     free(path);
     return 0;
 
@@ -624,6 +637,76 @@ error:
     if (fd == -1) {
         close(fd);
     }
+    free(path);
+    return -1;
+}
+
+int
+ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    int fd = -1;
+    uint8_t * data = NULL;
+
+    debug("WRITE");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
+
+
+    if (!request->has_size) {
+        log_err("the request did not specify size of buffer to write");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+    if (!request->has_offset) {
+        log_err("the request did not specify a write offset");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+    if (Request_has_data(request) == -1) {
+        log_err("the request does not contain data");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+    fd = open(path, O_CREAT | O_WRONLY, default_file_creation_permissions ); // TODO: move to protocol
+    if (fd != -1) {
+        int bytes_in_block = DataBlock_get_data(request->datablock, &data);
+        check((bytes_in_block != -1), "Could not extract data from datablock")
+        check((data != NULL), "Extract data from datablock is NULL")
+        check((bytes_in_block == request->size), "the number of bytes in the datablock "
+                    "does not match the write requests size");
+
+        ssize_t bytes_written = pwrite(fd, data, (size_t)request->size, (off_t)request->offset);
+        if (bytes_written == -1) {
+            Response_set_errno(response, errno);
+            debug("Could not write %d bytes to %s", (int)request->size, path);
+            errno = 0;
+        }
+
+        response->has_size = 1;
+        response->size = (int)bytes_written;
+    }
+    else {
+        Response_set_errno(response, errno);
+        debug("Could not call open on %s", path);
+        errno = 0;
+    }
+
+    check((close(fd) != -1), "Could not close file opened for writing.");
+
+    free(data);
+    free(path);
+    return 0;
+
+error:
+
+    if (fd != -1) {
+        close(fd);
+    }
+    free(data);
     free(path);
     return -1;
 }

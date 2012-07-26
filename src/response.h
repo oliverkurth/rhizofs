@@ -25,6 +25,9 @@ void Response_set_errno(Rhizofs__Response * response, int eno);
 
 /**
  * set the local errno
+ *
+ * the value of the errno will be mapped to the corresponding 
+ * rhizofs protocol value
  */
 int Response_get_errno(const Rhizofs__Response * response);
 
@@ -39,12 +42,11 @@ int Response_get_errno(const Rhizofs__Response * response);
 bool Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
 
 /**
- * will not make a copy of the data block, but destroying the response will also
- * free the data
+ * may make a copy of the data. the "data" pointer itself will not be modified or freed.
  *
  * returns true on success, otherwise false
  */
-bool Response_set_data(Rhizofs__Response * response, uint8_t * data, size_t len);
+bool Response_set_data(Rhizofs__Response * response, const uint8_t * data, size_t len);
 
 Rhizofs__Response * Response_from_message(zmq_msg_t *msg);
 

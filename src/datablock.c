@@ -4,9 +4,9 @@
 #include "lz4.h"
 
 // prototypes
-static int get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc);
-static int set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t len);
-static int get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc);
+static int get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc);
+static int get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc);
+static int set_lz4_compressed_data(Rhizofs__DataBlock * dblk, const uint8_t * data, const size_t len);
 
 
 
@@ -42,8 +42,9 @@ DataBlock_destroy(Rhizofs__DataBlock * dblk)
     dblk = NULL;
 }
 
+
 bool
-DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data, 
+DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data, 
         size_t len, Rhizofs__CompressionType compression)
 {
     check((dblk != NULL), "passed datablock is null");
@@ -73,26 +74,25 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, uint8_t * data,
 
     // fallback to no compression
     if ((compression == RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) || (compression_failed == true )) {
+        dblk->data.data = NULL;
+        dblk->data.data = malloc((size_t)(len * sizeof(uint8_t)));
+        check_mem(dblk->data.data);
+        memcpy(dblk->data.data, data, (size_t)(len * sizeof(uint8_t)));
         dblk->data.len = len;
-        dblk->data.data = data;
         dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
     }
 
 #ifdef DEBUG
     if (len != 0) {
-        debug("compressed datablock to %d%% of original size", (int)((100*dblk->data.len) / len));
+        debug("compressed datablock to %d%% of original size (%db -> %db)",
+                (int)((100*dblk->data.len) / len), (int)len, (int)dblk->data.len);
     }
 #endif
 
-    dblk->size = len;
+    dblk->size = len; // uncompressed size of the data
     return true;
 
 error:
-
-    if (data) {
-        free(data);
-        data=NULL;
-    }
 
     if (dblk) {
         dblk->data.data = NULL;
@@ -103,11 +103,13 @@ error:
 
 
 int
-DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t * data)
+DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
 {
     int len = 0;
 
     check((dblk != NULL), "passed datablock is null");
+
+    debug("Getting data from datablock containing %d bytes of compressed data", (int)dblk->size);
 
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
@@ -126,6 +128,7 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t * data)
             log_and_error("Unsupported compression type %d", dblk->compression);
     }
 
+    debug("Getting data from datablock containing %d bytes of UNcompressed data", (int)len);
     check((len > -1), "could not copy uncompressed data");
 
     return len;
@@ -150,16 +153,18 @@ DataBlock_get_data_noalloc(Rhizofs__DataBlock * dblk, uint8_t * data, size_t dat
         "for contents of datablock"
         "(length of data=%d; buffer size=%d)", (int)dblk->size, (int)data_len);
 
+    debug("Getting data from datablock containing %d bytes of compressed data", (int)dblk->data.len);
+
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
             {
-                len = get_uncompressed_data(dblk, data, 0);
+                len = get_uncompressed_data(dblk, &data, 0);
             }
             break;
 
         case RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4:
             {
-                len = get_lz4_compressed_data(dblk, data, 0);
+                len = get_lz4_compressed_data(dblk, &data, 0);
             }
             break;
 
@@ -167,6 +172,7 @@ DataBlock_get_data_noalloc(Rhizofs__DataBlock * dblk, uint8_t * data, size_t dat
             log_and_error("Unsupported compression type %d", dblk->compression);
     }
 
+    debug("Getting data from datablock containing %d bytes of UNcompressed data", (int)len);
     check((len > -1), "could not copy uncompressed data");
 
     return len;
@@ -188,17 +194,17 @@ error:
  * returns length of data or -1 on failure
  */
 static int
-get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
+get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
 {
     size_t len = dblk->data.len;
 
     check((dblk != NULL), "passed datablock is null");
 
     if (do_alloc) {
-        data = calloc(sizeof(uint8_t), len);
+        (*data) = calloc(sizeof(uint8_t), len);
     }
-    check((data != NULL), "data buffer is null");
-    memcpy(data, dblk->data.data, len);
+    check(((*data) != NULL), "data buffer is null");
+    memcpy((*data), dblk->data.data, len);
 
     return len;
 
@@ -217,7 +223,7 @@ error:
  * and -1 on failure
  **/
 static int
-set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t len)
+set_lz4_compressed_data(Rhizofs__DataBlock * dblk, const uint8_t * data, const size_t len)
 {
     size_t bytes_compressed = 0;
 
@@ -231,9 +237,6 @@ set_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, const size_t 
     check_debug((bytes_compressed != 0), "LZ4_compress failed");
 
     dblk->data.len = bytes_compressed;
-
-    free(data);
-    data = NULL;
 
     return bytes_compressed;
 
@@ -252,7 +255,7 @@ error:
  * see  get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
  */
 static int
-get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
+get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
 {
     size_t len = dblk->size;
     int bytes_uncompressed = 0;
@@ -260,12 +263,12 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t * data, int do_alloc)
     check((dblk != NULL), "passed datablock is null");
 
     if (do_alloc) {
-        data = calloc(sizeof(uint8_t), len);
+        (*data) = calloc(sizeof(uint8_t), len);
     }
-    check((data != NULL), "data buffer is null");
+    check(((*data) != NULL), "data buffer is null");
 
     bytes_uncompressed = LZ4_uncompress((const char*)dblk->data.data,
-                (char*)data, len);
+                (char*)(*data), len);
     check((bytes_uncompressed >= 0), "LZ4_uncompress failed");
     check((dblk->data.len == (size_t)bytes_uncompressed), "could not decompress the whole block "
                 "(only %d bytes of %d bytes)", bytes_uncompressed, (int)dblk->data.len);
