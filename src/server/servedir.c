@@ -605,6 +605,11 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         else {
             bytes_read = pread(fd, databuf, (size_t)request->size, (off_t)request->offset);
         }
+        /*
+        check((request->size == bytes_read),
+                "bytes_read (%d) and request->size (%d)differ",
+                (int)bytes_read, (int)request->size);
+        */
 
         if (bytes_read != -1) {
             check((Response_set_data(response, databuf, (size_t)bytes_read) == true),

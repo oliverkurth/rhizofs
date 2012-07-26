@@ -46,6 +46,9 @@ Request_create()
 
     request->version = version;
 
+    // initialize pointers to NULL
+    request->datablock = NULL;
+
     return request;
 
 error:

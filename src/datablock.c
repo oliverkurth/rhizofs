@@ -44,7 +44,7 @@ DataBlock_destroy(Rhizofs__DataBlock * dblk)
 
 
 bool
-DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data, 
+DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
         size_t len, Rhizofs__CompressionType compression)
 {
     check((dblk != NULL), "passed datablock is null");
@@ -219,7 +219,7 @@ error:
 /**
  * compress the given data into the datablock
  *
- * returns the number of compressed bytes on success 
+ * returns the number of compressed bytes on success
  * and -1 on failure
  **/
 static int
@@ -230,7 +230,20 @@ set_lz4_compressed_data(Rhizofs__DataBlock * dblk, const uint8_t * data, const s
     check((dblk != NULL), "passed datablock is null");
     check((data != NULL), "passed data is null");
 
-    dblk->data.data = calloc(sizeof(uint8_t), len);
+    /*
+     * from http://fastcompression.blogspot.de/2011/05/lz4-explained.html :
+     *      There can be any number of bytes following the token.
+     *      There is no "size limit". As a sidenote, here is the reason why a
+     *      not-compressible input stream can be expanded by up to 0.4%.
+     *
+     *  so we will size the outputbuffer accordingly to prevent writes
+     *  outside the allocated memory area
+     **/
+    int extra_mem_size = 0;
+    if (len > 0) {
+        extra_mem_size = len / 250;
+    }
+    dblk->data.data = malloc(sizeof(uint8_t) * (len + extra_mem_size));
     check_mem(dblk->data.data);
 
     bytes_compressed = LZ4_compress((const char*)data, (char*)dblk->data.data, len);
@@ -242,8 +255,10 @@ set_lz4_compressed_data(Rhizofs__DataBlock * dblk, const uint8_t * data, const s
 
 error:
     if (dblk != NULL) {
-        free(dblk->data.data);
-        dblk->data.data = NULL;
+        if (dblk->data.data != NULL) {
+            free(dblk->data.data);
+            dblk->data.data = NULL;
+        }
         dblk->data.len = 0;
     }
     return -1;

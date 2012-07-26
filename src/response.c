@@ -23,6 +23,9 @@ Response_create()
     response->version = version;
     response->errnotype = RHIZOFS__ERRNO__ERRNO_NONE;
 
+    // initialize pointers to NULL
+    response->datablock = NULL;
+
     return response;
 
 error:
