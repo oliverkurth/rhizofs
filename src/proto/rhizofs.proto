@@ -49,6 +49,40 @@ enum CompressionType {
     COMPR_LZ4 = 1;
 };
 
+enum FileType {
+    DIRECTORY = 0;
+    CHARACTER_DEVICE = 1;
+    BLOCK_DEVICE = 2;
+    REGULAR_FILE = 3;
+    FIFO = 4;
+    SYMLINK = 5;
+    SOCKET = 6;
+};
+
+// message PermTriple {
+//     required bool read = 1;
+//     required bool write = 2;
+//     required bool execute = 3;
+// };
+// 
+// message Permissions {
+//     required PermTriple owner = 1;
+//     required PermTriple group = 2;
+//     required PermTriple world = 3;
+// };
+
+// file opening flags passed to open
+message OpenFlags {
+    required bool rdonly = 1;
+    required bool wronly = 2;
+    required bool rdwr = 3;
+    required bool creat = 4;
+    required bool excl = 5;
+    required bool trunc = 6;
+    required bool append = 7;
+};
+
+
 message DataBlock {
 
     // the (uncompressed) size of the data
@@ -91,7 +125,7 @@ message Request {
     // path to move/copy/link a file to
     optional string path_to = 5;
 
-    optional int32 openflags = 6;
+    optional OpenFlags openflags = 6;
 
     optional DataBlock datablock = 7;
 

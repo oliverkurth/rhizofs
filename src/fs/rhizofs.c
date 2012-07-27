@@ -449,9 +449,10 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->openflags = mapping_openflags_to_protocol(fi->flags);
-    request->has_openflags = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
+
+    request->openflags = OpenFlags_from_bitmask(fi->flags);
+    check((request->openflags != NULL), "could not create openflags for request");
 
     response = Rhizofs_communicate(request, &returned_err);
     check_debug((returned_err == 0), "Server reported an error");

@@ -2,6 +2,7 @@
 #include "datablock.h"
 
 #include "dbg.h"
+#include "mapping.h"
 
 Rhizofs__Request *
 Request_from_message(zmq_msg_t *msg)
@@ -36,6 +37,7 @@ Request_create()
     request = calloc(sizeof(Rhizofs__Request), 1);
     check_mem(request);
     rhizofs__request__init(request);
+    request->openflags = NULL;
 
     version = calloc(sizeof(Rhizofs__Version), 1);
     check_mem(version);
@@ -66,9 +68,8 @@ Request_destroy(Rhizofs__Request * request)
         if (request->datablock != NULL) {
             DataBlock_destroy(request->datablock);
         }
+        OpenFlags_destroy(request->openflags);
     }
-
-    free(request);
     request = NULL;
 }
 

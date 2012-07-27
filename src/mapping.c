@@ -1,4 +1,7 @@
 #include "mapping.h"
+#include "dbg.h"
+
+#include <stdlib.h>
 
 static mode_pair mode_map_filetype[] = {
     { RHI_FILETYPE_DIR,     S_IFDIR },
@@ -42,23 +45,6 @@ static flag_pair errno_map[] = {
     { RHIZOFS__ERRNO__ERRNO_UNKNOWN,            EIO }, /* everything unknown is an IO error */
     { RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST,    EINVAL },
     { RHIZOFS__ERRNO__ERRNO_UNSERIALIZABLE,     EIO }
-};
-
-
-static flag_pair openflag_map[] = {
-    { RHI_OPEN_RDONLY,      O_RDONLY },
-    { RHI_OPEN_WRONLY,      O_WRONLY },
-    { RHI_OPEN_RDWR,        O_RDWR },
-    { RHI_OPEN_CREAT,       O_CREAT },
-    { RHI_OPEN_EXCL,        O_EXCL },
-    { RHI_OPEN_NOCTTY,      O_NOCTTY },
-    { RHI_OPEN_TRUNC,       O_TRUNC },
-    { RHI_OPEN_APPEND,      O_APPEND },
-    { RHI_OPEN_NONBLOCK,    O_NONBLOCK },
-    { RHI_OPEN_NDELAY,      O_NDELAY },
-    { RHI_OPEN_SYNC,        O_SYNC },
-    { RHI_OPEN_FSYNC,       O_FSYNC },
-    { RHI_OPEN_ASYNC,       O_ASYNC }
 };
 
 #define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
@@ -154,37 +140,59 @@ mapping_errno_from_protocol(int perrno)
 }
 
 
-int
-mapping_openflags_to_protocol(int lflags)
+
+Rhizofs__OpenFlags *
+OpenFlags_from_bitmask(const int flags) 
 {
-    int pflags = 0; /* default */
-    unsigned int i=0;
+    Rhizofs__OpenFlags * openflags = NULL;
 
-    for (i=0; i<flag_map_len(openflag_map); ++i) {
-        if (openflag_map[i].local == lflags) {
-            pflags |= openflag_map[i].protocol;
-        }
-    }
+    openflags = calloc(sizeof(Rhizofs__OpenFlags), 1);
+    check_mem(openflags);
 
-    return pflags;
+    openflags->rdonly = (flags & O_RDONLY) ? 1 : 0; 
+    openflags->wronly = (flags & O_WRONLY) ? 1 : 0; 
+    openflags->rdwr   = (flags & O_RDWR)   ? 1 : 0; 
+    openflags->creat  = (flags & O_CREAT)  ? 1 : 0; 
+    openflags->excl   = (flags & O_EXCL)   ? 1 : 0; 
+    openflags->trunc  = (flags & O_TRUNC)  ? 1 : 0; 
+    openflags->append = (flags & O_APPEND) ? 1 : 0; 
+
+    return openflags;
+
+error:
+    free(openflags);
+    return NULL;
 }
 
 
-
 int
-mapping_openflags_from_protocol(int pflags)
+OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success) 
 {
-    int lflags = 0; /* default */
-    unsigned int i=0;
+    int flags = 0;
+    (*success) = true; 
 
-    for (i=0; i<flag_map_len(openflag_map); ++i) {
-        if (openflag_map[i].protocol == pflags) {
-            lflags |= openflag_map[i].local;
-        }
-    }
+    check((openflags != NULL), "passed openflags struct is NULL");
+    check((success != NULL), "passed pointer to success bool is NULL");
 
-    return lflags;
+    openflags->rdonly ? flags &= O_RDONLY : 0; 
+    openflags->wronly ? flags &= O_WRONLY : 0;
+    openflags->rdwr   ? flags &= O_RDWR : 0;
+    openflags->creat  ? flags &= O_CREAT : 0;
+    openflags->excl   ? flags &= O_EXCL : 0;
+    openflags->trunc  ? flags &= O_TRUNC : 0;
+    openflags->append ? flags &= O_APPEND : 0 ;
+
+    return flags;
+
+error:
+
+    (*success) = false; 
+    return 0;
 }
 
 
-
+void 
+OpenFlags_destroy(Rhizofs__OpenFlags * openflags)
+{
+    free(openflags);
+}
