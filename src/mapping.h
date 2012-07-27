@@ -65,9 +65,6 @@ mode_t mapping_mode_from_protocol(unsigned int, int include_filetype);
 int mapping_errno_to_protocol(int lerrno);
 int mapping_errno_from_protocol(int perrno);
 
-int mapping_openflags_to_protocol(int flags);
-int mapping_openflags_from_protocol(int flags);
-
 
 //
 // OpenFlags
