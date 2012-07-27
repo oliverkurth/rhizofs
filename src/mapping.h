@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include "proto/rhizofs.pb-c.h"
 
@@ -66,6 +67,32 @@ int mapping_errno_from_protocol(int perrno);
 
 int mapping_openflags_to_protocol(int flags);
 int mapping_openflags_from_protocol(int flags);
+
+
+//
+// OpenFlags
+//
+
+/**
+ * create and return a new OpenFlags structure
+ * from flags from the open syscall
+ *
+
+ * returns NULL on error
+ */
+Rhizofs__OpenFlags * OpenFlags_from_bitmask(const int flags);
+
+/**
+ * convert the contents of a OpenFlags structure to a btimask
+ *
+ * on success the parameter bool will set to false
+ */
+int OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success);
+
+/**
+ * delete and free an OpenFlags struct
+ */
+void OpenFlags_destroy(Rhizofs__OpenFlags * openflags);
 
 #endif /* __mapping_h__ */
 
