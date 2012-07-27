@@ -48,6 +48,7 @@ static flag_pair errno_map[] = {
 };
 
 #define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
+#define flag_map_len(em) (sizeof(em)/sizeof(flag_pair))
 
 unsigned int
 mapping_mode_to_protocol(mode_t mode, int include_filetype)

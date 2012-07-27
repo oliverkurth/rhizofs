@@ -124,7 +124,7 @@ message Request {
     // path to move/copy/link a file to
     optional string path_to = 5;
 
-    optional int32 openflags = 6;
+    optional OpenFlags openflags = 6;
 
     optional DataBlock datablock = 7;
 

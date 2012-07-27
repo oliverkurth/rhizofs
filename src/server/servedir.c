@@ -525,17 +525,19 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 {
     char * path = NULL;
     int openflags = 0;;
+    bool success;
     int fd;
 
     debug("open");
     response->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
 
-    if (request->has_openflags == 0) {
+    if (request->openflags == NULL) {
         log_err("the request did not specify open flags");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    openflags = mapping_openflags_from_protocol(request->openflags);
+    openflags = OpenFlags_to_bitmask(request->openflags, &success);
+    check((success == true), "could not convert openflags to bitmask");
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
