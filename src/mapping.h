@@ -62,8 +62,8 @@ typedef struct flag_pair {
 unsigned int mapping_mode_to_protocol(mode_t mode, int include_filetype);
 mode_t mapping_mode_from_protocol(unsigned int, int include_filetype);
 
-int mapping_errno_to_protocol(int lerrno);
-int mapping_errno_from_protocol(int perrno);
+int Errno_from_local(int lerrno);
+int Errno_to_local(int perrno);
 
 
 //

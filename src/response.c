@@ -102,7 +102,7 @@ error:
 void
 Response_set_errno(Rhizofs__Response * response, int eno)
 {
-    int perrno = mapping_errno_to_protocol(eno);
+    int perrno = Errno_from_local(eno);
 
     debug("Setting protocol errno %d", perrno);
     response->errnotype = perrno;
@@ -112,7 +112,7 @@ Response_set_errno(Rhizofs__Response * response, int eno)
 int
 Response_get_errno(const Rhizofs__Response * response)
 {
-    return mapping_errno_from_protocol( response->errnotype );
+    return Errno_to_local( response->errnotype );
 }
 
 

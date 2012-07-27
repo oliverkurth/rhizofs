@@ -107,7 +107,7 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
 
 
 int
-mapping_errno_to_protocol(int lerrno)
+Errno_from_local(int lerrno)
 {
     int perrno = RHIZOFS__ERRNO__ERRNO_UNKNOWN; /* default value */
     unsigned int i=0;
@@ -124,7 +124,7 @@ mapping_errno_to_protocol(int lerrno)
 
 
 int
-mapping_errno_from_protocol(int perrno)
+Errno_to_local(int perrno)
 {
     int lerrno = EIO; /* default */
     unsigned int i=0;
