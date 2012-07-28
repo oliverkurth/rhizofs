@@ -9,6 +9,7 @@ SocketPool_socket_destroy(void * sock)
 {
     if (sock != NULL) {
         zmq_close(sock);
+        sock = NULL;
     }
 }
 
@@ -85,10 +86,7 @@ SocketPool_get_socket(SocketPool * sp)
     return sock;
 
 error:
-
-    if (sock != NULL) {
-        zmq_close(sock);
-    }
+    SocketPool_socket_destroy(sock);
     return NULL;
 }
 
