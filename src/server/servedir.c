@@ -2,6 +2,7 @@
 
 #include "../dbg.h"
 #include "../posix.h"
+#include "../path.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
