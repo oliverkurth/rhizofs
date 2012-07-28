@@ -602,6 +602,31 @@ error:
     return -returned_err;
 }
 
+static int
+Rhizofs_truncate(const char * path, off_t offset)
+{
+    FUSE_OP_HEAD;
+
+    CREATE_REQUEST(request);
+    request->path = (char *)path;
+    request->offset = (int)offset;
+    request->has_offset = 1;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
+    check((response != NULL), "communicate failed");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+
+}
 
 
 static struct fuse_operations rhizofs_oper = {
@@ -616,7 +641,8 @@ static struct fuse_operations rhizofs_oper = {
     .open       = Rhizofs_open,
     .read       = Rhizofs_read,
     .write      = Rhizofs_write,
-    .create     = Rhizofs_create
+    .create     = Rhizofs_create,
+    .truncate   = Rhizofs_truncate
 /*
     .release    = Rhizofs_release,
     .fsync      = Rhizofs_fsync,

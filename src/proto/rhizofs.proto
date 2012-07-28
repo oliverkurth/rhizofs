@@ -23,6 +23,7 @@ enum RequestType {
     READ = 12;
     WRITE = 13;
     CREATE = 14;
+    TRUNCATE = 15;
 }
 
 enum Errno {

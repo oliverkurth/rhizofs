@@ -173,6 +173,10 @@ ServeDir_serve(ServeDir * sd)
                         op_rc = ServeDir_op_create(sd, request, response);
                         break;
 
+                    case RHIZOFS__REQUEST_TYPE__TRUNCATE:
+                        op_rc = ServeDir_op_truncate(sd, request, response);
+                        break;
+
                     default:
                         // dont know what to do with that request
                         op_rc = ServeDir_op_invalid(response);
@@ -743,4 +747,34 @@ error:
     return -1;
 }
 
+
+int
+ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+
+    debug("TRUNCATE");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
+
+    if (!request->has_offset) {
+        log_err("the request did not specify a read offset");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+    if (truncate(path, request->offset) != 0) { 
+        Response_set_errno(response, errno);
+        debug("Could not call truncate on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
 
