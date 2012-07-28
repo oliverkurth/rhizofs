@@ -44,17 +44,6 @@
 
 
 
-typedef struct mode_pair {
-    unsigned int protocol;
-    mode_t local;
-} mode_pair;
-
-typedef struct flag_pair {
-    int protocol;
-    int local;
-} flag_pair;
-
-
 /* to_protocol = local to protocol
  * from_protocol = protocol to local
  */

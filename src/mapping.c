@@ -3,6 +3,18 @@
 
 #include <stdlib.h>
 
+
+typedef struct mode_pair {
+    unsigned int protocol;
+    mode_t local;
+} mode_pair;
+
+typedef struct flag_pair {
+    int protocol;
+    int local;
+} flag_pair;
+
+
 static mode_pair mode_map_filetype[] = {
     { RHI_FILETYPE_DIR,     S_IFDIR },
     { RHI_FILETYPE_CHR,     S_IFCHR },
