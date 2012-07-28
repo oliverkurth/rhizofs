@@ -1,14 +1,14 @@
-#include "uidgid.h"
+#include "posix.h"
 
 #include "dbg.h"
 
 
 int
-uidgid_in_group(gid_t gid, int * result)
+posix_current_user_in_group(gid_t gid)
 {
     int n_groups;
-    int i;
-    gid_t *group_ids = NULL;
+    gid_t * group_ids = NULL;
+    int is_in_group = 0;
 
     n_groups = getgroups(0, NULL);
     check((n_groups != -1), "Could not get group list");
@@ -17,16 +17,15 @@ uidgid_in_group(gid_t gid, int * result)
     check_mem(group_ids);
     check((getgroups(n_groups, group_ids) != -1), "Could not fetch groups");
 
-    (*result) = 0;
-    for (i=0; i<n_groups; i++) {
+    for (int i=0; i<n_groups; i++) {
         if (group_ids[i] == gid) {
-            (*result) = 1;
+            is_in_group = 1;
             break;
         }
     }
 
     free(group_ids);
-    return 0;
+    return is_in_group;
 
 error:
     free(group_ids);

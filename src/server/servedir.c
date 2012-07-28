@@ -1,6 +1,7 @@
 #include "servedir.h"
 
 #include "../dbg.h"
+#include "../posix.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
@@ -494,8 +495,9 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         }
 
         /* group */
-        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group) == 0),
-                "Could not fetch group info");
+        int is_in_group = posix_current_user_in_group(sb.st_gid);
+        check((is_in_group != -1), "Could not fetch group info");
+        attrs->is_in_group = is_in_group;
 
         /* times */
         attrs->atime = (int)sb.st_atime;
