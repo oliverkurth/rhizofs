@@ -1,5 +1,6 @@
 #include "mapping.h"
 #include "dbg.h"
+#include "helpers.h"
 #include "posix.h"
 
 #include <stdlib.h>
@@ -113,17 +114,16 @@ Permissions_create(const mode_t mode)
 
     rhizofs__permissions__init(permissions);
 
-    permissions->owner = NULL;
-    permissions->owner = PermissionSet_create();
-    check((permissions->owner != NULL), "failed to initialize owner permissionset");
+#define PS_INIT(PS_NAME) \
+    permissions->PS_NAME = NULL; \
+    permissions->PS_NAME = PermissionSet_create(); \
+    check((permissions->PS_NAME != NULL), "failed to initialize " STRINGIFY(PS_NAME) " permissionset");
 
-    permissions->group = NULL;
-    permissions->group = PermissionSet_create();
-    check((permissions->group != NULL), "failed to initialize group permissionset");
+    PS_INIT(owner);
+    PS_INIT(group);
+    PS_INIT(world);
 
-    permissions->world = NULL;
-    permissions->world = PermissionSet_create();
-    check((permissions->world != NULL), "failed to initialize world permissionset");
+#undef PS_INIT
 
     // owner
     (mode & S_IRUSR) ? permissions->owner->read = 1 : 0;
@@ -145,7 +145,6 @@ Permissions_create(const mode_t mode)
     Permissions_to_string(permissions, &permstr[0]);
     debug("Converted bitmask %d to permissions %s", (int)mode, permstr);
 #endif
-
 
     return permissions;
 
