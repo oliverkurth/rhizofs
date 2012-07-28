@@ -330,6 +330,8 @@ OpenFlags_from_bitmask(const int flags)
     openflags = calloc(sizeof(Rhizofs__OpenFlags), 1);
     check_mem(openflags);
 
+    rhizofs__open_flags__init(openflags);
+
     openflags->rdonly = (flags & O_RDONLY) ? 1 : 0; 
     openflags->wronly = (flags & O_WRONLY) ? 1 : 0; 
     openflags->rdwr   = (flags & O_RDWR)   ? 1 : 0; 
