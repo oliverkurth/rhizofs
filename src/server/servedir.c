@@ -169,6 +169,10 @@ ServeDir_serve(ServeDir * sd)
                         op_rc = ServeDir_op_write(sd, request, response);
                         break;
 
+                    case RHIZOFS__REQUEST_TYPE__CREATE:
+                        op_rc = ServeDir_op_create(sd, request, response);
+                        break;
+
                     default:
                         // dont know what to do with that request
                         op_rc = ServeDir_op_invalid(response);
@@ -698,3 +702,45 @@ error:
     free(path);
     return -1;
 }
+
+
+int
+ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    bool success;
+    mode_t create_mode = 0;
+    int fd;
+
+    debug("CREATE");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
+
+    if (request->permissions == NULL) {
+        log_err("the request did not specify create permissions");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return -1;
+    }
+    create_mode = Permissions_to_bitmask(request->permissions, &success);
+    check((success == true), "could not convert permissions to bitmask");
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s, create_mode: %o", path, create_mode);
+    fd = creat(path, create_mode);
+    if (fd == -1) {
+        Response_set_errno(response, errno);
+        debug("Could not call creat on %s: %s", path, strerror(errno));
+        errno = 0;
+    }
+
+    close(fd);
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+

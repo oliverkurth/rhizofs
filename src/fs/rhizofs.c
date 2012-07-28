@@ -478,6 +478,34 @@ error:
     return -returned_err;
 }
 
+
+static int
+Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
+{
+    FUSE_OP_HEAD;
+
+    (void) fi;
+
+    CREATE_REQUEST(request);
+    request->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
+    request->path = (char *)path;
+
+    request->permissions = Permissions_create(create_mode);
+    check((request->permissions != NULL), "Could not create create permissions struct");
+
+    response = Rhizofs_communicate(request, &returned_err);
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
+    check((response != NULL), "communicate failed");
+
+    Request_destroy(request);
+    Response_from_message_destroy(response);
+    return 0;
+
+error:
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return -returned_err;
+}
 /*
 static int
 Rhizofs_release(const char *path, struct fuse_file_info *fi)
@@ -586,12 +614,13 @@ static struct fuse_operations rhizofs_oper = {
     .unlink     = Rhizofs_unlink,
     .access     = Rhizofs_access,
     .open       = Rhizofs_open,
+    .read       = Rhizofs_read,
+    .write      = Rhizofs_write,
+    .create     = Rhizofs_create
 /*
     .release    = Rhizofs_release,
     .fsync      = Rhizofs_fsync,
 */
-    .read       = Rhizofs_read,
-    .write      = Rhizofs_write
 };
 
 
