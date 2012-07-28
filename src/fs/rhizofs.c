@@ -2,6 +2,7 @@
 
 #include "../dbg.h"
 
+
 /** private data to be stored in the fuse context */
 typedef struct RhizoPriv {
     void * context;             /** the zeromq context */
@@ -26,6 +27,9 @@ static struct fuse_opt rhizo_opts[] = {
     FUSE_OPT_KEY("--help",         KEY_HELP),
     FUSE_OPT_END
 };
+
+// Prototypes
+bool Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf);
 
 
 /** global settings store */
@@ -243,18 +247,13 @@ error:
  * the stat has to be allocated
  * by the caller
  */
-void
+inline bool
 Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 {
     struct fuse_context * fcontext = fuse_get_context();
 
-    memset(stbuf, 0, sizeof(struct stat));
-    stbuf->st_size = attrs->size;
-    stbuf->st_mode = mapping_mode_from_protocol(attrs->modemask, 1);
-    stbuf->st_atime  = attrs->atime;
-    stbuf->st_ctime  = attrs->ctime;
-    stbuf->st_mtime  = attrs->mtime;
-    stbuf->st_nlink = 1;
+    check((Attrs_copy_to_stat(attrs, stbuf) == true), 
+            "could not copy Attrs to stat");
 
     debug("mode: %o",stbuf->st_mode );
 
@@ -270,6 +269,11 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
         /* this might be a bit to ambiguous .. think of something better */
         stbuf->st_gid = fcontext->gid;
     }
+
+    return true;
+
+error:
+    return false;
 }
 
 
@@ -330,7 +334,8 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 
     Request_destroy(request);
 
-    Rhizofs_convert_attrs_stat(response->attrs, stbuf);
+    check((Rhizofs_convert_attrs_stat(response->attrs, stbuf) == true),
+            "could not convert attrs");
 
     Response_from_message_destroy(response);
     return 0;
@@ -372,10 +377,13 @@ Rhizofs_mkdir(const char * path, mode_t mode)
     FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
-    request->path = (char *)path;
-    request->modemask = mapping_mode_to_protocol(mode, 1);
-    request->has_modemask = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
+    request->path = (char *)path;
+
+    request->permissions = Permissions_create((mode_t)mode);
+    check((request->permissions != NULL), "Could not create access permissions struct");
+
+    // TODO: filetype needed ??
 
     response = Rhizofs_communicate(request, &returned_err);
     check_debug((returned_err == 0), "Server reported an error");
@@ -423,9 +431,10 @@ Rhizofs_access(const char * path, int mask)
 
     CREATE_REQUEST(request);
     request->path = (char *)path;
-    request->modemask = mapping_mode_to_protocol((mode_t)mask, 0);
-    request->has_modemask = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
+
+    request->permissions = Permissions_create((mode_t)mask);
+    check((request->permissions != NULL), "Could not create access permissions struct");
 
     response = Rhizofs_communicate(request, &returned_err);
     check_debug((returned_err == 0), "Server reported an error");
@@ -448,8 +457,8 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
     FUSE_OP_HEAD;
 
     CREATE_REQUEST(request);
-    request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
+    request->path = (char *)path;
 
     request->openflags = OpenFlags_from_bitmask(fi->flags);
     check((request->openflags != NULL), "could not create openflags for request");

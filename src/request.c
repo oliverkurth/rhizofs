@@ -59,9 +59,12 @@ error:
 void
 Request_destroy(Rhizofs__Request * request)
 {
-    free(request->version);
-    free(request->openflags);
-    free(request);
+    if (request) {
+        free(request->version);
+        free(request->openflags);
+        free(request->permissions);
+        free(request);
+    }
     request = NULL;
 }
 

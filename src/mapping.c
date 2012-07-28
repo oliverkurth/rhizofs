@@ -1,7 +1,10 @@
 #include "mapping.h"
 #include "dbg.h"
+#include "posix.h"
 
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 
 typedef struct mode_pair {
@@ -14,7 +17,7 @@ typedef struct flag_pair {
     int local;
 } flag_pair;
 
-
+/*
 static mode_pair mode_map_filetype[] = {
     { RHI_FILETYPE_DIR,     S_IFDIR },
     { RHI_FILETYPE_CHR,     S_IFCHR },
@@ -36,6 +39,7 @@ static mode_pair mode_map_perm[] = {
     { RHI_PERM_WOTH,        S_IWOTH },
     { RHI_PERM_XOTH,        S_IXOTH }
 };
+*/
 
 static flag_pair errno_map[] = {
     { RHIZOFS__ERRNO__ERRNO_NONE,      0 },
@@ -66,6 +70,7 @@ static flag_pair errno_map[] = {
 Rhizofs__PermissionSet * PermissionSet_create();
 void PermissionSet_destroy(Rhizofs__PermissionSet * permset);
 
+/*
 unsigned int
 mapping_mode_to_protocol(mode_t mode, int include_filetype)
 {
@@ -76,12 +81,12 @@ mapping_mode_to_protocol(mode_t mode, int include_filetype)
         for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
             if (mode_map_filetype[i].local & mode) {
                 md |= mode_map_filetype[i].protocol;
-                break; /* break to avoid overwrite with other matching flags */
+                break; // break to avoid overwrite with other matching flags
             }
         }
 
         if (md == 0000) {
-            md |= RHI_FILETYPE_REG; /* fallback to regular file */
+            md |= RHI_FILETYPE_REG; // fallback to regular file 
         }
     }
 
@@ -92,8 +97,9 @@ mapping_mode_to_protocol(mode_t mode, int include_filetype)
     }
     return md;
 };
+*/
 
-
+/*
 mode_t
 mapping_mode_from_protocol(unsigned int md, int include_filetype)
 {
@@ -104,12 +110,12 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
         for (i=0; i<mode_map_len(mode_map_filetype); ++i) {
             if (mode_map_filetype[i].protocol & md) {
                 mode |= mode_map_filetype[i].local;
-                break; /* break to avoid overwrite with other matching flags */
+                break; // break to avoid overwrite with other matching flags
             }
         }
 
         if (mode == 0) {
-            mode |= S_IFREG; /* fallback to regular file */
+            mode |= S_IFREG; // fallback to regular file
         }
     }
 
@@ -120,7 +126,7 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
     }
     return mode;
 };
-
+*/
 
 inline Rhizofs__PermissionSet *
 PermissionSet_create()
@@ -200,6 +206,7 @@ Permissions_destroy(Rhizofs__Permissions * permissions)
         PermissionSet_destroy(permissions->group);
         PermissionSet_destroy(permissions->world);
         free(permissions);
+        permissions = NULL;
     }
 }
 
@@ -378,4 +385,90 @@ void
 OpenFlags_destroy(Rhizofs__OpenFlags * openflags)
 {
     free(openflags);
+    openflags = NULL;
+}
+
+
+Rhizofs__Attrs *
+Attrs_create(const struct stat * stat_result)
+{
+    Rhizofs__Attrs * attrs = NULL;
+
+    attrs = calloc(sizeof(Rhizofs__Attrs), 1);
+    check_mem(attrs);
+    rhizofs__attrs__init(attrs);
+
+    attrs->size = stat_result->st_size;
+
+    attrs->permissions = Permissions_create((mode_t)stat_result->st_mode);
+    check((attrs->permissions != NULL), "Could not create access permissions struct");
+
+    attrs->filetype = FileType_from_local((mode_t)stat_result->st_mode);
+
+    /* user */
+    if (getuid() == stat_result->st_uid) {
+        attrs->is_owner = 1;
+    }
+    else {
+        attrs->is_owner = 0;
+    }
+
+    /* group */
+    int is_in_group = posix_current_user_in_group(stat_result->st_gid);
+    check((is_in_group != -1), "Could not fetch group info");
+    attrs->is_in_group = is_in_group;
+
+    /* times */
+    attrs->atime = (int)stat_result->st_atime;
+    attrs->mtime = (int)stat_result->st_mtime;
+    attrs->ctime = (int)stat_result->st_ctime;
+
+    return attrs;
+
+error:
+
+    Attrs_destroy(attrs);
+    return NULL;
+}
+
+
+void
+Attrs_destroy(Rhizofs__Attrs * attrs)
+{
+    if (attrs) {
+        free(attrs->permissions);
+        free(attrs);
+        attrs = NULL;
+    }
+}
+
+bool
+Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
+{
+    int filetype = 0;
+    int permissions = 0;
+    bool success = false;
+
+    check((attrs != NULL), "passed attrs is NULL");
+    check((stat_result != NULL), "passed stat_result is NULL");
+
+    // zero the stat
+    memset(stat_result, 0, sizeof(struct stat));
+
+    filetype = FileType_to_local(attrs->filetype);
+
+    permissions = Permissions_to_bitmask(attrs->permissions, &success);
+    check((success == true), "Could not convert permissions to bitmask");
+
+    stat_result->st_size = attrs->size;
+    stat_result->st_mode = filetype | permissions;
+    stat_result->st_atime  = attrs->atime;
+    stat_result->st_ctime  = attrs->ctime;
+    stat_result->st_mtime  = attrs->mtime;
+    stat_result->st_nlink = 1;
+
+    return true;
+
+error:
+    return false;
 }

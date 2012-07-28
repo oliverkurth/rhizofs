@@ -36,24 +36,25 @@ void
 Response_destroy(Rhizofs__Response * response)
 {
 
-    free(response->attrs);
+    if (response) {
+        Attrs_destroy(response->attrs);
 
-    if (response->n_directory_entries != 0) {
-        int i = 0;
-        for (i=0; i<(int)response->n_directory_entries; i++) {
-            free(response->directory_entries[i]);
+        if (response->n_directory_entries != 0) {
+            int i = 0;
+            for (i=0; i<(int)response->n_directory_entries; i++) {
+                free(response->directory_entries[i]);
+            }
+            free(response->directory_entries);
         }
-        free(response->directory_entries);
-    }
 
-    if (response->datablock != NULL) {
-        DataBlock_destroy(response->datablock);
-    }
+        if (response->datablock != NULL) {
+            DataBlock_destroy(response->datablock);
+        }
 
-    free(response->version);
-    free(response);
+        free(response->version);
+        free(response);
+    }
     response = NULL;
-
 }
 
 

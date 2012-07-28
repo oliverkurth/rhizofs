@@ -48,8 +48,10 @@
  * from_protocol = protocol to local
  */
 
+/*
 unsigned int mapping_mode_to_protocol(mode_t mode, int include_filetype);
 mode_t mapping_mode_from_protocol(unsigned int, int include_filetype);
+*/
 
 int Errno_from_local(int lerrno);
 int Errno_to_local(int perrno);
@@ -120,6 +122,35 @@ int FileType_to_local(const Rhizofs__FileType filetype);
  * get the Rhizofs__FileType from the result of a stat call
  */
 Rhizofs__FileType FileType_from_local(const mode_t stat_result);
+
+
+//
+// Attrs
+//
+
+/**
+ * create a new attrs struct from the stat struct from
+ * a call to stat
+ *
+ * returns NULL on error
+ */
+Rhizofs__Attrs * Attrs_create(const struct stat * stat_result);
+
+/**
+ * free a Attrs struct
+ */
+void Attrs_destroy(Rhizofs__Attrs * attrs);
+
+/**
+ * copy the contents of an attrs struct to a preallocated
+ * stat struct
+ *
+ * this will not set the st_uid and st_gid attributes of the stat
+ *
+ * returns false on failure.
+ */
+bool Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result);
+
 
 #endif /* __mapping_h__ */
 
