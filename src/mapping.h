@@ -91,5 +91,22 @@ int OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success);
  */
 void OpenFlags_destroy(Rhizofs__OpenFlags * openflags);
 
+
+
+//
+// FileType
+//
+
+/**
+ * convert a filetype enum to the local
+ * mode_t value
+ */
+int FileType_to_local(const Rhizofs__FileType filetype);
+
+/**
+ * get the Rhizofs__FileType from the result of a stat call
+ */
+Rhizofs__FileType FileType_from_local(const mode_t stat_result);
+
 #endif /* __mapping_h__ */
 

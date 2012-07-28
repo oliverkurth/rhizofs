@@ -58,16 +58,16 @@ enum FileType {
     SOCKET = 6;
 };
 
-// message PermTriple {
+// message PermissionSet {
 //     required bool read = 1;
 //     required bool write = 2;
 //     required bool execute = 3;
 // };
 // 
 // message Permissions {
-//     required PermTriple owner = 1;
-//     required PermTriple group = 2;
-//     required PermTriple world = 3;
+//     required PermissionSet owner = 1;
+//     required PermissionSet group = 2;
+ //    required PermissionSet world = 3;
 // };
 
 // file opening flags passed to open

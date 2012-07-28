@@ -140,6 +140,58 @@ Errno_to_local(int perrno)
 }
 
 
+int
+FileType_to_local(const Rhizofs__FileType filetype)
+{
+    int local_filetype = 0;
+
+    switch (filetype) {
+        case RHIZOFS__FILE_TYPE__DIRECTORY:
+            local_filetype = S_IFDIR;
+            break;
+        case RHIZOFS__FILE_TYPE__CHARACTER_DEVICE:
+            local_filetype = S_IFCHR;
+            break;
+        case RHIZOFS__FILE_TYPE__BLOCK_DEVICE:
+            local_filetype = S_IFBLK;
+            break;
+        case RHIZOFS__FILE_TYPE__REGULAR_FILE:
+            local_filetype = S_IFREG;
+            break;
+        case RHIZOFS__FILE_TYPE__FIFO:
+            local_filetype = S_IFIFO;
+            break;
+        case RHIZOFS__FILE_TYPE__SYMLINK:
+            local_filetype = S_IFLNK;
+            break;
+        case RHIZOFS__FILE_TYPE__SOCKET:
+            local_filetype = S_IFSOCK;
+            break;
+        default:
+            /* fallback to regular file */
+            local_filetype = S_IFREG;
+            log_warn("could not map filetype to local filetype: %d", (int)filetype);
+    }
+    return local_filetype;
+}
+
+
+Rhizofs__FileType
+FileType_from_local(const mode_t stat_result)
+{
+    Rhizofs__FileType filetype = RHIZOFS__FILE_TYPE__REGULAR_FILE; 
+
+    if (stat_result & S_IFDIR)       { filetype = RHIZOFS__FILE_TYPE__DIRECTORY; }
+    else if (stat_result & S_IFCHR)  { filetype = RHIZOFS__FILE_TYPE__CHARACTER_DEVICE; }
+    else if (stat_result & S_IFBLK)  { filetype = RHIZOFS__FILE_TYPE__BLOCK_DEVICE; }
+    else if (stat_result & S_IFREG)  { filetype = RHIZOFS__FILE_TYPE__REGULAR_FILE; }
+    else if (stat_result & S_IFIFO)  { filetype = RHIZOFS__FILE_TYPE__FIFO; }
+    else if (stat_result & S_IFLNK)  { filetype = RHIZOFS__FILE_TYPE__SYMLINK; }
+    else if (stat_result & S_IFSOCK) { filetype = RHIZOFS__FILE_TYPE__SOCKET; }
+    
+    return filetype;
+}
+
 
 Rhizofs__OpenFlags *
 OpenFlags_from_bitmask(const int flags) 
