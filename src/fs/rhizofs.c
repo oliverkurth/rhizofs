@@ -297,7 +297,7 @@ Rhizofs_readdir(const char * path, void * buf,
     request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -328,7 +328,7 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
     request->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
     check((response->attrs != NULL), "Response did not contain attrs");
 
@@ -357,7 +357,7 @@ Rhizofs_rmdir(const char * path)
     request->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -387,7 +387,7 @@ Rhizofs_mkdir(const char * path, mode_t mode)
     // TODO: filetype needed ??
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -411,7 +411,7 @@ Rhizofs_unlink(const char * path)
     request->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -438,7 +438,7 @@ Rhizofs_access(const char * path, int mask)
     check((request->permissions != NULL), "Could not create access permissions struct");
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -465,7 +465,7 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
     check((request->openflags != NULL), "could not create openflags for request");
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     Request_destroy(request);
@@ -519,7 +519,7 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
     check((Response_has_data(response) != 0), "Server did send no data in response");
 
@@ -558,7 +558,7 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
             "could not set request data");
 
     response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error");
+    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
     check((response != NULL), "communicate failed");
 
     check((response->has_size == 1), "response did not contain the number of bytes written");

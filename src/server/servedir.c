@@ -120,6 +120,9 @@ ServeDir_serve(ServeDir * sd)
             else {
                 int op_rc = 0;
 
+                // ensure errno is reset to zero
+                errno = 0;
+
                 switch(request->requesttype) {
 
                     case RHIZOFS__REQUEST_TYPE__PING:
