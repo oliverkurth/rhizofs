@@ -87,9 +87,9 @@ PermissionSet_to_string(const Rhizofs__PermissionSet * permset, char * outstr)
 {
     check((permset != NULL), "permset is null");
 
-    outstr[0] = permset->read ? 'r' :  '-';
-    outstr[1] = permset->write ?  'w' :  '-';
-    outstr[2] = permset->execute ? 'x' :  '-';
+    outstr[0] = permset->read ? 'r' : '-';
+    outstr[1] = permset->write ?  'w' : '-';
+    outstr[2] = permset->execute ? 'x' : '-';
     outstr[3] = '\0';
     
     return true;
@@ -126,19 +126,19 @@ Permissions_create(const mode_t mode)
 #undef PS_INIT
 
     // owner
-    (mode & S_IRUSR) ? permissions->owner->read = 1 : 0;
-    (mode & S_IWUSR) ? permissions->owner->write = 1 : 0;
-    (mode & S_IXUSR) ? permissions->owner->execute = 1 : 0;
+    (mode & S_IRUSR) ? permissions->owner->read = 1 : NO_OP;
+    (mode & S_IWUSR) ? permissions->owner->write = 1 : NO_OP;
+    (mode & S_IXUSR) ? permissions->owner->execute = 1 : NO_OP;
 
     // group
-    (mode & S_IRGRP) ? permissions->group->read = 1 : 0;
-    (mode & S_IWGRP) ? permissions->group->write = 1 : 0;
-    (mode & S_IXGRP) ? permissions->group->execute = 1 : 0;
+    (mode & S_IRGRP) ? permissions->group->read = 1 : NO_OP;
+    (mode & S_IWGRP) ? permissions->group->write = 1 : NO_OP;
+    (mode & S_IXGRP) ? permissions->group->execute = 1 : NO_OP;
 
     // world
-    (mode & S_IROTH) ? permissions->world->read = 1 : 0;
-    (mode & S_IWOTH) ? permissions->world->write = 1 : 0;
-    (mode & S_IXOTH) ? permissions->world->execute = 1 : 0;
+    (mode & S_IROTH) ? permissions->world->read = 1 : NO_OP;
+    (mode & S_IWOTH) ? permissions->world->write = 1 : NO_OP;
+    (mode & S_IXOTH) ? permissions->world->execute = 1 : NO_OP;
 
 #ifdef DEBUG
     char permstr[10];
@@ -191,17 +191,17 @@ Permissions_to_bitmask(const Rhizofs__Permissions * permissions, bool * success)
     check((permissions->world != NULL), "permissions->world struct is null");
 
 
-    permissions->owner->read ? perm_bm |= S_IRUSR : 0;
-    permissions->owner->write ? perm_bm |= S_IWUSR : 0;
-    permissions->owner->execute ? perm_bm |= S_IXUSR : 0;
+    permissions->owner->read ? perm_bm |= S_IRUSR : NO_OP;
+    permissions->owner->write ? perm_bm |= S_IWUSR : NO_OP;
+    permissions->owner->execute ? perm_bm |= S_IXUSR : NO_OP;
 
-    permissions->group->read ? perm_bm |= S_IRGRP : 0;
-    permissions->group->write ? perm_bm |= S_IWGRP : 0;
-    permissions->group->execute ? perm_bm |= S_IXGRP : 0;
+    permissions->group->read ? perm_bm |= S_IRGRP : NO_OP;
+    permissions->group->write ? perm_bm |= S_IWGRP : NO_OP;
+    permissions->group->execute ? perm_bm |= S_IXGRP : NO_OP;
 
-    permissions->world->read ? perm_bm |= S_IROTH : 0;
-    permissions->world->write ? perm_bm |= S_IWOTH : 0;
-    permissions->world->execute ? perm_bm |= S_IXOTH : 0;
+    permissions->world->read ? perm_bm |= S_IROTH : NO_OP;
+    permissions->world->write ? perm_bm |= S_IWOTH : NO_OP;
+    permissions->world->execute ? perm_bm |= S_IXOTH : NO_OP;
 
 #ifdef DEBUG
     char permstr[10];
@@ -315,7 +315,7 @@ OpenFlags_from_bitmask(const int flags)
 
     rhizofs__open_flags__init(openflags);
 
-    openflags->rdonly = (flags & O_RDONLY) ? 1 : 0; 
+    openflags->rdonly = (flags & O_RDONLY) ? 1 : 0;
     openflags->wronly = (flags & O_WRONLY) ? 1 : 0; 
     openflags->rdwr   = (flags & O_RDWR)   ? 1 : 0; 
     openflags->creat  = (flags & O_CREAT)  ? 1 : 0; 
@@ -340,13 +340,13 @@ OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success)
     check((openflags != NULL), "passed openflags struct is NULL");
     check((success != NULL), "passed pointer to success bool is NULL");
 
-    openflags->rdonly ? flags |= O_RDONLY : 0; 
-    openflags->wronly ? flags |= O_WRONLY : 0;
-    openflags->rdwr   ? flags |= O_RDWR : 0;
-    openflags->creat  ? flags |= O_CREAT : 0;
-    openflags->excl   ? flags |= O_EXCL : 0;
-    openflags->trunc  ? flags |= O_TRUNC : 0;
-    openflags->append ? flags |= O_APPEND : 0 ;
+    openflags->rdonly ? flags |= O_RDONLY : NO_OP;
+    openflags->wronly ? flags |= O_WRONLY : NO_OP;
+    openflags->rdwr   ? flags |= O_RDWR : NO_OP;
+    openflags->creat  ? flags |= O_CREAT : NO_OP;
+    openflags->excl   ? flags |= O_EXCL : NO_OP;
+    openflags->trunc  ? flags |= O_TRUNC : NO_OP;
+    openflags->append ? flags |= O_APPEND : NO_OP ;
 
     return flags;
 
