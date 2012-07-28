@@ -56,6 +56,30 @@ int Errno_to_local(int perrno);
 
 
 //
+// Permissions
+//
+
+/**
+ * create a Permissions struct from a stat mode_t
+ *
+ * returns NULL on failure
+ */
+Rhizofs__Permissions * Permissions_create(const mode_t stat_result);
+
+/**
+ * create a permissions bitmask from a Rhizofs__Permissions struct
+ *
+ * on error the parameter success will set to false
+ */
+int Permissions_to_bitmask(const Rhizofs__Permissions * permissions, bool * success);
+
+/**
+ * free a permissions struct
+ */
+void Permissions_destroy(Rhizofs__Permissions * permissions);
+
+
+//
 // OpenFlags
 //
 
@@ -71,7 +95,7 @@ Rhizofs__OpenFlags * OpenFlags_from_bitmask(const int flags);
 /**
  * convert the contents of a OpenFlags structure to a btimask
  *
- * on success the parameter bool will set to false
+ * on error the parameter success will set to false
  */
 int OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success);
 

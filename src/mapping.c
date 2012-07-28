@@ -62,6 +62,10 @@ static flag_pair errno_map[] = {
 #define mode_map_len(mm) (sizeof(mm)/sizeof(mode_pair))
 #define flag_map_len(em) (sizeof(em)/sizeof(flag_pair))
 
+// Prototypes
+Rhizofs__PermissionSet * PermissionSet_create();
+void PermissionSet_destroy(Rhizofs__PermissionSet * permset);
+
 unsigned int
 mapping_mode_to_protocol(mode_t mode, int include_filetype)
 {
@@ -116,6 +120,119 @@ mapping_mode_from_protocol(unsigned int md, int include_filetype)
     }
     return mode;
 };
+
+
+inline Rhizofs__PermissionSet *
+PermissionSet_create()
+{
+    Rhizofs__PermissionSet * permset = NULL;
+
+    permset = calloc(sizeof(Rhizofs__PermissionSet), 1);
+    check_mem(permset);
+    rhizofs__permission_set__init(permset);
+
+    return permset;
+
+error:
+    free(permset);
+    return NULL;
+}
+
+
+inline void
+PermissionSet_destroy(Rhizofs__PermissionSet * permset)
+{
+    free(permset);
+}
+
+
+Rhizofs__Permissions *
+Permissions_create(const mode_t stat_result)
+{
+    Rhizofs__Permissions * permissions = NULL;
+
+    permissions = calloc(sizeof(Rhizofs__Permissions), 1);
+    check_mem(permissions);
+
+    rhizofs__permissions__init(permissions);
+
+    permissions->owner = NULL;
+    permissions->owner = PermissionSet_create();
+    check((permissions->owner != NULL), "failed to initialize owner permissionset");
+
+    permissions->group = NULL;
+    permissions->group = PermissionSet_create();
+    check((permissions->group != NULL), "failed to initialize group permissionset");
+
+    permissions->world = NULL;
+    permissions->world = PermissionSet_create();
+    check((permissions->world != NULL), "failed to initialize world permissionset");
+
+    // owner
+    stat_result & S_IRUSR ? permissions->owner->read = 1 : 0;
+    stat_result & S_IWUSR ? permissions->owner->write = 1 : 0;
+    stat_result & S_IXUSR ? permissions->owner->execute = 1 : 0;
+
+    // group
+    stat_result & S_IRGRP ? permissions->group->read = 1 : 0;
+    stat_result & S_IWGRP ? permissions->group->write = 1 : 0;
+    stat_result & S_IXGRP ? permissions->group->execute = 1 : 0;
+
+    // world
+    stat_result & S_IROTH ? permissions->world->read = 1 : 0;
+    stat_result & S_IWOTH ? permissions->world->write = 1 : 0;
+    stat_result & S_IXOTH ? permissions->world->execute = 1 : 0;
+
+    return permissions;
+
+error:
+
+    Permissions_destroy(permissions);
+    return NULL;
+}
+
+
+void
+Permissions_destroy(Rhizofs__Permissions * permissions)
+{
+    if (permissions != NULL) {
+        PermissionSet_destroy(permissions->owner);
+        PermissionSet_destroy(permissions->group);
+        PermissionSet_destroy(permissions->world);
+        free(permissions);
+    }
+}
+
+int
+Permissions_to_bitmask(const Rhizofs__Permissions * permissions, bool * success)
+{
+    int perm_bm = 0;
+    *success = true;
+
+    check((permissions != NULL), "permissions struct is null");
+    check((permissions->owner != NULL), "permissions->owner struct is null");
+    check((permissions->group != NULL), "permissions->group struct is null");
+    check((permissions->world != NULL), "permissions->world struct is null");
+
+    permissions->owner->read ? perm_bm &= S_IRUSR : 0;
+    permissions->owner->write ? perm_bm &= S_IWUSR : 0;
+    permissions->owner->execute ? perm_bm &= S_IXUSR : 0;
+
+    permissions->group->read ? perm_bm &= S_IRGRP : 0;
+    permissions->group->write ? perm_bm &= S_IWGRP : 0;
+    permissions->group->execute ? perm_bm &= S_IXGRP : 0;
+
+    permissions->world->read ? perm_bm &= S_IROTH : 0;
+    permissions->world->write ? perm_bm &= S_IWOTH : 0;
+    permissions->world->execute ? perm_bm &= S_IXOTH : 0;
+
+    return perm_bm;
+
+error:
+
+    *success = false;
+    return 0;
+}
 
 
 int
