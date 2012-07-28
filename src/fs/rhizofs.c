@@ -57,7 +57,6 @@ static void *
 Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
     RhizoPriv * priv = NULL;
-    int rc;
 
     priv = calloc(sizeof(RhizoPriv), 1);
     check_mem(priv);
@@ -67,8 +66,8 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     check((priv->context != NULL), "Could not create Zmq context");
 
     /* create the socket pool */
-    rc = SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ);
-    check((rc == 0), "Could not initialize the socket pool");
+    check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
+            "Could not initialize the socket pool");
 
     return priv;
 
@@ -142,7 +141,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     msg_req = calloc(sizeof(zmq_msg_t), 1);
     check_mem(msg_req);
 
-    if (Request_pack(req, msg_req) != 0) {
+    if (Request_pack(req, msg_req) != true) {
         (*err) = errno;
         log_and_error("Could not pack request");
     }
@@ -151,7 +150,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         rc = zmq_send(sock, msg_req, 0);
         if (rc != 0) {
             if ((errno == EAGAIN) || (errno == EFSM)) {
-                /* sleep for a short time before retiying
+                /* sleep for a short time before retrying
                  * also sleep on EFSM as the server might just be starting up
                  * with the socket no being in the correct state.
                  */

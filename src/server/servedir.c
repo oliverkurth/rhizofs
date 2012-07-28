@@ -1,6 +1,8 @@
 #include "servedir.h"
 
 #include "../dbg.h"
+#include "../posix.h"
+#include "../path.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
@@ -79,7 +81,7 @@ ServeDir_destroy(ServeDir * sd)
 }
 
 
-int
+bool
 ServeDir_serve(ServeDir * sd)
 {
     zmq_msg_t msg_req;
@@ -169,14 +171,14 @@ ServeDir_serve(ServeDir * sd)
                 Request_from_message_destroy(request);
             }
 
-            zmq_msg_close (&msg_req);
+            zmq_msg_close(&msg_req);
 
             // serialize the reply
-            check((Response_pack(response, &msg_rep) == 0), "Could not pack message");
+            check((Response_pack(response, &msg_rep) == true), "Could not pack message");
 
             //  Send reply back to client
             check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
-            zmq_msg_close (&msg_rep);
+            zmq_msg_close(&msg_rep);
 
             Response_destroy(response);
         }
@@ -190,7 +192,7 @@ ServeDir_serve(ServeDir * sd)
     }
 
     debug("Exiting ServeDir_Serve");
-    return 0;
+    return true;
 
 error:
 
@@ -199,7 +201,7 @@ error:
 
     Response_destroy(response);
 
-    return -1;
+    return false;
 }
 
 
@@ -274,7 +276,8 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
 
-        response->directory_entries[response->n_directory_entries] = (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
+        response->directory_entries[response->n_directory_entries] =
+                    (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
         check_mem_response(response->directory_entries[response->n_directory_entries]);
         strcpy(response->directory_entries[response->n_directory_entries], de->d_name);
 
@@ -493,8 +496,9 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         }
 
         /* group */
-        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group) == 0),
-                "Could not fetch group info");
+        int is_in_group = posix_current_user_in_group(sb.st_gid);
+        check((is_in_group != -1), "Could not fetch group info");
+        attrs->is_in_group = is_in_group;
 
         /* times */
         attrs->atime = (int)sb.st_atime;
@@ -600,7 +604,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
         if (bytes_read != -1) {
             check((Response_set_data(response, databuf, (size_t)bytes_read) == true),
-                    "could not set response data"); 
+                    "could not set response data");
         }
         else {
             Response_set_errno(response, errno);

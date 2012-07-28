@@ -34,9 +34,9 @@ int Response_get_errno(const Rhizofs__Response * response);
  * the message will be initialized to the correct size
  * and has to be zmq_msg_closed
  *
- * 0 = success
+ * true = success
  */
-int Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
+bool Response_pack(const Rhizofs__Response * response, zmq_msg_t * msg);
 
 /**
  * will not make a copy of the data block, but destroying the response will also
@@ -53,7 +53,7 @@ void Response_from_message_destroy(Rhizofs__Response * response);
 /**
  * check if a response has any data associated with it
  *
- * returns the lenght of the if there is data, and -1 if there
+ * returns the length of the if there is data, and -1 if there
  * is no datablock
  */
 int Response_has_data(Rhizofs__Response * response);

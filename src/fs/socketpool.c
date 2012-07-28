@@ -13,13 +13,13 @@ SocketPool_socket_destroy(void * sock)
 }
 
 
-int
+bool
 SocketPool_init(SocketPool * socketpool, void * context, const char * socket_name,
         int socket_type)
 {
     int rc;
 
-    memset(socketpool, 0, sizeof(SocketPool)); // TODO: check
+    memset(socketpool, 0, sizeof(SocketPool));
 
     socketpool->socket_name = strdup(socket_name);
     check_mem(socketpool->socket_name);
@@ -30,7 +30,7 @@ SocketPool_init(SocketPool * socketpool, void * context, const char * socket_nam
     rc = pthread_key_create(&(socketpool->key), SocketPool_socket_destroy);
     check((rc==0), "pthread_key_create failed.");
 
-    return 0;
+    return true;
 
 error:
 
@@ -40,7 +40,7 @@ error:
     if (socketpool->key) {
         pthread_key_delete(socketpool->key);
     }
-    return -1;
+    return false;
 }
 
 

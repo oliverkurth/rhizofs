@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -17,9 +18,7 @@
 
 #include "../response.h"
 #include "../request.h"
-#include "../util/path.h"
 #include "proto/rhizofs.pb-c.h"
-#include "../uidgid.h"
 
 typedef struct ServeDir {
     char * directory;
@@ -29,7 +28,7 @@ typedef struct ServeDir {
 
 
 ServeDir * ServeDir_create(void *context, char * socket_name, char *directory);
-int ServeDir_serve(ServeDir * sd);
+bool ServeDir_serve(ServeDir * sd);
 void ServeDir_destroy(ServeDir * sd);
 
 int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath);

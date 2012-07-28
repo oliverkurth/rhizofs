@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <zmq.h>
 
@@ -18,9 +19,9 @@ typedef struct SocketPool {
 
 /**
  * initialize a static socketpool struct
- * returns 0 on success or -1 on failure
+ * returns true on success or false on failure
  */
-int SocketPool_init(SocketPool * sp, void * context, const char * socket_name,
+bool SocketPool_init(SocketPool * sp, void * context, const char * socket_name,
     int socket_type);
 
 /**
