@@ -380,6 +380,7 @@ Rhizofs_mkdir(const char * path, mode_t mode)
     request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
     request->path = (char *)path;
 
+    debug("mkdir mode: %d", (int)mode);
     request->permissions = Permissions_create((mode_t)mode);
     check((request->permissions != NULL), "Could not create access permissions struct");
 

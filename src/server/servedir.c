@@ -458,7 +458,7 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
-    debug("requested path: %s", path);
+    debug("mkdir requested path: %s, mode: %d", path, (int)localmode);
     if (mkdir(path, localmode) == -1) {
         Response_set_errno(response, errno);
         debug("Could not call mkdir on %s", path);
