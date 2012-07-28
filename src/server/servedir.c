@@ -2,6 +2,7 @@
 
 #include "../dbg.h"
 #include "../datablock.h"
+#include "../path.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
@@ -371,13 +372,14 @@ ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("ACCESS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
-    if (!request->has_modemask) {
-        log_err("the request did not specify an access mode");
+    if (!request->permissions) {
+        log_err("the request did not specify access permissions");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_from_protocol(request->modemask, 0);
-
+    bool success = false;
+    localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
+    check(success, "Could not create bitmask from access permissions");
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
@@ -443,13 +445,16 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     debug("MKDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
 
-    if (!request->has_modemask) {
-        log_err("the request did not specify an access mode");
+    if (request->permissions == NULL) {
+        log_err("the request did not specify an access permissions");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
     }
-    localmode = mapping_mode_from_protocol(request->modemask, 1);
+    bool success = false;
+    localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
+    check(success, "Could not create bitmask from access permissions");
 
+    // TODO: filetype needed ??
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
@@ -474,7 +479,6 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
 {
     char * path = NULL;
     struct stat sb;
-    Rhizofs__Attrs * attrs = NULL;
 
     debug("GETATTR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
@@ -484,33 +488,8 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     debug("requested path: %s", path);
 
     if (stat(path, &sb) == 0)  {
-        attrs = calloc(sizeof(Rhizofs__Attrs), 1);
-        check_mem(attrs);
-        rhizofs__attrs__init(attrs);
-
-        attrs->size = sb.st_size;
-
-        debug("mode: %o", sb.st_mode );
-        attrs->modemask = mapping_mode_to_protocol(sb.st_mode, 1);
-
-        /* user */
-        if (getuid() == sb.st_uid) {
-            attrs->is_owner = 1;
-        }
-        else {
-            attrs->is_owner = 0;
-        }
-
-        /* group */
-        check((uidgid_in_group(sb.st_gid, &attrs->is_in_group) == 0),
-                "Could not fetch group info");
-
-        /* times */
-        attrs->atime = (int)sb.st_atime;
-        attrs->mtime = (int)sb.st_mtime;
-        attrs->ctime = (int)sb.st_ctime;
-
-        response->attrs = attrs;
+        response->attrs = Attrs_create(&sb);
+        check((response->attrs != NULL), "could not create attrs from stat");
     }
     else {
         Response_set_errno(response, errno);
@@ -522,8 +501,7 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
 
 error:
 
-    free(attrs);
-    attrs = NULL;
+    Attrs_destroy(response->attrs);
     free(path);
     return -1;
 }

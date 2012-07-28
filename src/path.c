@@ -1,13 +1,14 @@
 #include "path.h"
 
+#include "dbg.h"
+
 #define PATH_SEP '/'
 
 int
 path_join(const char * path1, const char * path2, char ** pathjoined)
 {
-    if ((!path1) || (!path2)) {
-        return -1;
-    }
+    check((path1 != NULL), "path_join: path1 argument is NULL");
+    check((path2 != NULL), "path_join: path2 argument is NULL");
 
     int lenpath1 = strlen(path1);
     int lenpath2 = strlen(path2);
@@ -30,9 +31,8 @@ path_join(const char * path1, const char * path2, char ** pathjoined)
     }
 
     *pathjoined = calloc(sizeof(char *), lenpathjoined+1);
-    if (pathjoined == NULL) {
-        return -1;
-    }
+    check_mem(*pathjoined);
+
     strcpy(*pathjoined, path1);
     if (add_seperator==1) {
         (*pathjoined)[lenpath1] = PATH_SEP;
@@ -40,6 +40,10 @@ path_join(const char * path1, const char * path2, char ** pathjoined)
     strcpy((*pathjoined)+(sizeof(char)*(lenpath1+add_seperator)), path2);
 
     return 0;
+
+
+error:
+    return -1;
 }
 
 
@@ -48,15 +52,16 @@ int
 path_join_real(const char * path1, const char * path2, char ** pathjoined)
 {
     char * realp = NULL;
-    int rc = 0;
 
-    if ((rc = path_join(path1, path2, &realp)) != 0) {
-        return rc;
-    }
+    check((path_join(path1, path2, &realp) == 0), "path_join failed");
 
-    if (((*pathjoined) = realpath(realp, NULL)) == NULL) {
-        rc = -1;
-    }
+    (*pathjoined) = realpath(realp, NULL);
+    check(((*pathjoined) != NULL), "realpath failed");
+
     free(realp);
-    return rc;
+    return 0;
+
+error:
+    free(realp);
+    return -1;
 }

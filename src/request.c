@@ -65,10 +65,10 @@ Request_destroy(Rhizofs__Request * request)
 {
     if (request) {
         free(request->version);
-        if (request->datablock != NULL) {
-            DataBlock_destroy(request->datablock);
-        }
+        DataBlock_destroy(request->datablock);
         OpenFlags_destroy(request->openflags);
+        Permissions_destroy(request->permissions);
+        free(request);
     }
     request = NULL;
 }

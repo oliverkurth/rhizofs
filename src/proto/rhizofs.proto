@@ -59,27 +59,27 @@ enum FileType {
     SOCKET = 6;
 };
 
-// message PermTriple {
-//     required bool read = 1;
-//     required bool write = 2;
-//     required bool execute = 3;
-// };
-// 
-// message Permissions {
-//     required PermTriple owner = 1;
-//     required PermTriple group = 2;
-//     required PermTriple world = 3;
-// };
+message PermissionSet {
+    required bool read = 1 [default = false];
+    required bool write = 2 [default = false];
+    required bool execute = 3 [default = false];
+};
+
+message Permissions {
+    required PermissionSet owner = 1;
+    required PermissionSet group = 2;
+    required PermissionSet world = 3;
+};
 
 // file opening flags passed to open
 message OpenFlags {
-    required bool rdonly = 1;
-    required bool wronly = 2;
-    required bool rdwr = 3;
-    required bool creat = 4;
-    required bool excl = 5;
-    required bool trunc = 6;
-    required bool append = 7;
+    required bool rdonly = 1 [default = false];
+    required bool wronly = 2 [default = false];
+    required bool rdwr = 3 [default = false];
+    required bool creat = 4 [default = false];
+    required bool excl = 5 [default = false];
+    required bool trunc = 6 [default = false];
+    required bool append = 7 [default = false];
 };
 
 
@@ -100,17 +100,22 @@ message Attrs {
     required int64 size = 1;
 
     // unsigned int. see mapping.c
-    required int32 modemask = 2;
+    //required int32 modemask = 2;
 
     // userinfo - simply inticate if the user who runs the server is the owner
     // of the file and and if this user is part of the group of the file
-    required bool is_owner = 3;
-    required bool is_in_group = 4;
+    required bool is_owner = 2;
+    required bool is_in_group = 3;
 
     // timestamps (unixtime)
-    required int32 atime = 5;
-    required int32 mtime = 6;
-    required int32 ctime = 7;
+    required int32 atime = 4;
+    required int32 mtime = 5;
+    required int32 ctime = 6;
+
+    required FileType filetype = 7;
+
+    required Permissions permissions = 8;
+
 }
 
 
@@ -120,7 +125,8 @@ message Request {
 
     optional string path = 3;
 
-    optional int32 modemask = 4;
+    // access permissions
+    optional Permissions permissions = 4;
 
     // path to move/copy/link a file to
     optional string path_to = 5;
@@ -132,6 +138,9 @@ message Request {
     // number of bytes to read/write
     optional int32 size = 8;
     optional int32 offset = 9;
+
+    // filetype - for open operation
+    optional FileType filetype = 10;
 }
 
 

@@ -18,9 +18,7 @@
 
 #include "../response.h"
 #include "../request.h"
-#include "../util/path.h"
 #include "proto/rhizofs.pb-c.h"
-#include "../uidgid.h"
 
 typedef struct ServeDir {
     char * directory;

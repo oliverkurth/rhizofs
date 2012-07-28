@@ -39,24 +39,25 @@ void
 Response_destroy(Rhizofs__Response * response)
 {
 
-    free(response->attrs);
+    if (response) {
+        Attrs_destroy(response->attrs);
 
-    if (response->n_directory_entries != 0) {
-        int i = 0;
-        for (i=0; i<(int)response->n_directory_entries; i++) {
-            free(response->directory_entries[i]);
+        if (response->n_directory_entries != 0) {
+            int i = 0;
+            for (i=0; i<(int)response->n_directory_entries; i++) {
+                free(response->directory_entries[i]);
+            }
+            free(response->directory_entries);
         }
-        free(response->directory_entries);
-    }
 
-    if (response->datablock != NULL) {
-        DataBlock_destroy(response->datablock);
-    }
+        if (response->datablock != NULL) {
+            DataBlock_destroy(response->datablock);
+        }
 
-    free(response->version);
-    free(response);
+        free(response->version);
+        free(response);
+    }
     response = NULL;
-
 }
 
 
@@ -105,7 +106,7 @@ error:
 void
 Response_set_errno(Rhizofs__Response * response, int eno)
 {
-    int perrno = mapping_errno_to_protocol(eno);
+    int perrno = Errno_from_local(eno);
 
     debug("Setting protocol errno %d", perrno);
     response->errnotype = perrno;
@@ -115,7 +116,7 @@ Response_set_errno(Rhizofs__Response * response, int eno)
 int
 Response_get_errno(const Rhizofs__Response * response)
 {
-    return mapping_errno_from_protocol( response->errnotype );
+    return Errno_to_local( response->errnotype );
 }
 
 
