@@ -66,7 +66,7 @@ int Errno_to_local(int perrno);
  *
  * returns NULL on failure
  */
-Rhizofs__Permissions * Permissions_create(const mode_t stat_result);
+Rhizofs__Permissions * Permissions_create(const mode_t mode);
 
 /**
  * create a permissions bitmask from a Rhizofs__Permissions struct
@@ -74,6 +74,17 @@ Rhizofs__Permissions * Permissions_create(const mode_t stat_result);
  * on error the parameter success will set to false
  */
 int Permissions_to_bitmask(const Rhizofs__Permissions * permissions, bool * success);
+
+/**
+ * creates a human readable string from the permissions.
+ *
+ * outstr has to be a preallocated string of at least 10 characters
+ * length
+ *
+ * return a string containing "EEE" on error.
+ */
+bool
+Permissions_to_string(const Rhizofs__Permissions * permissions, char * outstr);
 
 /**
  * free a permissions struct

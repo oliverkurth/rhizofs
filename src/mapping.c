@@ -45,6 +45,7 @@ static flag_pair errno_map[] = {
 // Prototypes
 Rhizofs__PermissionSet * PermissionSet_create();
 void PermissionSet_destroy(Rhizofs__PermissionSet * permset);
+bool PermissionSet_to_string(const Rhizofs__PermissionSet * permset, char * outstr);
 
 
 
@@ -72,8 +73,38 @@ PermissionSet_destroy(Rhizofs__PermissionSet * permset)
 }
 
 
+/**
+ * creates a human readable string from the permissionset.
+ *
+ * outstr has to be a preallocated string of at least 4 characters
+ * length
+ *
+ * return a string containg "EEE" on error.
+ */
+bool
+PermissionSet_to_string(const Rhizofs__PermissionSet * permset, char * outstr)
+{
+    check((permset != NULL), "permset is null");
+
+    outstr[0] = permset->read ? 'r' :  '-';
+    outstr[1] = permset->write ?  'w' :  '-';
+    outstr[2] = permset->execute ? 'x' :  '-';
+    outstr[3] = '\0';
+    
+    return true;
+
+error:
+    outstr[0] = 'E';
+    outstr[1] = 'E';
+    outstr[2] = 'E';
+    outstr[3] = '\0';
+
+    return false;
+}
+
+
 Rhizofs__Permissions *
-Permissions_create(const mode_t stat_result)
+Permissions_create(const mode_t mode)
 {
     Rhizofs__Permissions * permissions = NULL;
 
@@ -95,19 +126,26 @@ Permissions_create(const mode_t stat_result)
     check((permissions->world != NULL), "failed to initialize world permissionset");
 
     // owner
-    stat_result & S_IRUSR ? permissions->owner->read = 1 : 0;
-    stat_result & S_IWUSR ? permissions->owner->write = 1 : 0;
-    stat_result & S_IXUSR ? permissions->owner->execute = 1 : 0;
+    (mode & S_IRUSR) ? permissions->owner->read = 1 : 0;
+    (mode & S_IWUSR) ? permissions->owner->write = 1 : 0;
+    (mode & S_IXUSR) ? permissions->owner->execute = 1 : 0;
 
     // group
-    stat_result & S_IRGRP ? permissions->group->read = 1 : 0;
-    stat_result & S_IWGRP ? permissions->group->write = 1 : 0;
-    stat_result & S_IXGRP ? permissions->group->execute = 1 : 0;
+    (mode & S_IRGRP) ? permissions->group->read = 1 : 0;
+    (mode & S_IWGRP) ? permissions->group->write = 1 : 0;
+    (mode & S_IXGRP) ? permissions->group->execute = 1 : 0;
 
     // world
-    stat_result & S_IROTH ? permissions->world->read = 1 : 0;
-    stat_result & S_IWOTH ? permissions->world->write = 1 : 0;
-    stat_result & S_IXOTH ? permissions->world->execute = 1 : 0;
+    (mode & S_IROTH) ? permissions->world->read = 1 : 0;
+    (mode & S_IWOTH) ? permissions->world->write = 1 : 0;
+    (mode & S_IXOTH) ? permissions->world->execute = 1 : 0;
+
+#ifdef DEBUG
+    char permstr[10];
+    Permissions_to_string(permissions, &permstr[0]);
+    debug("Converted bitmask %d to permissions %s", (int)mode, permstr);
+#endif
+
 
     return permissions;
 
@@ -117,6 +155,18 @@ error:
     return NULL;
 }
 
+bool
+Permissions_to_string(const Rhizofs__Permissions * permissions, char * outstr)
+{
+    check((permissions != NULL), "permissions is NULL");
+
+    return PermissionSet_to_string(permissions->owner, &outstr[0]) && 
+            PermissionSet_to_string(permissions->group, &outstr[3]) && 
+            PermissionSet_to_string(permissions->world, &outstr[6]);
+
+error:
+    return false;
+}
 
 void
 Permissions_destroy(Rhizofs__Permissions * permissions)
@@ -141,17 +191,24 @@ Permissions_to_bitmask(const Rhizofs__Permissions * permissions, bool * success)
     check((permissions->group != NULL), "permissions->group struct is null");
     check((permissions->world != NULL), "permissions->world struct is null");
 
-    permissions->owner->read ? perm_bm &= S_IRUSR : 0;
-    permissions->owner->write ? perm_bm &= S_IWUSR : 0;
-    permissions->owner->execute ? perm_bm &= S_IXUSR : 0;
 
-    permissions->group->read ? perm_bm &= S_IRGRP : 0;
-    permissions->group->write ? perm_bm &= S_IWGRP : 0;
-    permissions->group->execute ? perm_bm &= S_IXGRP : 0;
+    permissions->owner->read ? perm_bm |= S_IRUSR : 0;
+    permissions->owner->write ? perm_bm |= S_IWUSR : 0;
+    permissions->owner->execute ? perm_bm |= S_IXUSR : 0;
 
-    permissions->world->read ? perm_bm &= S_IROTH : 0;
-    permissions->world->write ? perm_bm &= S_IWOTH : 0;
-    permissions->world->execute ? perm_bm &= S_IXOTH : 0;
+    permissions->group->read ? perm_bm |= S_IRGRP : 0;
+    permissions->group->write ? perm_bm |= S_IWGRP : 0;
+    permissions->group->execute ? perm_bm |= S_IXGRP : 0;
+
+    permissions->world->read ? perm_bm |= S_IROTH : 0;
+    permissions->world->write ? perm_bm |= S_IWOTH : 0;
+    permissions->world->execute ? perm_bm |= S_IXOTH : 0;
+
+#ifdef DEBUG
+    char permstr[10];
+    Permissions_to_string(permissions, &permstr[0]);
+    debug("Converted permissions %s to bitmask %d", permstr, perm_bm);
+#endif
 
     return perm_bm;
 
@@ -284,13 +341,13 @@ OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success)
     check((openflags != NULL), "passed openflags struct is NULL");
     check((success != NULL), "passed pointer to success bool is NULL");
 
-    openflags->rdonly ? flags &= O_RDONLY : 0; 
-    openflags->wronly ? flags &= O_WRONLY : 0;
-    openflags->rdwr   ? flags &= O_RDWR : 0;
-    openflags->creat  ? flags &= O_CREAT : 0;
-    openflags->excl   ? flags &= O_EXCL : 0;
-    openflags->trunc  ? flags &= O_TRUNC : 0;
-    openflags->append ? flags &= O_APPEND : 0 ;
+    openflags->rdonly ? flags |= O_RDONLY : 0; 
+    openflags->wronly ? flags |= O_WRONLY : 0;
+    openflags->rdwr   ? flags |= O_RDWR : 0;
+    openflags->creat  ? flags |= O_CREAT : 0;
+    openflags->excl   ? flags |= O_EXCL : 0;
+    openflags->trunc  ? flags |= O_TRUNC : 0;
+    openflags->append ? flags |= O_APPEND : 0 ;
 
     return flags;
 
