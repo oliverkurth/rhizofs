@@ -38,18 +38,6 @@ static RhizoSettings settings;
 static SocketPool socketpool;
 
 
-#define  FUSE_OP_HEAD   int returned_err = EIO; \
-    Rhizofs__Request * request = NULL; \
-    Rhizofs__Response * response = NULL;
-
-
-#define CREATE_REQUEST(R) R = Request_create(); \
-    if (R == NULL ) { \
-        returned_err = ENOMEM; \
-        log_and_error("Could not create Request"); \
-    }
-
-
 /**
  * filesystem initialization
  *
@@ -252,7 +240,7 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 {
     struct fuse_context * fcontext = fuse_get_context();
 
-    check((Attrs_copy_to_stat(attrs, stbuf) == true), 
+    check((Attrs_copy_to_stat(attrs, stbuf) == true),
             "could not copy Attrs to stat");
 
     debug("mode: %o",stbuf->st_mode );
@@ -281,26 +269,40 @@ error:
 /* filesystem methods                                              */
 /*******************************************************************/
 
+#define  OP_INIT(REQ, RESP, RET_ERR)   \
+    int RET_ERR = EIO; \
+    Rhizofs__Request * REQ = NULL; \
+    Rhizofs__Response * RESP = NULL; \
+    REQ = Request_create(); \
+    if (REQ == NULL ) { \
+        RET_ERR = ENOMEM; \
+        log_and_error("Could not create Request"); \
+    }
+
+#define OP_COMMUNICATE(REQ, RESP, RET_ERR) \
+    RESP = Rhizofs_communicate(REQ, &RET_ERR); \
+    check_debug((RET_ERR == 0), "Server reported an error: %d", RET_ERR); \
+    check((RESP != NULL), "communicate failed");
+
+#define OP_DEINIT(REQ, RESP) \
+    Request_destroy(REQ); \
+    Response_from_message_destroy(RESP);
+
 static int
 Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
-    FUSE_OP_HEAD;
-
     unsigned int entry_n = 0;
 
     (void) offset;
     (void) fi;
 
-    CREATE_REQUEST(request);
+    OP_INIT(request, response, returned_err);
+
     request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
-
-    Request_destroy(request);
+    OP_COMMUNICATE(request, response, returned_err)
 
     for (entry_n=0; entry_n<response->n_directory_entries; ++entry_n) {
         if (filler(buf, response->directory_entries[entry_n], NULL, 0)) {
@@ -308,12 +310,11 @@ Rhizofs_readdir(const char * path, void * buf,
         }
     }
 
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -321,28 +322,22 @@ error:
 static int
 Rhizofs_getattr(const char *path, struct stat *stbuf)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
     check((response->attrs != NULL), "Response did not contain attrs");
-
-    Request_destroy(request);
 
     check((Rhizofs_convert_attrs_stat(response->attrs, stbuf) == true),
             "could not convert attrs");
 
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -350,23 +345,18 @@ error:
 static int
 Rhizofs_rmdir(const char * path)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -374,9 +364,8 @@ error:
 static int
 Rhizofs_mkdir(const char * path, mode_t mode)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
     request->path = (char *)path;
 
@@ -386,17 +375,13 @@ Rhizofs_mkdir(const char * path, mode_t mode)
 
     // TODO: filetype needed ??
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -404,23 +389,18 @@ error:
 static int
 Rhizofs_unlink(const char * path)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -428,26 +408,21 @@ error:
 static int
 Rhizofs_access(const char * path, int mask)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->path = (char *)path;
     request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
     request->permissions = Permissions_create((mode_t)mask);
     check((request->permissions != NULL), "Could not create access permissions struct");
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -455,26 +430,21 @@ error:
 static int
 Rhizofs_open(const char * path, struct fuse_file_info *fi)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
     request->path = (char *)path;
 
     request->openflags = OpenFlags_from_bitmask(fi->flags);
     check((request->openflags != NULL), "could not create openflags for request");
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
@@ -482,28 +452,23 @@ error:
 static int
 Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
 {
-    FUSE_OP_HEAD;
-
     (void) fi;
 
-    CREATE_REQUEST(request);
+    OP_INIT(request, response, returned_err);
+
     request->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
     request->path = (char *)path;
 
     request->permissions = Permissions_create(create_mode);
     check((request->permissions != NULL), "Could not create create permissions struct");
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 /*
@@ -532,13 +497,12 @@ static int
 Rhizofs_read(const char *path, char *buf, size_t size,
         off_t offset, struct fuse_file_info *fi)
 {
-    FUSE_OP_HEAD;
-
     int size_read = 0;
 
     (void) fi;
 
-    CREATE_REQUEST(request);
+    OP_INIT(request, response, returned_err);
+
     request->path = (char *)path;
     request->has_size = 1;
     request->size = (int)size;
@@ -546,21 +510,17 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     request->offset = (int)offset;
     request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
     check((Response_has_data(response) != 0), "Server did send no data in response");
 
     size_read = DataBlock_get_data_noalloc(response->datablock, (uint8_t *)buf, size);
     check((size_read > 0), "Could not read data");
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return size_read;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 
 }
@@ -570,12 +530,12 @@ static int
 Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
 		      struct fuse_file_info * fi)
 {
-    FUSE_OP_HEAD;
-
     int size_write = 0;
+
     (void) fi;
 
-    CREATE_REQUEST(request);
+    OP_INIT(request, response, returned_err);
+
     request->path = (char *)path;
     request->has_size = 1;
     request->size = (int)size;
@@ -585,45 +545,36 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
     check((Request_set_data(request, (const uint8_t *) buf, (size_t)size) == true),
             "could not set request data");
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
-
+    OP_COMMUNICATE(request, response, returned_err)
     check((response->has_size == 1), "response did not contain the number of bytes written");
+
     size_write = response->size;
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return size_write;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 }
 
 static int
 Rhizofs_truncate(const char * path, off_t offset)
 {
-    FUSE_OP_HEAD;
+    OP_INIT(request, response, returned_err);
 
-    CREATE_REQUEST(request);
     request->path = (char *)path;
     request->offset = (int)offset;
     request->has_offset = 1;
     request->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 
-    response = Rhizofs_communicate(request, &returned_err);
-    check_debug((returned_err == 0), "Server reported an error: %d", returned_err);
-    check((response != NULL), "communicate failed");
+    OP_COMMUNICATE(request, response, returned_err)
 
-    Request_destroy(request);
-    Response_from_message_destroy(response);
+    OP_DEINIT(request, response)
     return 0;
 
 error:
-    Response_from_message_destroy(response);
-    Request_destroy(request);
+    OP_DEINIT(request, response)
     return -returned_err;
 
 }
