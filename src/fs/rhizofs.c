@@ -579,8 +579,85 @@ error:
 
 }
 
+static int
+Rhizofs_utimens(const char * path, const struct timespec tv[2])
+{
+    (void) path;
+    (void) tv;
+    (void) path;
 
-static struct fuse_operations rhizofs_oper = {
+    log_warn("UTIMENS is not implemented");
+    return -ENOTSUP;
+}
+
+static int
+Rhizofs_readlink(const char * path, char * link_target, size_t len)
+{
+    (void) len;
+    (void) path;
+    (void) link_target;
+
+    log_warn("READLINK is not (yet) supported");
+    return -ENOTSUP;
+}
+
+static int
+Rhizofs_symlink(const char * path_from, const char * path_to)
+{
+    (void) path_from;
+    (void) path_to;
+
+    log_warn("SYMLINK is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static int
+Rhizofs_link(const char * path_from, const char * path_to)
+{
+    (void) path_from;
+    (void) path_to;
+
+    log_warn("LINK is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static int
+Rhizofs_chmod(const char * path, mode_t access_mode)
+{
+    (void) path;
+    (void) access_mode;
+
+    log_warn("CHMOD is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static int
+Rhizofs_chown(const char * path, uid_t user, gid_t group)
+{
+    (void) path;
+    (void) user;
+    (void) group;
+
+    log_warn("CHOWN is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static int
+Rhizofs_statfs(const char * path, struct statvfs * svfs)
+{
+    (void) path;
+    (void) svfs;
+
+    log_warn("STATFS is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static struct fuse_operations rhizofs_operations = {
     .readdir    = Rhizofs_readdir,
     .init       = Rhizofs_init,
     .destroy    = Rhizofs_destroy,
@@ -593,7 +670,15 @@ static struct fuse_operations rhizofs_oper = {
     .read       = Rhizofs_read,
     .write      = Rhizofs_write,
     .create     = Rhizofs_create,
-    .truncate   = Rhizofs_truncate
+    .truncate   = Rhizofs_truncate,
+//  stubs to implement
+    .utimens    = Rhizofs_utimens,
+    .readlink   = Rhizofs_readlink,
+    .symlink    = Rhizofs_symlink,
+    .link       = Rhizofs_link,
+    .chmod      = Rhizofs_chmod,
+    .chown      = Rhizofs_chown,
+    .statfs     = Rhizofs_statfs
 /*
     .release    = Rhizofs_release,
     .fsync      = Rhizofs_fsync,
@@ -624,7 +709,7 @@ Rhizofs_usage(const char * progname)
 int
 Rhizofs_fuse_main(struct fuse_args *args)
 {
-    return fuse_main(args->argc, args->argv, &rhizofs_oper, NULL);
+    return fuse_main(args->argc, args->argv, &rhizofs_operations, NULL);
 }
 
 
