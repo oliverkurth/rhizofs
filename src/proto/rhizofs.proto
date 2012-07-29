@@ -24,6 +24,7 @@ enum RequestType {
     WRITE = 13;
     CREATE = 14;
     TRUNCATE = 15;
+    CHMOD = 16;
 }
 
 enum Errno {

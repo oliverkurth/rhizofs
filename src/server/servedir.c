@@ -178,6 +178,10 @@ ServeDir_serve(ServeDir * sd)
                         op_rc = ServeDir_op_truncate(sd, request, response);
                         break;
 
+                    case RHIZOFS__REQUEST_TYPE__CHMOD:
+                        op_rc = ServeDir_op_chmod(sd, request, response);
+                        break;
+
                     default:
                         // dont know what to do with that request
                         op_rc = ServeDir_op_invalid(response);
@@ -755,6 +759,38 @@ ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
     if (truncate(path, request->offset) != 0) {
         Response_set_errno(response, errno);
         debug("Could not call truncate on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+
+int
+ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    mode_t localmode = 0;
+
+    debug("CHMOD");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__CHMOD;
+
+    REQ_HAS_OPTIONAL_PTR(request, response, permissions);
+
+    bool success = false;
+    localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
+    check(success, "Could not create bitmask from chmod permissions");
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+    if (chmod(path, localmode) != 0) {
+        Response_set_errno(response, errno);
+        debug("Could not call chmod on %s", path);
     }
 
     free(path);

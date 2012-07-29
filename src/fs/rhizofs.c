@@ -576,8 +576,30 @@ Rhizofs_truncate(const char * path, off_t offset)
 error:
     OP_DEINIT(request, response)
     return -returned_err;
-
 }
+
+
+static int
+Rhizofs_chmod(const char * path, mode_t access_mode)
+{
+    OP_INIT(request, response, returned_err);
+
+    request->requesttype = RHIZOFS__REQUEST_TYPE__CHMOD;
+    request->path = (char *)path;
+
+    request->permissions = Permissions_create(access_mode);
+    check((request->permissions != NULL), "Could not create chmod permissions struct");
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+}
+
 
 static int
 Rhizofs_utimens(const char * path, const struct timespec tv[2])
@@ -619,17 +641,6 @@ Rhizofs_link(const char * path_from, const char * path_to)
     (void) path_to;
 
     log_warn("LINK is not (yet) supported");
-    return -ENOTSUP;
-}
-
-
-static int
-Rhizofs_chmod(const char * path, mode_t access_mode)
-{
-    (void) path;
-    (void) access_mode;
-
-    log_warn("CHMOD is not (yet) supported");
     return -ENOTSUP;
 }
 
