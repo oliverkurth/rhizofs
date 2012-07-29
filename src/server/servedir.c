@@ -3,6 +3,7 @@
 #include "../dbg.h"
 #include "../datablock.h"
 #include "../path.h"
+#include "../helpers.h"
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
@@ -235,6 +236,26 @@ error:
     return -1;
 }
 
+// ########## fileststem operations ############################
+
+// check if the request has a optional (in the proto defintion)
+// parameter with given name, error otherwise
+#define REQ_HAS_OPTIONAL(REQ, RESP, PNAME) \
+    if (!REQ->has_ ## PNAME) { \
+        log_err(STRINGIFY(REQ) " is missing the " STRINGIFY(PNAME) " parameter"); \
+        RESP->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST; \
+        return -1; \
+    }
+
+// check if the request has a non-NULL pointer with the
+// given name, error otherwise
+#define REQ_HAS_OPTIONAL_PTR(REQ, RESP, PTRNAME) \
+    if (!REQ->PTRNAME) { \
+        log_err(STRINGIFY(REQ) " is missing the " STRINGIFY(PTRNAME) " pointer"); \
+        RESP->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST; \
+        return -1; \
+    }
+
 
 int
 ServeDir_op_ping(Rhizofs__Response * response)
@@ -384,11 +405,8 @@ ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("ACCESS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
-    if (!request->permissions) {
-        log_err("the request did not specify access permissions");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL_PTR(request, response, permissions);
+
     bool success = false;
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
@@ -419,11 +437,8 @@ ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("RENAME");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
 
-    if (request->path_to == NULL) {
-        log_err("the request did not specify a path_to");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL_PTR(request, response, path_to);
+
     check((path_join(sd->directory, request->path_to, &path_to)==0),
             "error processing path_to");
     check_debug((path_to != NULL), "path_to is null");
@@ -457,11 +472,8 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     debug("MKDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
 
-    if (request->permissions == NULL) {
-        log_err("the request did not specify an access permissions");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL_PTR(request, response, permissions);
+
     bool success = false;
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
@@ -530,11 +542,8 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     debug("OPEN");
     response->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
 
-    if (request->openflags == NULL) {
-        log_err("the request did not specify open flags");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL_PTR(request, response, openflags);
+
     openflags = OpenFlags_to_bitmask(request->openflags, &success);
     check((success == true), "could not convert openflags to bitmask");
 
@@ -570,16 +579,8 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     debug("READ");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
-    if (!request->has_size) {
-        log_err("the request did not specify size of buffer to read");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
-    if (!request->has_offset) {
-        log_err("the request did not specify a read offset");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL(request, response, size);
+    REQ_HAS_OPTIONAL(request, response, offset);
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
@@ -648,17 +649,9 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     debug("WRITE");
     response->requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
 
+    REQ_HAS_OPTIONAL(request, response, size);
+    REQ_HAS_OPTIONAL(request, response, offset);
 
-    if (!request->has_size) {
-        log_err("the request did not specify size of buffer to write");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
-    if (!request->has_offset) {
-        log_err("the request did not specify a write offset");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
     if (Request_has_data(request) == -1) {
         log_err("the request does not contain data");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
@@ -720,11 +713,8 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("CREATE");
     response->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
 
-    if (request->permissions == NULL) {
-        log_err("the request did not specify create permissions");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL_PTR(request, response, permissions);
+
     create_mode = Permissions_to_bitmask(request->permissions, &success);
     check((success == true), "could not convert permissions to bitmask");
 
@@ -757,16 +747,12 @@ ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
     debug("TRUNCATE");
     response->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 
-    if (!request->has_offset) {
-        log_err("the request did not specify a read offset");
-        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
-        return -1;
-    }
+    REQ_HAS_OPTIONAL(request, response, offset);
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
-    if (truncate(path, request->offset) != 0) { 
+    if (truncate(path, request->offset) != 0) {
         Response_set_errno(response, errno);
         debug("Could not call truncate on %s", path);
     }
