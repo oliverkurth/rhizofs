@@ -50,8 +50,14 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
     check((dblk != NULL), "passed datablock is null");
     check((len != 0), "passed length of datablock is 0");
 
+    // only use compression if the length of the data exceeds
+    // a threshold as tiny chunks of data are not very compression-worth
+    // anyways
+    Rhizofs__CompressionType compression_method = 
+            len > 100 ? compression : RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+
     bool compression_failed = false;
-    switch (compression) {
+    switch (compression_method) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
             // skip. data will be added in fallback
             break;
@@ -59,7 +65,7 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
         case RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4:
             {
                 if (set_lz4_compressed_data(dblk, data, len) != -1) {
-                    dblk->compression = compression;
+                    dblk->compression = compression_method;
                 }
                 else {
                     compression_failed = true;
@@ -69,11 +75,12 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
             break;
 
         default:
-            log_and_error("Unsupported compression type %d", compression);
+            log_and_error("Unsupported compression type %d", compression_method);
     }
 
     // fallback to no compression
-    if ((compression == RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) || (compression_failed == true )) {
+    if ((compression_method == RHIZOFS__COMPRESSION_TYPE__COMPR_NONE) || 
+                (compression_failed == true )) {
         dblk->data.data = NULL;
         dblk->data.data = malloc((size_t)(len * sizeof(uint8_t)));
         check_mem(dblk->data.data);
