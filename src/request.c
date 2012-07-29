@@ -81,8 +81,10 @@ Request_pack(const Rhizofs__Request * request, zmq_msg_t * msg)
     size_t len = (size_t)rhizofs__request__get_packed_size(request);
     debug("Request will be %d bytes long", (int)len);
 
-    check((zmq_msg_init_size(msg, len) == 0), "Could not initialize message");
-    check((rhizofs__request__pack(request, zmq_msg_data(msg)) == len), "Could not pack message");
+    check((zmq_msg_init_size(msg, len) == 0),
+            "Could not initialize message");
+    check((rhizofs__request__pack(request, zmq_msg_data(msg)) == len),
+            "Could not pack message");
 
     return true;
 
@@ -103,7 +105,8 @@ Request_set_data(Rhizofs__Request * request, const uint8_t * data, size_t len)
     check_mem(datablock);
 
     check(( DataBlock_set_data(datablock, data, len,
-           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == true), "could not set datablock data");
+           RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) == true),
+           "could not set datablock data");
 
     request->datablock = datablock;
 

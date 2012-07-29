@@ -118,7 +118,8 @@ Permissions_create(const mode_t mode)
 #define PS_INIT(PS_NAME) \
     permissions->PS_NAME = NULL; \
     permissions->PS_NAME = PermissionSet_create(); \
-    check((permissions->PS_NAME != NULL), "failed to initialize " STRINGIFY(PS_NAME) " permissionset");
+    check((permissions->PS_NAME != NULL), "failed to initialize " \
+            STRINGIFY(PS_NAME) " permissionset");
 
     PS_INIT(owner);
     PS_INIT(group);

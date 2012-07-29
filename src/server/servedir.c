@@ -271,7 +271,8 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
     response->n_directory_entries = 0;
 
-    check_debug((ServeDir_fullpath(sd, request, &dirpath) == 0), "Could not assemble directory path.");
+    check_debug((ServeDir_fullpath(sd, request, &dirpath) == 0),
+            "Could not assemble directory path.");
     debug("requested directory path: %s", dirpath);
     dir = opendir(dirpath);
     if (dir == NULL) {

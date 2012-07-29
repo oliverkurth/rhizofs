@@ -110,7 +110,8 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
 
     check((dblk != NULL), "passed datablock is null");
 
-    debug("Getting data from datablock containing %d bytes of compressed data", (int)dblk->size);
+    debug("Getting data from datablock containing %d bytes of compressed data",
+            (int)dblk->size);
 
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
@@ -129,7 +130,8 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
             log_and_error("Unsupported compression type %d", dblk->compression);
     }
 
-    debug("Getting data from datablock containing %d bytes of UNcompressed data", (int)len);
+    debug("Getting data from datablock containing %d bytes "
+            "of UNcompressed data", (int)len);
     check((len > -1), "could not copy uncompressed data");
 
     return len;
@@ -154,7 +156,8 @@ DataBlock_get_data_noalloc(Rhizofs__DataBlock * dblk, uint8_t * data, size_t dat
         "for contents of datablock"
         "(length of data=%d; buffer size=%d)", (int)dblk->size, (int)data_len);
 
-    debug("Getting data from datablock containing %d bytes of compressed data", (int)dblk->data.len);
+    debug("Getting data from datablock containing %d bytes "
+        "of compressed data", (int)dblk->data.len);
 
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
@@ -286,8 +289,9 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc
     bytes_uncompressed = LZ4_uncompress((const char*)dblk->data.data,
                 (char*)(*data), len);
     check((bytes_uncompressed >= 0), "LZ4_uncompress failed");
-    check((dblk->data.len == (size_t)bytes_uncompressed), "could not decompress the whole block "
-                "(only %d bytes of %d bytes)", bytes_uncompressed, (int)dblk->data.len);
+    check((dblk->data.len == (size_t)bytes_uncompressed), "could not decompress "
+                "the whole block (only %d bytes of %d bytes)", 
+                bytes_uncompressed, (int)dblk->data.len);
 
     return len;
 
