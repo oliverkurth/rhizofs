@@ -95,6 +95,7 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
 error:
 
     if (dblk) {
+        free(dblk->data.data);
         dblk->data.data = NULL;
         dblk->data.len = 0;
     }
