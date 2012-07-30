@@ -1,6 +1,8 @@
 #ifndef __hash_h__
 #define __hash_h__
 
+#include <stdint.h>
+
 /**
  * various hash functions
  */
@@ -11,7 +13,7 @@
  *
  * see http://www.cse.yorku.ca/~oz/hash.html
  */
-unsigned long Hash_djb2(const unsigned char * str);
+uint32_t Hash_djb2(const unsigned char * str);
 
 /**
  * hash algorithm of the sdbm database library
@@ -20,6 +22,6 @@ unsigned long Hash_djb2(const unsigned char * str);
  *
  * see http://www.cse.yorku.ca/~oz/hash.html
  */
-unsigned long Hash_sdbm(const unsigned char *str);
+uint32_t Hash_sdbm(const unsigned char *str);
 
 #endif // __hash_h__
