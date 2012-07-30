@@ -1,8 +1,8 @@
-#include "hash.h"
+#include "hashfunc.h"
 
 
 uint32_t
-Hash_djb2(const unsigned char * str)
+Hashfunc_djb2(const unsigned char * str)
 {
     uint32_t hash = 5381;
     int c;
@@ -15,7 +15,7 @@ Hash_djb2(const unsigned char * str)
 
 
 uint32_t
-Hash_sdbm(const unsigned char *str)
+Hashfunc_sdbm(const unsigned char *str)
 {
     uint32_t hash = 0;
     int c;
