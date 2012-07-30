@@ -5,10 +5,13 @@ CFLAGS= -Wall \
 	-Wformat-security \
 	-Wformat=2 \
 	-Isrc \
-	-std=c99 \
 	-D_XOPEN_SOURCE=500 \
 	-I. $(shell pkg-config fuse --cflags)
 	#-D_BSD_SOURCE \
+
+# clang emits a warning if the -std flag is passed to it when linking
+# objects
+CFLAGS_EXTRA = -std=c99
 
 LIBS=-lzmq -lprotobuf-c -lpthread
 FUSE_LIBS=$(shell pkg-config fuse --libs)
@@ -43,7 +46,7 @@ bin/rhizofs: ${FS_OBJECTS} build
 	$(CC) -o bin/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -c $< -o $@
 
 
 proto: src/proto/rhizofs.pb-c.c
