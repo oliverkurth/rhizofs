@@ -22,9 +22,9 @@ PROTOC=protoc
 #CC=clang
 
 # input files
-SERVER_SOURCES=$(wildcard src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c
+SERVER_SOURCES=$(wildcard src/kazlib/*.c src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c
 SERVER_OBJECTS=$(patsubst %.c,%.o,${SERVER_SOURCES})
-FS_SOURCES=$(wildcard src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
+FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
