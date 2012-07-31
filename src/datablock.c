@@ -208,11 +208,14 @@ static int
 get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
 {
     size_t len = dblk->data.len;
+    bool free_data = false;
 
     check((dblk != NULL), "passed datablock is null");
+    check((data != NULL), "passed data pointer is null");
 
     if (do_alloc) {
         (*data) = calloc(sizeof(uint8_t), len);
+        free_data = true;
     }
     check(((*data) != NULL), "data buffer is null");
     memcpy((*data), dblk->data.data, len);
@@ -220,6 +223,11 @@ get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
     return len;
 
 error:
+
+    if (free_data) {
+        free(*data);
+    }
+
     return -1;
 }
 
@@ -285,11 +293,14 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc
 {
     size_t len = dblk->size;
     int bytes_uncompressed = 0;
+    bool free_data = false;
 
     check((dblk != NULL), "passed datablock is null");
+    check((data != NULL), "passed data pointer is null");
 
     if (do_alloc) {
         (*data) = calloc(sizeof(uint8_t), len);
+        free_data = true;
     }
     check(((*data) != NULL), "data buffer is null");
 
@@ -303,5 +314,10 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc
     return len;
 
 error:
+
+    if (free_data) {
+        free(*data);
+    }
+
     return -1;
 }
