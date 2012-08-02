@@ -85,6 +85,14 @@ message OpenFlags {
     required bool append = 7 [default = false];
 };
 
+message TimeSet {
+    // timestamps (unixtime)
+    required int32 access = 1;
+    required int32 modification = 2;
+
+    // creation time is not always mandatory
+    optional int32 creation = 3;
+}; 
 
 message DataBlock {
 
@@ -110,14 +118,11 @@ message Attrs {
     required bool is_owner = 2;
     required bool is_in_group = 3;
 
-    // timestamps (unixtime)
-    required int32 atime = 4;
-    required int32 mtime = 5;
-    required int32 ctime = 6;
+    required TimeSet timestamps = 4;
 
-    required FileType filetype = 7;
+    required FileType filetype = 5;
 
-    required Permissions permissions = 8;
+    required Permissions permissions = 6;
 
 }
 

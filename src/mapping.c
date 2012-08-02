@@ -381,6 +381,13 @@ Attrs_create(const struct stat * stat_result)
     attrs->permissions = Permissions_create((mode_t)stat_result->st_mode);
     check((attrs->permissions != NULL), "Could not create access permissions struct");
 
+    attrs->timestamps = TimeSet_create();
+    check((attrs->timestamps != NULL), "Could not create timeset struct");
+    attrs->timestamps->access          = (int)stat_result->st_atime;
+    attrs->timestamps->modification    = (int)stat_result->st_mtime;
+    attrs->timestamps->creation        = (int)stat_result->st_ctime;
+    attrs->timestamps->has_creation    = 1;
+
     attrs->filetype = FileType_from_local((mode_t)stat_result->st_mode);
 
     /* user */
@@ -396,11 +403,6 @@ Attrs_create(const struct stat * stat_result)
     check((is_in_group != -1), "Could not fetch group info");
     attrs->is_in_group = is_in_group;
 
-    /* times */
-    attrs->atime = (int)stat_result->st_atime;
-    attrs->mtime = (int)stat_result->st_mtime;
-    attrs->ctime = (int)stat_result->st_ctime;
-
     return attrs;
 
 error:
@@ -414,7 +416,8 @@ void
 Attrs_destroy(Rhizofs__Attrs * attrs)
 {
     if (attrs) {
-        free(attrs->permissions);
+        Permissions_destroy(attrs->permissions);
+        TimeSet_destroy(attrs->timestamps);
         free(attrs);
         attrs = NULL;
     }
@@ -440,13 +443,39 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
 
     stat_result->st_size = attrs->size;
     stat_result->st_mode = filetype | permissions;
-    stat_result->st_atime  = attrs->atime;
-    stat_result->st_ctime  = attrs->ctime;
-    stat_result->st_mtime  = attrs->mtime;
     stat_result->st_nlink = 1;
+
+    stat_result->st_atime  = attrs->timestamps->access;
+    stat_result->st_mtime  = attrs->timestamps->modification;
+    check(attrs->timestamps->has_creation, "the attrs timestamps are "
+                "missing the creation time")
+    stat_result->st_ctime  = attrs->timestamps->creation;
 
     return true;
 
 error:
     return false;
+}
+
+
+Rhizofs__TimeSet *
+TimeSet_create()
+{
+    Rhizofs__TimeSet * timeset = NULL;
+
+    timeset = calloc(sizeof(Rhizofs__TimeSet), 1);
+    check_mem(timeset);
+    rhizofs__time_set__init(timeset);
+
+    return timeset;
+
+error:
+    free(timeset);
+    return NULL;
+}
+
+void
+TimeSet_destroy(Rhizofs__TimeSet * timeset)
+{
+    free(timeset);
 }

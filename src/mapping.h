@@ -120,6 +120,19 @@ void Attrs_destroy(Rhizofs__Attrs * attrs);
  */
 bool Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result);
 
+/**
+ * create a new timeset struct
+ *
+ * returns NULL on error
+ */
+Rhizofs__TimeSet * TimeSet_create();
+
+/**
+ * free a Attrs struct
+ */
+void TimeSet_destroy(Rhizofs__TimeSet * timeset);
+
+
 
 #endif /* __mapping_h__ */
 

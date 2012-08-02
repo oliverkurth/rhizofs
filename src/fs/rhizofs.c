@@ -682,12 +682,12 @@ static struct fuse_operations rhizofs_operations = {
     .write      = Rhizofs_write,
     .create     = Rhizofs_create,
     .truncate   = Rhizofs_truncate,
+    .chmod      = Rhizofs_chmod,
 //  stubs to implement
     .utimens    = Rhizofs_utimens,
     .readlink   = Rhizofs_readlink,
     .symlink    = Rhizofs_symlink,
     .link       = Rhizofs_link,
-    .chmod      = Rhizofs_chmod,
     .chown      = Rhizofs_chown,
     .statfs     = Rhizofs_statfs
 /*
