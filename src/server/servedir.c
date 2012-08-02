@@ -1,14 +1,24 @@
 #include "servedir.h"
 
+#include <limits.h> /* for PATH_MAX */
+#include <stdbool.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
+#include <zmq.h>
+
 #include "../dbg.h"
 #include "../datablock.h"
 #include "../path.h"
 #include "../helpers.h"
-
-#include <limits.h> /* for PATH_MAX */
-#include <stdbool.h>
-#include <sys/time.h>
-
+#include "../response.h"
+#include "../request.h"
+#include "../proto/rhizofs.pb-c.h"
 
 #if !defined PATH_MAX && defined _PC_PATH_MAX
 #define PATH_MAX (pathconf ("/", _PC_PATH_MAX) < 1 ? 4096 \
@@ -26,6 +36,27 @@
 // default permissions for file creation. the same permission set is used
 // by the GNU coreutils touch command
 static const int default_file_creation_permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+
+
+// prototypes
+static int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath);
+static int ServeDir_op_ping(Rhizofs__Response * response);
+static int ServeDir_op_invalid(Rhizofs__Response * response);
+static int ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+static int ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+static int ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+static int ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+static int ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+static int ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+
 
 
 ServeDir *
@@ -233,7 +264,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
 {
     check((request->path != NULL), "request path is null");
@@ -266,7 +297,7 @@ error:
     }
 
 
-int
+static int
 ServeDir_op_ping(Rhizofs__Response * response)
 {
     debug("PING");
@@ -276,7 +307,7 @@ ServeDir_op_ping(Rhizofs__Response * response)
 }
 
 
-int
+static int
 ServeDir_op_invalid(Rhizofs__Response * response)
 {
     log_warn("INVALID REQUEST");
@@ -289,7 +320,7 @@ ServeDir_op_invalid(Rhizofs__Response * response)
 }
 
 
-int
+static int
 ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     DIR *dir = NULL;
@@ -355,7 +386,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -380,7 +411,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -405,7 +436,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -437,7 +468,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path_from = NULL;
@@ -472,7 +503,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -507,7 +538,7 @@ error:
 
 
 
-int
+static int
 ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -540,7 +571,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -577,7 +608,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -648,7 +679,7 @@ error:
     return -1;
 }
 
-int
+static int
 ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -711,7 +742,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -748,7 +779,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -775,7 +806,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -807,7 +838,7 @@ error:
 }
 
 
-int
+static int
 ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
@@ -838,4 +869,3 @@ error:
     free(path);
     return -1;
 }
-
