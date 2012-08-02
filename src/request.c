@@ -68,6 +68,7 @@ Request_destroy(Rhizofs__Request * request)
         DataBlock_destroy(request->datablock);
         OpenFlags_destroy(request->openflags);
         Permissions_destroy(request->permissions);
+        TimeSet_destroy(request->timestamps);
         free(request);
     }
     request = NULL;

@@ -604,12 +604,25 @@ error:
 static int
 Rhizofs_utimens(const char * path, const struct timespec tv[2])
 {
-    (void) path;
-    (void) tv;
-    (void) path;
+    OP_INIT(request, response, returned_err);
 
-    log_warn("UTIMENS is not implemented");
-    return -ENOTSUP;
+    request->requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
+    request->path = (char *)path;
+
+    request->timestamps = TimeSet_create();
+    check((request->timestamps != NULL), "Could not create utimens timestamps struct");
+
+    request->timestamps->access       = tv[0].tv_sec;
+    request->timestamps->modification = tv[1].tv_sec;
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
 }
 
 static int

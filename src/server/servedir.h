@@ -51,5 +51,6 @@ int ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__
 int ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
 int ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
 int ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+int ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
 
 #endif /* __server_servedir_h__ */

@@ -25,6 +25,7 @@ enum RequestType {
     CREATE = 14;
     TRUNCATE = 15;
     CHMOD = 16;
+    UTIMENS = 17;
 }
 
 enum Errno {
@@ -149,6 +150,9 @@ message Request {
 
     // filetype - for open operation
     optional FileType filetype = 10;
+
+    // for utimens operation
+    required TimeSet timestamps = 11;
 }
 
 

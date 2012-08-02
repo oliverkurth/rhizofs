@@ -7,6 +7,7 @@
 
 #include <limits.h> /* for PATH_MAX */
 #include <stdbool.h>
+#include <sys/time.h>
 
 
 #if !defined PATH_MAX && defined _PC_PATH_MAX
@@ -180,6 +181,10 @@ ServeDir_serve(ServeDir * sd)
 
                     case RHIZOFS__REQUEST_TYPE__CHMOD:
                         op_rc = ServeDir_op_chmod(sd, request, response);
+                        break;
+
+                    case RHIZOFS__REQUEST_TYPE__UTIMENS:
+                        op_rc = ServeDir_op_utimens(sd, request, response);
                         break;
 
                     default:
@@ -791,6 +796,39 @@ ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     if (chmod(path, localmode) != 0) {
         Response_set_errno(response, errno);
         debug("Could not call chmod on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+
+int
+ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    struct timeval times [2];
+
+    debug("UTIMENS");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
+
+    REQ_HAS_OPTIONAL_PTR(request, response, timestamps);
+
+    times[0].tv_usec = 0;
+    times[0].tv_sec  = request->timestamps->access;
+    times[1].tv_usec = 0;
+    times[1].tv_sec  = request->timestamps->modification;
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+    if (utimes(path, times) != 0) {
+        Response_set_errno(response, errno);
+        debug("Could not call utimes on %s", path);
     }
 
     free(path);
