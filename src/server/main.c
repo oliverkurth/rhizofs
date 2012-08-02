@@ -6,7 +6,10 @@
 #include <getopt.h>
 #include <pthread.h>
 
+#include <zmq.h>
+
 #include "../dbg.h"
+#include "../version.h"
 #include "servedir.h"
 
 #define DEFAULT_N_WORKER_THREADS 5
