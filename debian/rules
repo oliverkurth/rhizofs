@@ -4,21 +4,20 @@
 
 configure-stamp:
 	dh_testdir
-	./waf configure --prefix=/usr
 	touch configure-stamp
 
 build: build-stamp
 
 build-stamp: configure-stamp
 	dh_testdir
-	./waf build_release
+	PREFIX=/usr make
 	touch $@
 
 clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-stamp configure-stamp
-	./waf distclean
+	make clean
 	dh_clean
 
 install: DH_OPTIONS=$(DH_EXTRAS)
@@ -27,7 +26,9 @@ install: build
 	dh_testroot
 	dh_prep
 	dh_installdirs
-	./waf install_release --destdir=$(CURDIR)/debian/rhizofs
+	mkdir -p $(CURDIR)/debian/rhizofs/usr/bin/
+	install bin/rhizofs $(CURDIR)/debian/rhizofs/usr/bin/
+	install bin/rhizosrv $(CURDIR)/debian/rhizofs/usr/bin/
 
 binary-indep: build install
 

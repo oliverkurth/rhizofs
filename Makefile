@@ -68,3 +68,6 @@ testtool:
 
 valgrind-srv: dev bin/rhizosrv
 	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/
+
+deb:
+	dpkg-buildpackage
