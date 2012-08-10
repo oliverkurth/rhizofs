@@ -32,10 +32,37 @@ Rhizofs__Request *
 Request_create()
 {
     Rhizofs__Request * request = NULL;
-    Rhizofs__Version * version = NULL;
 
     request = calloc(sizeof(Rhizofs__Request), 1);
     check_mem(request);
+
+    check(Request_init(request) == true, "could not initialize request struct");
+
+    return request;
+
+error:
+    free(request);
+    return NULL;
+}
+
+
+void
+Request_destroy(Rhizofs__Request * request)
+{
+    if (request) {
+        Request_deinit(request);
+        free(request);
+    }
+    request = NULL;
+}
+
+
+bool Request_init(Rhizofs__Request * request)
+{
+    Rhizofs__Version * version = NULL;
+
+    check_debug((request != NULL), "passed request ptr is null");
+
     rhizofs__request__init(request);
     request->openflags = NULL;
 
@@ -50,18 +77,19 @@ Request_create()
 
     // initialize pointers to NULL
     request->datablock = NULL;
+    request->timestamps = NULL;
+    request->permissions = NULL;
+    request->openflags = NULL;
 
-    return request;
+    return true;
 
 error:
     free(version);
-    free(request);
-    return NULL;
+    return false;
 }
 
-
 void
-Request_destroy(Rhizofs__Request * request)
+Request_deinit(Rhizofs__Request * request)
 {
     if (request) {
         free(request->version);
@@ -69,9 +97,7 @@ Request_destroy(Rhizofs__Request * request)
         OpenFlags_destroy(request->openflags);
         Permissions_destroy(request->permissions);
         TimeSet_destroy(request->timestamps);
-        free(request);
     }
-    request = NULL;
 }
 
 

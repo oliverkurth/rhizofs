@@ -13,9 +13,31 @@
 #include "proto/rhizofs.pb-c.h"
 
 
+/**
+ * create and allocate a new request struct
+ *
+ * returns NULL on error
+ */
 Rhizofs__Request * Request_create();
 
+
+/**
+ */
 void Request_destroy(Rhizofs__Request * request);
+
+
+/**
+ * initialize a pre-allocated Request struct
+ *
+ * returns boolean true on success, otherwise false
+ */
+bool Request_init(Rhizofs__Request * request);
+
+/**
+ * de-initialize a pre-allocated request struct.
+ * the request-struct itself will not be freed
+ */
+void Request_deinit(Rhizofs__Request * request);
 
 /**
  * pack the request in a zmq message

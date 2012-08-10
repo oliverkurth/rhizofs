@@ -271,21 +271,20 @@ error:
 
 #define  OP_INIT(REQ, RESP, RET_ERR)   \
     int RET_ERR = EIO; \
-    Rhizofs__Request * REQ = NULL; \
+    Rhizofs__Request REQ; \
     Rhizofs__Response * RESP = NULL; \
-    REQ = Request_create(); \
-    if (REQ == NULL ) { \
+    if (!Request_init(&REQ)) { \
         RET_ERR = ENOMEM; \
-        log_and_error("Could not create Request"); \
+        log_and_error("Could not iniialize Request"); \
     }
 
 #define OP_COMMUNICATE(REQ, RESP, RET_ERR) \
-    RESP = Rhizofs_communicate(REQ, &RET_ERR); \
+    RESP = Rhizofs_communicate(&REQ, &RET_ERR); \
     check_debug((RET_ERR == 0), "Server reported an error: %d", RET_ERR); \
     check((RESP != NULL), "communicate failed");
 
 #define OP_DEINIT(REQ, RESP) \
-    Request_destroy(REQ); \
+    Request_deinit(&REQ); \
     Response_from_message_destroy(RESP);
 
 static int
@@ -299,8 +298,8 @@ Rhizofs_readdir(const char * path, void * buf,
 
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
+    request.path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -324,8 +323,8 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 {
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
+    request.path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
     OP_COMMUNICATE(request, response, returned_err)
     check((response->attrs != NULL), "Response did not contain attrs");
@@ -347,8 +346,8 @@ Rhizofs_rmdir(const char * path)
 {
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
+    request.path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -366,12 +365,12 @@ Rhizofs_mkdir(const char * path, mode_t mode)
 {
     OP_INIT(request, response, returned_err);
 
-    request->requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
-    request->path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__MKDIR;
+    request.path = (char *)path;
 
     debug("mkdir mode: %d", (int)mode);
-    request->permissions = Permissions_create((mode_t)mode);
-    check((request->permissions != NULL), "Could not create access permissions struct");
+    request.permissions = Permissions_create((mode_t)mode);
+    check((request.permissions != NULL), "Could not create access permissions struct");
 
     // TODO: filetype needed ??
 
@@ -391,8 +390,8 @@ Rhizofs_unlink(const char * path)
 {
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
+    request.path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -410,11 +409,11 @@ Rhizofs_access(const char * path, int mask)
 {
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
+    request.path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__ACCESS;
 
-    request->permissions = Permissions_create((mode_t)mask);
-    check((request->permissions != NULL), "Could not create access permissions struct");
+    request.permissions = Permissions_create((mode_t)mask);
+    check((request.permissions != NULL), "Could not create access permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -432,11 +431,11 @@ Rhizofs_open(const char * path, struct fuse_file_info *fi)
 {
     OP_INIT(request, response, returned_err);
 
-    request->requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
-    request->path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__OPEN;
+    request.path = (char *)path;
 
-    request->openflags = OpenFlags_from_bitmask(fi->flags);
-    check((request->openflags != NULL), "could not create openflags for request");
+    request.openflags = OpenFlags_from_bitmask(fi->flags);
+    check((request.openflags != NULL), "could not create openflags for request");
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -456,11 +455,11 @@ Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
 
     OP_INIT(request, response, returned_err);
 
-    request->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
-    request->path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
+    request.path = (char *)path;
 
-    request->permissions = Permissions_create(create_mode);
-    check((request->permissions != NULL), "Could not create create permissions struct");
+    request.permissions = Permissions_create(create_mode);
+    check((request.permissions != NULL), "Could not create create permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -503,12 +502,12 @@ Rhizofs_read(const char *path, char *buf, size_t size,
 
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->has_size = 1;
-    request->size = (int)size;
-    request->has_offset = 1;
-    request->offset = (int)offset;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__READ;
+    request.path = (char *)path;
+    request.has_size = 1;
+    request.size = (int)size;
+    request.has_offset = 1;
+    request.offset = (int)offset;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     OP_COMMUNICATE(request, response, returned_err)
     check((Response_has_data(response) != 0), "Server did send no data in response");
@@ -536,13 +535,13 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
 
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->has_size = 1;
-    request->size = (int)size;
-    request->has_offset = 1;
-    request->offset = (int)offset;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
-    check((Request_set_data(request, (const uint8_t *) buf, (size_t)size) == true),
+    request.path = (char *)path;
+    request.has_size = 1;
+    request.size = (int)size;
+    request.has_offset = 1;
+    request.offset = (int)offset;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
+    check((Request_set_data(&request, (const uint8_t *) buf, (size_t)size) == true),
             "could not set request data");
 
     OP_COMMUNICATE(request, response, returned_err)
@@ -563,10 +562,10 @@ Rhizofs_truncate(const char * path, off_t offset)
 {
     OP_INIT(request, response, returned_err);
 
-    request->path = (char *)path;
-    request->offset = (int)offset;
-    request->has_offset = 1;
-    request->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
+    request.path = (char *)path;
+    request.offset = (int)offset;
+    request.has_offset = 1;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -584,11 +583,11 @@ Rhizofs_chmod(const char * path, mode_t access_mode)
 {
     OP_INIT(request, response, returned_err);
 
-    request->requesttype = RHIZOFS__REQUEST_TYPE__CHMOD;
-    request->path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__CHMOD;
+    request.path = (char *)path;
 
-    request->permissions = Permissions_create(access_mode);
-    check((request->permissions != NULL), "Could not create chmod permissions struct");
+    request.permissions = Permissions_create(access_mode);
+    check((request.permissions != NULL), "Could not create chmod permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -606,14 +605,14 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2])
 {
     OP_INIT(request, response, returned_err);
 
-    request->requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
-    request->path = (char *)path;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
+    request.path = (char *)path;
 
-    request->timestamps = TimeSet_create();
-    check((request->timestamps != NULL), "Could not create utimens timestamps struct");
+    request.timestamps = TimeSet_create();
+    check((request.timestamps != NULL), "Could not create utimens timestamps struct");
 
-    request->timestamps->access       = tv[0].tv_sec;
-    request->timestamps->modification = tv[1].tv_sec;
+    request.timestamps->access       = tv[0].tv_sec;
+    request.timestamps->modification = tv[1].tv_sec;
 
     OP_COMMUNICATE(request, response, returned_err)
 
