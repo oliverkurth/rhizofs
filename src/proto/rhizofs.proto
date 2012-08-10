@@ -152,7 +152,7 @@ message Request {
     optional FileType filetype = 10;
 
     // for utimens operation
-    required TimeSet timestamps = 11;
+    optional TimeSet timestamps = 11;
 }
 
 
