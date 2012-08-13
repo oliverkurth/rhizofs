@@ -148,7 +148,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     zmq_msg_t * msg_req = NULL;
     zmq_msg_t * msg_resp = NULL;
     struct fuse_context * fcontext = fuse_get_context();
-    bool is_timeout = false;
 
     (*err) = 0;
 
@@ -242,7 +241,11 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         if (seconds_waited >= settings.response_timeout) {
             log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
             (*err) = EAGAIN;
-            is_timeout = true;
+
+            // this basically implements the "The Lazy Pirate Pattern" described
+            // in the ZMQ Guide
+            SocketPool_renew_socket(&socketpool);
+
             goto error;
         }
     } while (rc != 0);
@@ -265,12 +268,6 @@ error:
     if (msg_resp != NULL) {
         zmq_msg_close(msg_resp);
         free(msg_resp);
-    }
-
-    if (is_timeout) {
-        // this basically implements the "The Lazy Pirate Pattern" described
-        // in the ZMQ Guide
-        SocketPool_renew_socket(&socketpool);
     }
 
     return NULL;
