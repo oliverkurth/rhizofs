@@ -1,3 +1,5 @@
+#include <sys/stat.h>
+
 #include "../dbg.h"
 #include "../fs/rhizofs.h"
 

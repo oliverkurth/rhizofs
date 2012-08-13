@@ -35,5 +35,12 @@ void * SocketPool_get_socket(SocketPool * sp);
 
 void SocketPool_deinit(SocketPool * sp);
 
+/**
+ * destroys the socket of the current thread to
+ * force creation of a new socket on the next call to
+ * SocketPool_get_socket
+ */
+void SocketPool_renew_socket(SocketPool * sp);
+
 
 #endif /* __fs_socketpool_h__ */

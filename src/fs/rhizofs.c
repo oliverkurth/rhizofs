@@ -1,6 +1,28 @@
 #include "rhizofs.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <pthread.h>
+
+#include "../mapping.h"
+#include "../request.h"
+#include "../response.h"
+#include "../datablock.h"
+#include "socketpool.h"
+#include "../version.h"
 #include "../dbg.h"
+
+// use the 2.6 fuse api
+#ifndef FUSE_USE_VERSION
+#define FUSE_USE_VERSION 26
+#endif
+#include <fuse.h>
+
+#include <zmq.h>
 
 
 /** private data to be stored in the fuse context */
@@ -9,7 +31,13 @@ typedef struct RhizoPriv {
 } RhizoPriv;
 
 typedef struct RhizoSettings {
-    char * host_socket;  /** the name of the zmq socket to connect to */
+    /** the name of the zmq socket to connect to */
+    char * host_socket;
+
+    /** timeout (in seconds) after which the filesystem will stop waiting
+     *  a response from the server and instead return a errno = EAGAIN
+     */
+    uint32_t response_timeout;
 } RhizoSettings;
 
 
@@ -120,6 +148,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     zmq_msg_t * msg_req = NULL;
     zmq_msg_t * msg_resp = NULL;
     struct fuse_context * fcontext = fuse_get_context();
+    bool is_timeout = false;
 
     (*err) = 0;
 
@@ -175,6 +204,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     rc = 1; /* set to an non-zero value to prevent exit of loop
              * before a response arrived */
+    uint32_t repetition = 0;
     do {
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
@@ -204,9 +234,20 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
                 goto error;
             }
         }
+
+        ++repetition;
+
+        // check for response timeout
+        uint32_t seconds_waited = (repetition * POLL_TIMEOUT_USEC) / (1000 * 1000);
+        if (seconds_waited >= settings.response_timeout) {
+            log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
+            (*err) = EAGAIN;
+            is_timeout = true;
+            goto error;
+        }
     } while (rc != 0);
 
-    /* close request after recieving relpy as it sure 0mq does not
+    /* close request after recieving reply as it sure 0mq does not
      * hold a reference anymore */
     zmq_msg_close(msg_req);
     free(msg_req);
@@ -225,6 +266,13 @@ error:
         zmq_msg_close(msg_resp);
         free(msg_resp);
     }
+
+    if (is_timeout) {
+        // this basically implements the "The Lazy Pirate Pattern" described
+        // in the ZMQ Guide
+        SocketPool_renew_socket(&socketpool);
+    }
+
     return NULL;
 }
 
@@ -746,6 +794,9 @@ int
 Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outargs)
 {
     (void) data;
+
+    // set the default response tiemout
+    settings.response_timeout = RESPONSE_TIMEOUT_DEFAULT;
 
     switch (key) {
         case KEY_HELP:

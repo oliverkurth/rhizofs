@@ -57,6 +57,18 @@ SocketPool_deinit(SocketPool * sp)
 }
 
 
+void
+SocketPool_renew_socket(SocketPool * sp)
+{
+    void * sock = pthread_getspecific(sp->key);
+    if (sock != NULL) {
+        zmq_close(sock);
+        if (pthread_setspecific(sp->key, NULL) != 0) {
+            debug("could not clear socket in thread");
+        }
+    }
+}
+
 void *
 SocketPool_get_socket(SocketPool * sp)
 {
