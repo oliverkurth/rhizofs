@@ -145,8 +145,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
     void * sock = NULL;
     int rc;
     Rhizofs__Response * response = NULL;
-    zmq_msg_t * msg_req = NULL;
-    zmq_msg_t * msg_resp = NULL;
+    zmq_msg_t msg_req;
+    zmq_msg_t msg_resp;
     struct fuse_context * fcontext = fuse_get_context();
 
     (*err) = 0;
@@ -158,16 +158,13 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         log_and_error("Could not fetch socket from socketpool");
     };
 
-    msg_req = calloc(sizeof(zmq_msg_t), 1);
-    check_mem(msg_req);
-
-    if (Request_pack(req, msg_req) != true) {
+    if (Request_pack(req, &msg_req) != true) {
         (*err) = errno;
         log_and_error("Could not pack request");
     }
 
     do {
-        rc = zmq_send(sock, msg_req, 0);
+        rc = zmq_send(sock, &msg_req, 0);
         if (rc != 0) {
             if ((errno == EAGAIN) || (errno == EFSM)) {
                 /* sleep for a short time before retrying
@@ -193,10 +190,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         { sock, 0, ZMQ_POLLIN, 0 }
     };
 
-    msg_resp = calloc(sizeof(zmq_msg_t), 1);
-    check_mem(msg_resp);
-
-    if (zmq_msg_init(msg_resp) != 0) {
+    if (zmq_msg_init(&msg_resp) != 0) {
         (*err) = ENOMEM;
         log_and_error("Could not initialize response message");
     }
@@ -208,9 +202,9 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
         if (pollset[0].revents & ZMQ_POLLIN) {
-            rc = zmq_recv(sock, msg_resp, 0);
+            rc = zmq_recv(sock, &msg_resp, 0);
             if (rc == 0) {  /* successfuly recieved response */
-                response = Response_from_message(msg_resp);
+                response = Response_from_message(&msg_resp);
                 if (response == NULL) {
                     (*err) = EIO;
                     log_and_error("Could not unpack response");
@@ -252,23 +246,15 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     /* close request after recieving reply as it sure 0mq does not
      * hold a reference anymore */
-    zmq_msg_close(msg_req);
-    free(msg_req);
-    zmq_msg_close(msg_resp);
-    free(msg_resp);
+    zmq_msg_close(&msg_req);
+    zmq_msg_close(&msg_resp);
 
     (*err) = Response_get_errno(response);
     return response;
 
 error:
-    if (msg_req != NULL) {
-        zmq_msg_close(msg_req);
-        free(msg_req);
-    }
-    if (msg_resp != NULL) {
-        zmq_msg_close(msg_resp);
-        free(msg_resp);
-    }
+    zmq_msg_close(&msg_req);
+    zmq_msg_close(&msg_resp);
 
     return NULL;
 }
