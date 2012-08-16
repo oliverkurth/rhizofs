@@ -683,6 +683,8 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
 
         response->has_size = 1;
         response->size = (int)bytes_written;
+
+        check((close(fd) != -1), "Could not close file opened for writing.");
     }
     else {
         Response_set_errno(response, errno);
@@ -690,7 +692,6 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         errno = 0;
     }
 
-    check((close(fd) != -1), "Could not close file opened for writing.");
 
     free(data);
     free(path);
