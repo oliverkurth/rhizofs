@@ -59,8 +59,9 @@ enum FileType {
     BLOCK_DEVICE = 2;
     REGULAR_FILE = 3;
     FIFO = 4;
-    SYMLINK = 5;
-    SOCKET = 6;
+    SOCKET = 5;
+    // symlinks are not supported so far
+    // SYMLINK = 6;
 };
 
 message PermissionSet {
