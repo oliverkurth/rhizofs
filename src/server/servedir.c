@@ -42,20 +42,23 @@ static const int default_file_creation_permissions = S_IRUSR | S_IWUSR | S_IRGRP
 static int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath);
 static int ServeDir_op_ping(Rhizofs__Response * response);
 static int ServeDir_op_invalid(Rhizofs__Response * response);
-static int ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
-static int ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
-static int ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
-static int ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
-static int ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
-static int ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response);
+#define SERVEDIR_OP(NAME)   \
+    static int ServeDir_op_ ## NAME (const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response * response);
+SERVEDIR_OP(access)
+SERVEDIR_OP(chmod)
+SERVEDIR_OP(create)
+SERVEDIR_OP(getattr)
+SERVEDIR_OP(mkdir)
+SERVEDIR_OP(open)
+SERVEDIR_OP(read)
+SERVEDIR_OP(readdir)
+SERVEDIR_OP(rename)
+SERVEDIR_OP(rmdir)
+SERVEDIR_OP(truncate)
+SERVEDIR_OP(unlink)
+SERVEDIR_OP(utimens)
+SERVEDIR_OP(write)
+#undef SERVEDIR_OP
 
 
 
@@ -157,67 +160,30 @@ ServeDir_serve(ServeDir * sd)
                 errno = 0;
 
                 switch(request->requesttype) {
-
                     case RHIZOFS__REQUEST_TYPE__PING:
                         op_rc = ServeDir_op_ping(response);
                         break;
 
-                    case RHIZOFS__REQUEST_TYPE__READDIR:
-                        op_rc = ServeDir_op_readdir(sd, request, response);
+#define CASE_OP(CNAME, FNAME) \
+                    case RHIZOFS__REQUEST_TYPE__ ## CNAME: \
+                        op_rc = ServeDir_op_ ## FNAME (sd, request, response); \
                         break;
 
-                    case RHIZOFS__REQUEST_TYPE__RMDIR:
-                        op_rc = ServeDir_op_rmdir(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__UNLINK:
-                        op_rc = ServeDir_op_unlink(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__ACCESS:
-                        op_rc = ServeDir_op_access(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__RENAME:
-                        op_rc = ServeDir_op_rename(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__MKDIR:
-                        op_rc = ServeDir_op_mkdir(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__GETATTR:
-                        op_rc = ServeDir_op_getattr(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__OPEN:
-                        op_rc = ServeDir_op_open(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__READ:
-                        op_rc = ServeDir_op_read(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__WRITE:
-                        op_rc = ServeDir_op_write(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__CREATE:
-                        op_rc = ServeDir_op_create(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__TRUNCATE:
-                        op_rc = ServeDir_op_truncate(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__CHMOD:
-                        op_rc = ServeDir_op_chmod(sd, request, response);
-                        break;
-
-                    case RHIZOFS__REQUEST_TYPE__UTIMENS:
-                        op_rc = ServeDir_op_utimens(sd, request, response);
-                        break;
-
+                    CASE_OP(READDIR, readdir)
+                    CASE_OP(RMDIR, rmdir)
+                    CASE_OP(UNLINK, unlink)
+                    CASE_OP(ACCESS, access)
+                    CASE_OP(RENAME, rename)
+                    CASE_OP(MKDIR, mkdir)
+                    CASE_OP(GETATTR, getattr)
+                    CASE_OP(OPEN, open)
+                    CASE_OP(READ, read)
+                    CASE_OP(WRITE, write)
+                    CASE_OP(CREATE, create)
+                    CASE_OP(TRUNCATE, truncate)
+                    CASE_OP(CHMOD, chmod)
+                    CASE_OP(UTIMENS, utimens)
+#undef CASE_OP
                     default:
                         // dont know what to do with that request
                         op_rc = ServeDir_op_invalid(response);
@@ -226,7 +192,6 @@ ServeDir_serve(ServeDir * sd)
                 if (op_rc != 0) {
                     log_warn("calling action failed");
                 }
-
                 Request_from_message_destroy(request);
             }
 
