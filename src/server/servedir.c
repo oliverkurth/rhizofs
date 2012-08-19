@@ -726,6 +726,15 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
+
+    // always add S_IWUSR as creat allows creating files
+    // and opening them without write permissions for the owner
+    // set.
+    // As this fuse filesystem will open the newly created file
+    // again when on the next write call this approach will not work here.
+    // So we will simply add write permissions for the owner here.
+    create_mode |= S_IWUSR;
+
     debug("requested path: %s, create_mode: %o", path, create_mode);
     fd = creat(path, create_mode);
     if (fd == -1) {
