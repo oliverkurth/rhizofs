@@ -31,4 +31,17 @@ int path_join_real(const char *, const char *, char **);
  */
 char * path_basename(const char * inpath);
 
+/**
+ * return the dirname of the path
+ *
+ * this function, in contrary to the libc functions,
+ * will not modify its arguments
+ *
+ * returns NULL on error, returns a newly allocated
+ * string on success. the caller is responsible for freeing this
+ * string
+ */
+char * path_dirname(const char * inpath);
+
+
 #endif /* __util_path_h__ */

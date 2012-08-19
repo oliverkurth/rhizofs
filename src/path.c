@@ -92,3 +92,28 @@ error:
     free(return_path);
     return NULL;
 }
+
+
+char *
+path_dirname(const char * inpath)
+{
+    char * inpath_copy = NULL;
+    char * return_path = NULL;
+
+    check_debug(inpath != NULL, "inpath is null");
+
+    // make a copy of the argument as dirname may modify its parameters
+    inpath_copy = strdup(inpath);
+    check_mem(inpath_copy);
+
+    return_path = strdup(dirname(inpath_copy));
+    check_mem(return_path);
+
+    free(inpath_copy);
+    return return_path;
+
+error:
+    free(inpath_copy);
+    free(return_path);
+    return NULL;
+}
