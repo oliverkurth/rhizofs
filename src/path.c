@@ -1,5 +1,7 @@
 #include "path.h"
 
+#include <libgen.h>
+
 #include "dbg.h"
 
 #define PATH_SEP '/'
@@ -64,4 +66,29 @@ path_join_real(const char * path1, const char * path2, char ** pathjoined)
 error:
     free(realp);
     return -1;
+}
+
+
+char *
+path_basename(const char * inpath)
+{
+    char * inpath_copy = NULL;
+    char * return_path = NULL;
+
+    check_debug(inpath != NULL, "inpath is null");
+
+    // make a copy of the argument as basename may modify its parameters
+    inpath_copy = strdup(inpath);
+    check_mem(inpath_copy);
+
+    return_path = strdup(basename(inpath_copy));
+    check_mem(return_path);
+
+    free(inpath_copy);
+    return return_path;
+
+error:
+    free(inpath_copy);
+    free(return_path);
+    return NULL;
 }
