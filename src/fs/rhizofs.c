@@ -27,7 +27,8 @@
 
 /** private data to be stored in the fuse context */
 typedef struct RhizoPriv {
-    void * context;             /** the zeromq context */
+    /** the zeromq context */
+    void * context;
 } RhizoPriv;
 
 typedef struct RhizoSettings {
@@ -318,6 +319,7 @@ error:
     Request_deinit(&REQ); \
     Response_from_message_destroy(RESP);
 
+
 static int
 Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
@@ -501,27 +503,7 @@ error:
     OP_DEINIT(request, response)
     return -returned_err;
 }
-/*
-static int
-Rhizofs_release(const char *path, struct fuse_file_info *fi)
-{
-    (void) path;
-    (void) fi;
 
-    return 0;
-}
-
-
-static int
-Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
-{
-    (void) path;
-    (void) isdatasync;
-    (void) fi;
-
-    return 0;
-}
-*/
 
 static int
 Rhizofs_read(const char *path, char *buf, size_t size,
@@ -576,7 +558,8 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
             "could not set request data");
 
     OP_COMMUNICATE(request, response, returned_err)
-    check((response->has_size == 1), "response did not contain the number of bytes written");
+    check((response->has_size == 1),
+            "response did not contain the number of bytes written");
 
     size_write = response->size;
 
@@ -710,6 +693,30 @@ Rhizofs_statfs(const char * path, struct statvfs * svfs)
     return -ENOTSUP;
 }
 
+/*
+static int
+Rhizofs_release(const char *path, struct fuse_file_info *fi)
+{
+    (void) path;
+    (void) fi;
+
+    log_warn("RELEASE is not (yet) supported");
+    return -ENOTSUP;
+}
+
+
+static int
+Rhizofs_fsync(const char *path, int isdatasync, struct fuse_file_info *fi)
+{
+    (void) path;
+    (void) isdatasync;
+    (void) fi;
+
+    log_warn("FSYNC is not (yet) supported");
+    return -ENOTSUP;
+}
+*/
+
 
 static struct fuse_operations rhizofs_operations = {
     .readdir    = Rhizofs_readdir,
@@ -726,17 +733,15 @@ static struct fuse_operations rhizofs_operations = {
     .create     = Rhizofs_create,
     .truncate   = Rhizofs_truncate,
     .chmod      = Rhizofs_chmod,
-//  stubs to implement
     .utimens    = Rhizofs_utimens,
+//  stubs to implement
+    .chown      = Rhizofs_chown,
     .readlink   = Rhizofs_readlink,
     .symlink    = Rhizofs_symlink,
     .link       = Rhizofs_link,
-    .chown      = Rhizofs_chown,
     .statfs     = Rhizofs_statfs
-/*
-    .release    = Rhizofs_release,
-    .fsync      = Rhizofs_fsync,
-*/
+    //.release    = Rhizofs_release,
+    //.fsync      = Rhizofs_fsync,
 };
 
 
@@ -823,7 +828,6 @@ error:
 }
 
 
-
 int
 Rhizofs_run(int argc, char * argv[])
 {
@@ -834,7 +838,8 @@ Rhizofs_run(int argc, char * argv[])
     memset(&settings, 0, sizeof(settings));
 
     fuse_opt_parse(&args, &settings, rhizo_opts, Rhizofs_opt_proc);
-    check_debug((Rhizofs_check_settings() == 0), "Invalid command line arguments");
+    check_debug((Rhizofs_check_settings() == 0),
+            "Invalid command line arguments");
 
     /* set the host/socket to show in /etc/mtab */
     if (settings.host_socket != NULL) {
@@ -843,7 +848,8 @@ Rhizofs_run(int argc, char * argv[])
                     settings.host_socket);
         }
         else {
-            sprintf(tmpbuf, "-ofsname=%.20s#%.990s", RHI_NAME_LOWER, settings.host_socket);
+            sprintf(tmpbuf, "-ofsname=%.20s#%.990s",
+                    RHI_NAME_LOWER, settings.host_socket);
         }
         fuse_opt_insert_arg(&args, 1, tmpbuf);
     }

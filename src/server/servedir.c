@@ -26,16 +26,21 @@
 #endif
 
 
-/* check for memory and set response error on failure */
+/**
+ * check for memory and set response error on failure
+ */
 #define check_mem_response(A) if(!(A)) { \
     response->errnotype = RHIZOFS__ERRNO__ERRNO_NOMEM ; \
     errno=0; \
     log_and_error("Out of memory."); \
 }
 
-// default permissions for file creation. the same permission set is used
-// by the GNU coreutils touch command
-static const int default_file_creation_permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
+/**
+ * default permissions for file creation. the same permission set is used
+ * by the GNU coreutils touch command
+ */
+static const int default_file_creation_permissions = 
+        S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 
 // prototypes
@@ -95,7 +100,8 @@ error:
 
     if (sd != NULL) {
         if (sd->directory != NULL) {
-            free(sd->directory); /* free the memory allocated by realpath */
+            // free the memory allocated by realpath
+            free(sd->directory);
         }
         if (sd->socket) {
             zmq_close(sd->socket);
@@ -110,7 +116,8 @@ void
 ServeDir_destroy(ServeDir * sd)
 {
     if (sd->directory != NULL) {
-        free(sd->directory); /* free the memory allocated by realpath */
+        // free the memory allocated by realpath
+        free(sd->directory); 
     }
     if (sd->socket != NULL) {
         zmq_close(sd->socket);
@@ -243,8 +250,10 @@ error:
 
 // ########## fileststem operations ############################
 
-// check if the request has a optional (in the proto defintion)
-// parameter with given name, error otherwise
+/**
+ * check if the request has a optional (in the proto defintion)
+ * parameter with given name, error otherwise
+ */
 #define REQ_HAS_OPTIONAL(REQ, RESP, PNAME) \
     if (!REQ->has_ ## PNAME) { \
         log_err(STRINGIFY(REQ) " is missing the " STRINGIFY(PNAME) " parameter"); \
@@ -252,8 +261,10 @@ error:
         return -1; \
     }
 
-// check if the request has a non-NULL pointer with the
-// given name, error otherwise
+/**
+ * check if the request has a non-NULL pointer with the
+ * given name, error otherwise
+ */
 #define REQ_HAS_OPTIONAL_PTR(REQ, RESP, PTRNAME) \
     if (!REQ->PTRNAME) { \
         log_err(STRINGIFY(REQ) " is missing the " STRINGIFY(PTRNAME) " pointer"); \
@@ -666,7 +677,7 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
-    fd = open(path, O_CREAT | O_WRONLY, default_file_creation_permissions ); // TODO: move to protocol
+    fd = open(path, O_CREAT | O_WRONLY, default_file_creation_permissions );
     if (fd != -1) {
         int bytes_in_block = DataBlock_get_data(request->datablock, &data);
         check((bytes_in_block != -1), "Could not extract data from datablock")

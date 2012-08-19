@@ -318,6 +318,5 @@ error:
     if (free_data) {
         free(*data);
     }
-
     return -1;
 }
