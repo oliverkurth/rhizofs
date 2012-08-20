@@ -34,7 +34,7 @@ release: all
 dev: CFLAGS+=-DDEBUG -O0 -g
 dev: all
 
-all: build proto bin/rhizosrv bin/rhizofs testtool
+all: build proto bin/rhizosrv bin/rhizofs
 
 build:
 	@[ -d bin ] || mkdir bin
@@ -57,14 +57,8 @@ src/proto/rhizofs.pb-c.c:
 clean:
 	rm -f src/proto/*.c src/proto/*.h ${SERVER_OBJECTS} ${FS_OBJECTS}
 	rm -rf bin
-	rm -f testtool/rhizofs_pb.py
 
-.PHONY: testtool src/proto/rhizofs.pb-c.c build
-
-testtool:
-	$(PROTOC) --python_out=./testtool src/proto/rhizofs.proto
-	mv ./testtool/src/proto/* ./testtool
-	rmdir ./testtool/src/proto ./testtool/src
+.PHONY: src/proto/rhizofs.pb-c.c build
 
 valgrind-srv: dev bin/rhizosrv
 	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/
