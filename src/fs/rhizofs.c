@@ -400,6 +400,9 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
 inline int
 Rhizofs_getattr_remote(const char *path, struct stat *stbuf)
 {
+    CacheEntry * cache_entry = NULL;
+    char * path_copy = NULL;
+
     OP_INIT(request, response, returned_err);
 
     request.path = (char *)path;
@@ -412,9 +415,9 @@ Rhizofs_getattr_remote(const char *path, struct stat *stbuf)
             "could not convert attrs");
 
     // prepare parameters for cache entry
-    char * path_copy = strdup(path);
+    path_copy = strdup(path);
     check_mem(path_copy);
-    CacheEntry * cache_entry = CacheEntry_create();
+    cache_entry = CacheEntry_create();
     check_mem(cache_entry);
 
     time_t current_time = time(NULL);
