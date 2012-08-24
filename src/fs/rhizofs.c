@@ -710,6 +710,47 @@ error:
     return -returned_err;
 }
 
+
+static int
+Rhizofs_link(const char * path_from, const char * path_to)
+{
+    OP_INIT(request, response, returned_err);
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__LINK;
+    request.path = (char *)path_from;
+    request.path_to = (char *)path_to;
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_rename(const char * path_from, const char * path_to)
+{
+    OP_INIT(request, response, returned_err);
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
+    request.path = (char *)path_from;
+    request.path_to = (char *)path_to;
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+}
+
+
 static int
 Rhizofs_readlink(const char * path, char * link_target, size_t len)
 {
@@ -721,6 +762,7 @@ Rhizofs_readlink(const char * path, char * link_target, size_t len)
     return -ENOTSUP;
 }
 
+
 static int
 Rhizofs_symlink(const char * path_from, const char * path_to)
 {
@@ -728,17 +770,6 @@ Rhizofs_symlink(const char * path_from, const char * path_to)
     (void) path_to;
 
     log_warn("SYMLINK is not (yet) supported");
-    return -ENOTSUP;
-}
-
-
-static int
-Rhizofs_link(const char * path_from, const char * path_to)
-{
-    (void) path_from;
-    (void) path_to;
-
-    log_warn("LINK is not (yet) supported");
     return -ENOTSUP;
 }
 
@@ -806,11 +837,12 @@ static struct fuse_operations rhizofs_operations = {
     .truncate   = Rhizofs_truncate,
     .chmod      = Rhizofs_chmod,
     .utimens    = Rhizofs_utimens,
+    .link       = Rhizofs_link,
+    .rename     = Rhizofs_rename,
 //  stubs to implement
     .chown      = Rhizofs_chown,
     .readlink   = Rhizofs_readlink,
     .symlink    = Rhizofs_symlink,
-    .link       = Rhizofs_link,
     .statfs     = Rhizofs_statfs
     //.release    = Rhizofs_release,
     //.fsync      = Rhizofs_fsync,
