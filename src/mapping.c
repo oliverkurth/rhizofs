@@ -232,7 +232,6 @@ Errno_from_local(int lerrno)
             break;
         }
     }
-
     return perrno;
 }
 
@@ -249,7 +248,6 @@ Errno_to_local(int perrno)
             break;
         }
     }
-
     return lerrno;
 }
 
@@ -356,7 +354,6 @@ OpenFlags_to_bitmask(const Rhizofs__OpenFlags * openflags, bool * success)
     return flags;
 
 error:
-
     (*success) = false; 
     return 0;
 }
@@ -414,7 +411,6 @@ Attrs_create(const struct stat * stat_result, const char * name)
     return attrs;
 
 error:
-
     Attrs_destroy(attrs);
     return NULL;
 }

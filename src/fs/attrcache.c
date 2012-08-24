@@ -98,8 +98,6 @@ AttrCache_deinit(AttrCache * attrcache)
             log_err("Could not destroy modify mutex");
         }
     }
-
-
     attrcache = NULL;
 }
 

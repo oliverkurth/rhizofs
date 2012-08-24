@@ -264,7 +264,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 error:
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_resp);
-
     return NULL;
 }
 

@@ -23,7 +23,6 @@ posix_current_user_in_group(gid_t gid)
             break;
         }
     }
-
     free(group_ids);
     return is_in_group;
 

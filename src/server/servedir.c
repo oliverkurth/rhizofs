@@ -100,8 +100,7 @@ error:
 
     if (sd != NULL) {
         if (sd->directory != NULL) {
-            // free the memory allocated by realpath
-            free(sd->directory);
+            free(sd->directory); // free the memory allocated by realpath
         }
         if (sd->socket) {
             zmq_close(sd->socket);
@@ -115,13 +114,13 @@ error:
 void
 ServeDir_destroy(ServeDir * sd)
 {
-    if (sd->directory != NULL) {
+    if (sd) {
         // free the memory allocated by realpath
         free(sd->directory); 
-    }
-    if (sd->socket != NULL) {
-        zmq_close(sd->socket);
-        sd->socket = NULL;
+        if (sd->socket != NULL) {
+            zmq_close(sd->socket);
+            sd->socket = NULL;
+        }
     }
     free(sd);
 }
@@ -226,12 +225,9 @@ ServeDir_serve(ServeDir * sd)
     return true;
 
 error:
-
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_rep);
-
     Response_destroy(response);
-
     return false;
 }
 
@@ -362,7 +358,6 @@ error:
         }
     }
     free(response->directory_entries);
-
     free(entry_fullpath);
 
     if (dir != NULL) {
@@ -505,8 +500,6 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
 
-    // TODO: filetype needed ??
-
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
     debug("mkdir requested path: %s, mode: %d", path, (int)localmode);
@@ -585,7 +578,6 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     }
 
     close(fd);
-
     free(path);
     return 0;
 
@@ -648,17 +640,12 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         debug("Could not call open on %s", path);
     }
 
-    if (databuf != NULL) {
-        free(databuf);
-    }
-
+    free(databuf);
     free(path);
     return 0;
 
 error:
-    if (databuf != NULL) {
-        free(databuf);
-    }
+    free(databuf);
     if (fd == -1) {
         close(fd);
     }

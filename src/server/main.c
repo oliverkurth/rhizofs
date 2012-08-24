@@ -131,7 +131,6 @@ shutdown(int sig)
         }
         free(workers);
     }
-
     exit(exit_code);
 }
 
@@ -153,9 +152,7 @@ worker_routine(void * wp)
     pthread_exit(NULL);
 
 error:
-    if (sd != NULL) {
-        ServeDir_destroy(sd);
-    }
+    ServeDir_destroy(sd);
     pthread_exit(NULL);
 }
 

@@ -48,11 +48,13 @@ error:
 void
 SocketPool_deinit(SocketPool * sp)
 {
-    if (sp->socket_name != NULL) {
-        free(sp->socket_name);
-    }
-    if (sp->key) {
-        pthread_key_delete(sp->key);
+    if (sp) {
+        if (sp->socket_name != NULL) {
+            free(sp->socket_name);
+        }
+        if (sp->key) {
+            pthread_key_delete(sp->key);
+        }
     }
 }
 
@@ -60,6 +62,8 @@ SocketPool_deinit(SocketPool * sp)
 void
 SocketPool_renew_socket(SocketPool * sp)
 {
+    check(sp != NULL, "passed socketpool is NULL");
+
     void * sock = pthread_getspecific(sp->key);
     if (sock != NULL) {
         zmq_close(sock);
@@ -67,12 +71,17 @@ SocketPool_renew_socket(SocketPool * sp)
             debug("could not clear socket in thread");
         }
     }
+    return;
+error:
+    return;
 }
 
 void *
 SocketPool_get_socket(SocketPool * sp)
 {
     void * sock = NULL;
+
+    check(sp != NULL, "passed socketpool is NULL");
 
     sock = pthread_getspecific(sp->key);
     if (sock == NULL) {

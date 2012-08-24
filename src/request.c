@@ -153,6 +153,5 @@ Request_has_data(Rhizofs__Request * request)
             return request->datablock->size;;
         }
     }
-
     return -1;
 }

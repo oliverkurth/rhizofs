@@ -39,7 +39,6 @@ error:
 void
 Response_destroy(Rhizofs__Response * response)
 {
-
     if (response) {
         Attrs_destroy(response->attrs);
 
@@ -156,6 +155,5 @@ Response_has_data(Rhizofs__Response * response)
             return response->datablock->size;;
         }
     }
-
     return -1;
 }
