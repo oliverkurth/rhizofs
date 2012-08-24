@@ -13,7 +13,7 @@
  *
  * see http://www.cse.yorku.ca/~oz/hash.html
  */
-uint32_t Hashfunc_djb2(const unsigned char * str);
+uint64_t Hashfunc_djb2(const unsigned char * str);
 
 /**
  * hash algorithm of the sdbm database library
@@ -22,6 +22,6 @@ uint32_t Hashfunc_djb2(const unsigned char * str);
  *
  * see http://www.cse.yorku.ca/~oz/hash.html
  */
-uint32_t Hashfunc_sdbm(const unsigned char *str);
+uint64_t Hashfunc_sdbm(const unsigned char *str);
 
 #endif // __hashfunc_h__

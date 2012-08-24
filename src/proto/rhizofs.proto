@@ -126,6 +126,7 @@ message Attrs {
 
     required Permissions permissions = 6;
 
+    optional string name = 7;
 }
 
 
@@ -165,7 +166,7 @@ message Response {
     required Errno errnotype = 3 [default = ERRNO_NONE];
 
     // READDIR
-    repeated string directory_entries = 4;
+    repeated Attrs directory_entries = 4;
 
     // attrs -- returned after getattr request
     optional Attrs attrs = 5;

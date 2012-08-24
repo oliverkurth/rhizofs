@@ -1,6 +1,7 @@
 #include "rhizofs.h"
 
 #include <stdbool.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include "socketpool.h"
 #include "../version.h"
 #include "../dbg.h"
+#include "attrcache.h"
 
 // use the 2.6 fuse api
 #ifndef FUSE_USE_VERSION
@@ -59,12 +61,13 @@ static struct fuse_opt rhizo_opts[] = {
 
 // Prototypes
 bool Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf);
-
+int Rhizofs_getattr_remote(const char *path, struct stat *stbuf);
 
 /** global settings store */
 static RhizoSettings settings;
 
 static SocketPool socketpool;
+static AttrCache attrcache;
 
 
 /**
@@ -90,6 +93,9 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
             "Could not initialize the socket pool");
 
+    check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, ATTRCACHE_DEFAULT_MAXAGE_SEC) == true),
+            "could not initialize the attrcache");
+
     return priv;
 
 error:
@@ -105,6 +111,7 @@ error:
     }
 
     SocketPool_deinit(&socketpool);
+    AttrCache_deinit(&attrcache);
 
     /* exiting here is the last fallback when
        setting up the socket fails. see the NOTES
@@ -131,6 +138,7 @@ Rhizofs_destroy(void * data)
     }
 
     SocketPool_deinit(&socketpool);
+    AttrCache_deinit(&attrcache);
 }
 
 
@@ -301,8 +309,10 @@ error:
 /* filesystem methods                                              */
 /*******************************************************************/
 
+#define OP_STD_RETURNED_ERR EIO
+
 #define  OP_INIT(REQ, RESP, RET_ERR)   \
-    int RET_ERR = EIO; \
+    int RET_ERR = OP_STD_RETURNED_ERR; \
     Rhizofs__Request REQ; \
     Rhizofs__Response * RESP = NULL; \
     if (!Request_init(&REQ)) { \
@@ -325,6 +335,8 @@ Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
     unsigned int entry_n = 0;
+    char * path_copy = NULL;
+    CacheEntry * cache_entry = NULL;
 
     (void) offset;
     (void) fi;
@@ -336,16 +348,40 @@ Rhizofs_readdir(const char * path, void * buf,
 
     OP_COMMUNICATE(request, response, returned_err)
 
+    time_t current_time = time(NULL);
+    check((current_time != -1), "could not fetch current time");
+
     for (entry_n=0; entry_n<response->n_directory_entries; ++entry_n) {
-        if (filler(buf, response->directory_entries[entry_n], NULL, 0)) {
+        check((response->directory_entries[entry_n]->name != NULL),
+            "attrs is missing the name");
+
+        // add to file list
+        if (filler(buf, response->directory_entries[entry_n]->name, NULL, 0)) {
             break;
         }
+
+        // add to cache
+        path_copy = strdup(path);
+        check_mem(path_copy);
+        cache_entry = CacheEntry_create();
+        check_mem(cache_entry);
+
+        cache_entry->cache_creation_ts = current_time;
+
+        check(Rhizofs_convert_attrs_stat(response->directory_entries[entry_n], &(cache_entry->stat_result)) == true,
+                "could not convert attrs");
+
+        check(AttrCache_set(&attrcache, path_copy, cache_entry),
+                "Could not add stat to AttrCache");
     }
 
     OP_DEINIT(request, response)
     return 0;
 
 error:
+    free(path_copy);
+    CacheEntry_destroy(cache_entry);
+
     OP_DEINIT(request, response)
     return -returned_err;
 }
@@ -353,6 +389,16 @@ error:
 
 static int
 Rhizofs_getattr(const char *path, struct stat *stbuf)
+{
+    if (AttrCache_copy_stat(&attrcache, path, stbuf) == false) {
+        return Rhizofs_getattr_remote(path, stbuf);
+    }
+    return 0;
+}
+
+
+inline int
+Rhizofs_getattr_remote(const char *path, struct stat *stbuf)
 {
     OP_INIT(request, response, returned_err);
 
@@ -365,10 +411,28 @@ Rhizofs_getattr(const char *path, struct stat *stbuf)
     check((Rhizofs_convert_attrs_stat(response->attrs, stbuf) == true),
             "could not convert attrs");
 
+    // prepare parameters for cache entry
+    char * path_copy = strdup(path);
+    check_mem(path_copy);
+    CacheEntry * cache_entry = CacheEntry_create();
+    check_mem(cache_entry);
+
+    time_t current_time = time(NULL);
+    check((current_time != -1), "could not fetch current time");
+    cache_entry->cache_creation_ts = current_time;
+
+    memcpy(&(cache_entry->stat_result), stbuf, sizeof(struct stat));
+
+    check(AttrCache_set(&attrcache, path_copy, cache_entry),
+            "Could not add stat to AttrCache");
+
     OP_DEINIT(request, response)
     return 0;
 
 error:
+    free(path_copy);
+    CacheEntry_destroy(cache_entry);
+
     OP_DEINIT(request, response)
     return -returned_err;
 }
@@ -383,6 +447,7 @@ Rhizofs_rmdir(const char * path)
     request.requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;
@@ -427,6 +492,7 @@ Rhizofs_unlink(const char * path)
     request.requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;
@@ -558,6 +624,7 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
             "could not set request data");
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
     check((response->has_size == 1),
             "response did not contain the number of bytes written");
 
@@ -582,6 +649,7 @@ Rhizofs_truncate(const char * path, off_t offset)
     request.requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;
@@ -604,6 +672,7 @@ Rhizofs_chmod(const char * path, mode_t access_mode)
     check((request.permissions != NULL), "Could not create chmod permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;
@@ -629,6 +698,7 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2])
     request.timestamps->modification = tv[1].tv_sec;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;

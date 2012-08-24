@@ -1,10 +1,10 @@
 #include "hashfunc.h"
 
 
-uint32_t
+uint64_t
 Hashfunc_djb2(const unsigned char * str)
 {
-    uint32_t hash = 5381;
+    uint64_t hash = 5381;
     int c;
 
     while ((c = *str++)) {
@@ -14,10 +14,10 @@ Hashfunc_djb2(const unsigned char * str)
 }
 
 
-uint32_t
+uint64_t
 Hashfunc_sdbm(const unsigned char *str)
 {
-    uint32_t hash = 0;
+    uint64_t hash = 0;
     int c;
 
     while ((c = *str++)) {

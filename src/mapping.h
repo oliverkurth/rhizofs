@@ -103,7 +103,7 @@ Rhizofs__FileType FileType_from_local(const mode_t stat_result);
  *
  * returns NULL on error
  */
-Rhizofs__Attrs * Attrs_create(const struct stat * stat_result);
+Rhizofs__Attrs * Attrs_create(const struct stat * stat_result, const char * name);
 
 /**
  * free a Attrs struct

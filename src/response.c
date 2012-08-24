@@ -1,5 +1,6 @@
 #include "response.h"
 #include "datablock.h"
+#include "mapping.h"
 
 #include "dbg.h"
 
@@ -45,7 +46,7 @@ Response_destroy(Rhizofs__Response * response)
         if (response->n_directory_entries != 0) {
             int i = 0;
             for (i=0; i<(int)response->n_directory_entries; i++) {
-                free(response->directory_entries[i]);
+                Attrs_destroy(response->directory_entries[i]);
             }
             free(response->directory_entries);
         }

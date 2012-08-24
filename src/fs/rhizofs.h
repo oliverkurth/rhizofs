@@ -11,6 +11,9 @@
 
 #define SEND_SLEEP_USEC 1
 
+#define ATTRCACHE_MAXSIZE 1000
+#define ATTRCACHE_DEFAULT_MAXAGE_SEC 3
+
 int Rhizofs_run(int argc, char * argv[]);
 
 #endif /* __fs_rhizofs_h__ */
