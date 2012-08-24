@@ -371,7 +371,7 @@ OpenFlags_destroy(Rhizofs__OpenFlags * openflags)
 
 
 Rhizofs__Attrs *
-Attrs_create(const struct stat * stat_result)
+Attrs_create(const struct stat * stat_result, const char * name)
 {
     Rhizofs__Attrs * attrs = NULL;
 
@@ -380,6 +380,11 @@ Attrs_create(const struct stat * stat_result)
     rhizofs__attrs__init(attrs);
 
     attrs->size = stat_result->st_size;
+
+    if (name != NULL) {
+        attrs->name = strdup(name);
+        check_mem(attrs->name);
+    }
 
     attrs->permissions = Permissions_create((mode_t)stat_result->st_mode);
     check((attrs->permissions != NULL), "Could not create access permissions struct");
@@ -421,6 +426,7 @@ Attrs_destroy(Rhizofs__Attrs * attrs)
     if (attrs) {
         Permissions_destroy(attrs->permissions);
         TimeSet_destroy(attrs->timestamps);
+        free(attrs->name);
         free(attrs);
         attrs = NULL;
     }

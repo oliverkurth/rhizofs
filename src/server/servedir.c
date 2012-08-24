@@ -303,6 +303,8 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     char * dirpath = NULL;
     struct dirent *de = NULL;
     size_t entry_count = 0;
+    char * entry_fullpath = NULL;
+    struct stat sb;
 
     debug("READDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
@@ -325,19 +327,27 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         ++entry_count;
     }
 
-    response->directory_entries = (char**)calloc(sizeof(char *), entry_count);
+    response->directory_entries = (Rhizofs__Attrs**)calloc(sizeof(Rhizofs__Attrs *), entry_count);
     check_mem_response(response->directory_entries);
 
     rewinddir(dir);
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
 
-        response->directory_entries[response->n_directory_entries] =
-                    (char *)calloc(sizeof(char), (strlen(de->d_name)+1) );
-        check_mem_response(response->directory_entries[response->n_directory_entries]);
-        strcpy(response->directory_entries[response->n_directory_entries], de->d_name);
+        check((path_join(dirpath, de->d_name, &entry_fullpath)==0),
+            "error processing path for directory entry");
 
-        ++response->n_directory_entries;
+        if (stat(entry_fullpath, &sb) == 0)  {
+            response->directory_entries[response->n_directory_entries] = Attrs_create(&sb, de->d_name);
+            check((response->directory_entries[response->n_directory_entries] != NULL),
+                        "could not create attrs from stat");
+            ++response->n_directory_entries;
+        }
+        else {
+            Response_set_errno(response, errno);
+            log_warn("Could not stat %s", entry_fullpath);
+        }
+        free(entry_fullpath);
     }
 
     closedir(dir);
@@ -348,11 +358,12 @@ error:
     if (response->n_directory_entries != 0) {
         unsigned int i = 0;
         for (i=0; i<response->n_directory_entries; i++) {
-            free(response->directory_entries[i]);
+            Attrs_destroy(response->directory_entries[i]);
         }
     }
     free(response->directory_entries);
 
+    free(entry_fullpath);
 
     if (dir != NULL) {
         closedir(dir);
@@ -528,7 +539,7 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     debug("requested path: %s", path);
 
     if (stat(path, &sb) == 0)  {
-        response->attrs = Attrs_create(&sb);
+        response->attrs = Attrs_create(&sb, NULL);
         check((response->attrs != NULL), "could not create attrs from stat");
     }
     else {
