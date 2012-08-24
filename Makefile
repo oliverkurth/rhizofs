@@ -18,13 +18,17 @@ FUSE_LIBS=$(shell pkg-config fuse --libs)
 
 # tools
 PROTOCC=protoc-c
-PROTOC=protoc
 #CC=clang
 
+BINDIR=./bin
+
 # input files
-SERVER_SOURCES=$(wildcard src/kazlib/*.c src/server/*.c src/*.c) src/proto/rhizofs.pb-c.c
+PROTO_SOURCES=$(wildcard src/proto/*.proto)
+PROTO_C_COMPILED=$(patsubst %.proto,%.pb-c.c,${PROTO_SOURCES})
+PROTO_H_COMPILED=$(patsubst %.proto,%.pb-c.h,${PROTO_SOURCES})
+SERVER_SOURCES=$(wildcard src/kazlib/*.c src/server/*.c src/*.c) ${PROTO_C_COMPILED}
 SERVER_OBJECTS=$(patsubst %.c,%.o,${SERVER_SOURCES})
-FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) src/proto/rhizofs.pb-c.c
+FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) ${PROTO_C_COMPILED}
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
@@ -34,34 +38,34 @@ release: all
 dev: CFLAGS+=-DDEBUG -O0 -g
 dev: all
 
-all: build proto bin/rhizosrv bin/rhizofs
+all: ${BINDIR}/rhizosrv ${BINDIR}/rhizofs
 
-build:
-	@[ -d bin ] || mkdir bin
+${BINDIR}:
+	@[ -d ${BINDIR} ] || mkdir ${BINDIR}
 
-bin/rhizosrv: ${SERVER_OBJECTS} build
-	$(CC) -o bin/rhizosrv ${SERVER_OBJECTS} $(CFLAGS) $(LIBS)
+${BINDIR}/rhizosrv: ${SERVER_OBJECTS} ${BINDIR}
+	$(CC) -o ${BINDIR}/rhizosrv ${SERVER_OBJECTS} $(CFLAGS) $(LIBS)
 
-bin/rhizofs: ${FS_OBJECTS} build
-	$(CC) -o bin/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
+${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
+	$(CC) -o ${BINDIR}/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
+
+${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -c $< -o $@
 
+%.pb-c.c: %.proto
+	$(PROTOCC) --c_out=./ $<
 
-proto: src/proto/rhizofs.pb-c.c
-
-src/proto/rhizofs.pb-c.c:
-	$(PROTOCC) --c_out=./ src/proto/rhizofs.proto
+%.pb-c.h: %.proto
+	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f src/proto/*.c src/proto/*.h ${SERVER_OBJECTS} ${FS_OBJECTS}
-	rm -rf bin
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -rf ${BINDIR}
 
-.PHONY: src/proto/rhizofs.pb-c.c build
-
-valgrind-srv: dev bin/rhizosrv
-	valgrind   --leak-check=full --track-origins=yes ./bin/rhizosrv tcp://0.0.0.0:11555 /tmp/
+valgrind-srv: dev ${BINDIR}/rhizosrv
+	valgrind   --leak-check=full --track-origins=yes ${BINDIR}/rhizosrv tcp://0.0.0.0:11555 /tmp/
 
 deb:
 	dpkg-buildpackage
