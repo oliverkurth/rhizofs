@@ -16,6 +16,7 @@
 #include "socketpool.h"
 #include "../version.h"
 #include "../dbg.h"
+#include "../path.h"
 #include "attrcache.h"
 
 // use the 2.6 fuse api
@@ -334,7 +335,7 @@ Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
     unsigned int entry_n = 0;
-    char * path_copy = NULL;
+    char * path_entry = NULL;
     CacheEntry * cache_entry = NULL;
 
     (void) offset;
@@ -360,8 +361,9 @@ Rhizofs_readdir(const char * path, void * buf,
         }
 
         // add to cache
-        path_copy = strdup(path);
-        check_mem(path_copy);
+        check(path_join(path, response->directory_entries[entry_n]->name, &path_entry) == 0,
+                "could not join path for directory entry %s", response->directory_entries[entry_n]->name);
+        check_mem(path_entry);
         cache_entry = CacheEntry_create();
         check_mem(cache_entry);
 
@@ -370,7 +372,7 @@ Rhizofs_readdir(const char * path, void * buf,
         check(Rhizofs_convert_attrs_stat(response->directory_entries[entry_n], &(cache_entry->stat_result)) == true,
                 "could not convert attrs");
 
-        check(AttrCache_set(&attrcache, path_copy, cache_entry),
+        check(AttrCache_set(&attrcache, path_entry, cache_entry),
                 "Could not add stat to AttrCache");
     }
 
@@ -378,7 +380,7 @@ Rhizofs_readdir(const char * path, void * buf,
     return 0;
 
 error:
-    free(path_copy);
+    free(path_entry);
     CacheEntry_destroy(cache_entry);
 
     OP_DEINIT(request, response)
