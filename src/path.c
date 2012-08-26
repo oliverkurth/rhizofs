@@ -11,6 +11,7 @@ path_join(const char * path1, const char * path2, char ** pathjoined)
 {
     check((path1 != NULL), "path_join: path1 argument is NULL");
     check((path2 != NULL), "path_join: path2 argument is NULL");
+    debug("Joining paths %s and %s", path1, path2);
 
     int lenpath1 = strlen(path1);
     int lenpath2 = strlen(path2);

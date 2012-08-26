@@ -63,6 +63,7 @@ SERVEDIR_OP(truncate)
 SERVEDIR_OP(unlink)
 SERVEDIR_OP(utimens)
 SERVEDIR_OP(write)
+SERVEDIR_OP(link)
 #undef SERVEDIR_OP
 
 
@@ -189,6 +190,7 @@ ServeDir_serve(ServeDir * sd)
                     CASE_OP(TRUNCATE, truncate)
                     CASE_OP(CHMOD, chmod)
                     CASE_OP(UTIMENS, utimens)
+                    CASE_OP(LINK, link)
 #undef CASE_OP
                     default:
                         // dont know what to do with that request
@@ -472,6 +474,41 @@ ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     if (rename(path_from, path_to) == -1) {
         Response_set_errno(response, errno);
         debug("Could not rename %s to %s", path_from, path_to);
+    }
+
+    free(path_to);
+    free(path_from);
+    return 0;
+
+error:
+    free(path_to);
+    free(path_from);
+    return -1;
+}
+
+
+static int
+ServeDir_op_link(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path_from = NULL;
+    char * path_to = NULL;
+
+    debug("LINK");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__LINK;
+
+    REQ_HAS_OPTIONAL_PTR(request, response, path_to);
+
+    check((path_join(sd->directory, request->path_to, &path_to)==0),
+            "error processing path_to");
+    check_debug((path_to != NULL), "path_to is null");
+
+
+    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s -> %s", path_from, path_to);
+    if (link(path_from, path_to) == -1) {
+        Response_set_errno(response, errno);
+        debug("Could not link %s to %s", path_from, path_to);
     }
 
     free(path_to);

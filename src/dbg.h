@@ -5,6 +5,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include "helpers.h"
+
 extern FILE *LOG_FILE;
 
 #ifdef DEBUG
@@ -45,7 +47,7 @@ extern FILE *LOG_FILE;
     goto error; \
 }
 
-#define check_mem(A) check((A), "Out of memory.")
+#define check_mem(A) check((A), "Out of memory. Could not allocate " STRINGIFY(A))
 
 /* macro to hide unused parameter warnings in some cases */
 #if defined(__GNUC__)
