@@ -248,10 +248,14 @@ AttrCache_shrink(AttrCache * attrcache)
     // check if deleting the depracated entries made enough space,
     // otherwise simply delete the first entries until shrink_num is
     // reached
-    while( (nodes_removed_count < shrink_num) && (hash_node = hash_scan_next(&hash_scan)) ) {
-        hash_scan_delete(attrcache->hashtable, hash_node);
-        nodes_removed_count++;
+    if (nodes_removed_count < shrink_num) {
+        hash_scan_begin(&hash_scan, attrcache->hashtable);
+        while( (nodes_removed_count < shrink_num) && (hash_node = hash_scan_next(&hash_scan)) ) {
+            hash_scan_delete(attrcache->hashtable, hash_node);
+            nodes_removed_count++;
+        }
     }
+    debug("Removed %d nodes from attrcache", nodes_removed_count);
 
     Attrcache_unlock_modify_mutex(attrcache);
     return true;
