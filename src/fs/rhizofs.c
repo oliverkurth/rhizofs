@@ -743,6 +743,7 @@ Rhizofs_rename(const char * path_from, const char * path_to)
     request.path_to = (char *)path_to;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path_from);
 
     OP_DEINIT(request, response)
     return 0;
