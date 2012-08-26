@@ -10,7 +10,7 @@ Hashfunc_djb2(const unsigned char * str)
     uint64_t hash = 5381;
     int c;
 #ifdef DEBUG
-    unsigned char * str_start = str;
+    const unsigned char * str_start = str;
 #endif
 
     while ((c = *str++)) {
@@ -27,7 +27,7 @@ Hashfunc_sdbm(const unsigned char *str)
     uint64_t hash = 0;
     int c;
 #ifdef DEBUG
-    unsigned char * str_start = str;
+    const unsigned char * str_start = str;
 #endif
 
     while ((c = *str++)) {
