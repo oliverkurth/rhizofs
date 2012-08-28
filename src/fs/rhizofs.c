@@ -593,10 +593,9 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     request.requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     OP_COMMUNICATE(request, response, returned_err)
-    check((Response_has_data(response) != 0), "Server did send no data in response");
+    check((Response_has_data(response) != -1), "Server did not send data in response");
 
     size_read = DataBlock_get_data_noalloc(response->datablock, (uint8_t *)buf, size);
-    check((size_read > 0), "Could not read data");
 
     OP_DEINIT(request, response)
     return size_read;

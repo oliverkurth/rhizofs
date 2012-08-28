@@ -48,7 +48,14 @@ DataBlock_set_data(Rhizofs__DataBlock * dblk, const uint8_t * data,
         size_t len, Rhizofs__CompressionType compression)
 {
     check((dblk != NULL), "passed datablock is null");
-    check((len != 0), "passed length of datablock is 0");
+
+    if (len == 0) {
+        debug("setting empty data for datablock");
+        free(dblk->data.data);
+        dblk->data.data = NULL;
+        dblk->data.len = 0;
+        return true;
+    }
 
     // only use compression if the length of the data exceeds
     // a threshold as tiny chunks of data are not very compression-worth
