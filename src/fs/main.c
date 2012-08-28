@@ -6,7 +6,8 @@
 
 int main(int argc, char *argv[])
 {
-    dbg_set_logfile(stderr);
+    // logging configuration
+    dbg_set_logfile(NULL);
     dbg_enable_syslog();
 
     umask(0);

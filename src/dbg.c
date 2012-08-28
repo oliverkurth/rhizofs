@@ -31,31 +31,31 @@ static const int dbg_level_syslog[] = {
     LOG_ERR
 };
 
-void
+inline void
 dbg_set_logfile(FILE * file)
 {
     log_file = file;
 }
 
-void 
+inline void 
 dbg_set_loglevel(const DBG_LEVEL level)
 {
     log_level = level;
 }
 
-void
+inline void
 dbg_disable_logfile() 
 {
     log_file = NULL;
 }
 
-void 
+inline void 
 dbg_enable_syslog() 
 {
     use_syslog = true;
 }
 
-void
+inline void
 dbg_disable_syslog()
 {
     use_syslog = false;

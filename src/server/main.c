@@ -21,16 +21,18 @@ struct option opts_long[] = {
     {"help", 0, 0, 'h'},
     {"version", 0, 0, 'v'},
     {"verbose", 0, 0, 'V'},
+    {"logfile", 0, 0, 'l'},
     {0, 0, 0, 0}
 };
 
-static const char *opts_short = "hvn:V";
+static const char *opts_short = "hvn:Vl:";
 
 static const char *opts_desc =
     "  -n --numworkers=NUMBER  Number of worker threads to start [default=5]\n"
     "  -h --help\n"
     "  -v --version\n"
-    "  -V --verbose\n";
+    "  -V --verbose\n"
+    "  -l --logfile=FILE    logfile to use. It will always also be logged to syslog.\n";
 
 
 typedef struct ServerSettings {
@@ -49,6 +51,7 @@ static void * in_socket = NULL;
 static void * worker_socket = NULL;
 static int exit_code = EXIT_SUCCESS;
 static pthread_t * workers = NULL;
+static FILE * logfile = NULL;
 
 
 /* prototypes */
@@ -129,6 +132,12 @@ shutdown(int sig)
         }
         free(workers);
     }
+
+    if (logfile) {
+        fclose(logfile);
+        logfile = NULL;
+    }
+
     exit(exit_code);
 }
 
@@ -161,8 +170,9 @@ main(int argc, char *argv[])
     int optc;
     const char * progname = argv[0];
 
-    /* log to stdout */
-    dbg_set_logfile(stdout);
+    // logging configuration
+    dbg_disable_logfile();
+    dbg_enable_syslog();
 
     /* defaults */
     settings.n_worker_threads = DEFAULT_N_WORKER_THREADS;
@@ -178,6 +188,18 @@ main(int argc, char *argv[])
                         || (settings.n_worker_threads > MAX_N_WORKER_THREADS))
                     {
                     print_wrong_arg("Illegal value for numworkers");
+                }
+                break;
+
+            case 'l':
+                logfile = fopen(optarg, "a");
+                if (!logfile) {
+                    fprintf(stderr, "Could not open logfile %s for writting: %s\n",
+                        optarg, strerror(errno));
+                    shutdown(0);
+                }
+                else {
+                    dbg_set_logfile(logfile);
                 }
                 break;
 
@@ -203,7 +225,6 @@ main(int argc, char *argv[])
         }
     }
 
-    debug("optind:%d; argv:%d", optind, argc);
     if (argc < (optind + 2)) {
         print_wrong_arg("Missing socket and/or directory");
     }
