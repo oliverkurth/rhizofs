@@ -1,4 +1,4 @@
-
+#include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -37,7 +37,7 @@ typedef struct ServerSettings {
     char * directory;
     char * socketname;
     int n_worker_threads;
-    int verbose;
+    bool verbose;
 } ServerSettings;
 static ServerSettings settings;
 
@@ -168,7 +168,7 @@ main(int argc, char *argv[])
 
     /* defaults */
     settings.n_worker_threads = DEFAULT_N_WORKER_THREADS;
-    settings.verbose = 0;
+    settings.verbose = false;
 
 
     while ((optc = getopt_long(argc, argv, opts_short, opts_long, NULL)) != -1) {
@@ -196,7 +196,7 @@ main(int argc, char *argv[])
                 break;
 
             case 'V':
-                settings.verbose = 1;
+                settings.verbose = true;
                 break;
 
             default:
