@@ -1,4 +1,6 @@
+#ifndef _BSD_SOURCE
 #define _BSD_SOURCE // for vsyslog
+#endif
 
 #include "dbg.h"
 
