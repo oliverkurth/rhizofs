@@ -79,6 +79,12 @@ dbg_print(const DBG_LEVEL level, const char * fmtstr, ...)
             va_start(args, fmtstr);
             vfprintf(log_file, fmtstr, args);
             va_end(args);
+
+            // immediately flush the log file
+            // this will not be very perfromant for lots of log
+            // messages, but ensures that the logfile gets written
+            // the moment something is logged
+            fflush(log_file);
         }
         if (use_syslog && (level < (sizeof(dbg_level_syslog)/sizeof(const int)))) {
             va_start(args, fmtstr);
