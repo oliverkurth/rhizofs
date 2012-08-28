@@ -74,6 +74,9 @@ void dbg_disable_logfile();
 void dbg_enable_syslog();
 void dbg_disable_syslog();
 const char * dbg_level_string(const DBG_LEVEL level);
-void dbg_print(const DBG_LEVEL level, const char * fmtstr, ...);
+void dbg_print(const DBG_LEVEL level, const char * fmtstr, ...)
+    __attribute__ ((format (printf, 2, 3))); // attribute to void warnings
+                            // caused by using a variable for the
+                            // format string. Works on gcc and clang
 
 #endif /* __dbg_h__ */
