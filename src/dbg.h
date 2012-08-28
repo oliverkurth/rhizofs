@@ -27,14 +27,14 @@ extern FILE *LOG_FILE;
 
 #ifdef DEBUG
 /* also print line number */
-#define log_err(M, ...) dbg_print(DBG_ERROR, "(%s:%d: errno: %s) " M, __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) dbg_print(DBG_WARN, "(%s:%d: errno: %s) " M, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) dbg_print(DBG_INFO, "(%s:%d) " M, __FILE__, __LINE__, ##__VA_ARGS__)
+#define log_err(M, ...) log_print(DBG_ERROR, "(%s:%d: errno: %s) " M, __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
+#define log_warn(M, ...) log_print(DBG_WARN, "(%s:%d: errno: %s) " M, __LINE__, clean_errno(), ##__VA_ARGS__)
+#define log_info(M, ...) log_print(DBG_INFO, "(%s:%d) " M, __FILE__, __LINE__, ##__VA_ARGS__)
 #else
 /* without line number and file */
-#define log_err(M, ...) dbg_print(DBG_ERROR, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) dbg_print(DBG_WARN, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) dbg_print(DBG_INFO, "" M, ##__VA_ARGS__)
+#define log_err(M, ...) log_print(DBG_ERROR, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_warn(M, ...) log_print(DBG_WARN, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_info(M, ...) log_print(DBG_INFO, "" M, ##__VA_ARGS__)
 #endif
 
 #define check(A, M, ...) if(!(A)) { \
