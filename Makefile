@@ -6,6 +6,7 @@ CFLAGS= -Wall \
 	-Wformat=2 \
 	-Isrc \
 	-D_XOPEN_SOURCE=500 \
+	-D_BSD_SOURCE \
 	-I. $(shell pkg-config fuse --cflags)
 	#-D_BSD_SOURCE \
 

@@ -42,8 +42,6 @@ typedef struct ServerSettings {
 static ServerSettings settings;
 
 
-FILE *LOG_FILE = NULL;
-
 /** zmq context */
 static void * context = NULL;
 
@@ -164,7 +162,7 @@ main(int argc, char *argv[])
     const char * progname = argv[0];
 
     /* log to stdout */
-    LOG_FILE = stdout;
+    dbg_set_logfile(stdout);
 
     /* defaults */
     settings.n_worker_threads = DEFAULT_N_WORKER_THREADS;
