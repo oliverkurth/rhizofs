@@ -65,6 +65,7 @@ void print_version();
 void print_usage(const char *);
 void shutdown(int);
 void startup();
+void daemonize();
 void * worker_routine(void *);
 
 
@@ -192,7 +193,7 @@ shutdown(int sig)
         logfile = NULL;
     }
 
-    // the pidfile should be close anyway. this is
+    // the pidfile should be closed anyway. this is
     // only locatd here in case of an early exit of the
     // program
     if (pidfile) {
@@ -223,6 +224,47 @@ worker_routine(void * wp)
 error:
     ServeDir_destroy(sd);
     pthread_exit(NULL);
+}
+
+
+void
+daemonize()
+{
+     // daemonize the process
+    pid_t pid;
+    pid_t sid;
+
+    pid = fork();
+    if (pid < 0) {
+        log_err("Unable to fork");
+        exit_code = EXIT_FAILURE;
+        shutdown(0);
+    }
+
+    if (pid > 0) {
+        // exit the parent process
+        exit(EXIT_SUCCESS);
+    }
+
+    /* Create a new SID for the child process */
+    sid = setsid();
+    if (sid < 0) {
+        log_err("Unable to get SID for child process");
+        exit_code = EXIT_FAILURE;
+        shutdown(0);
+    }
+
+    // the PID file if desired
+    if (pidfile) {
+        fprintf(pidfile, "%d", (int)sid);
+        fclose(pidfile);
+        pidfile = NULL;
+    }
+
+    // close open files
+    fclose(stdin);
+    fclose(stderr);
+    fclose(stdout);
 }
 
 
@@ -312,45 +354,12 @@ main(int argc, char *argv[])
     }
 
     if (!settings.foreground) {
-        // daemonize the process
-        pid_t pid;
-        pid_t sid;
-
-        pid = fork();
-        if (pid < 0) {
-            log_err("Unable to fork");
-            exit_code = EXIT_FAILURE;
-            shutdown(0);
-        }
-
-        if (pid > 0) {
-            // exit the parent process
-            exit(EXIT_SUCCESS);
-        }
-
-        /* Create a new SID for the child process */
-        sid = setsid();
-        if (sid < 0) {
-            log_err("Unable to get SID for child process");
-            exit_code = EXIT_FAILURE;
-            shutdown(0);
-        }
-
-        // the PID file if desired
-        if (pidfile) {
-            fprintf(pidfile, "%d", (int)sid);
-            fclose(pidfile);
-            pidfile = NULL;
-        }
-
-        // close open files
-        fclose(stdin);
-        fclose(stderr);
-        fclose(stdout);
+        daemonize();
     }
     else {
         // output log messages to stderr when no
-        // other logfile is specified
+        // other logfile is specified and the process
+        // runs in foreground
         if (!logfile) {
             dbg_set_logfile(stderr);
         }

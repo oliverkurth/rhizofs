@@ -39,7 +39,7 @@
  * default permissions for file creation. the same permission set is used
  * by the GNU coreutils touch command
  */
-static const int default_file_creation_permissions = 
+static const int default_file_creation_permissions =
         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 
@@ -117,7 +117,7 @@ ServeDir_destroy(ServeDir * sd)
 {
     if (sd) {
         // free the memory allocated by realpath
-        free(sd->directory); 
+        free(sd->directory);
         if (sd->socket != NULL) {
             zmq_close(sd->socket);
             sd->socket = NULL;
