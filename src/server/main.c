@@ -11,6 +11,7 @@
 
 #include "../dbg.h"
 #include "../version.h"
+#include "../helptext.h"
 #include "servedir.h"
 
 #define DEFAULT_N_WORKER_THREADS 5
@@ -31,14 +32,16 @@ struct option opts_long[] = {
 static const char *opts_short = "hvn:Vl:fp:";
 
 static const char *opts_desc =
-    "  -n --numworkers=NUMBER  Number of worker threads to start [default=5]\n"
     "  -h --help\n"
     "  -v --version\n"
     "  -V --verbose\n"
-    "  -l --logfile=FILE    logfile to use. It will always also be logged to syslog.\n"
-    "  -p --pidfile=FILE    PID-file to write the PID of the daemonized server process to.\n"
-    "  -f --foreground     foreground operation - do not daemonize.\n";
-
+    "  -f --foreground          foreground operation - do not daemonize.\n"
+    "  -n --numworkers=NUMBER   Number of worker threads to start [default=5]\n"
+    "  -l --logfile=FILE        Logfile to use. Additionally it will always\n"
+    "                           be logged to the syslog.\n"
+    "  -p --pidfile=FILE        PID-file to write the PID of the daemonized server\n"
+    "                           process to.\n"
+    "                           Has no effect if the server runs in the foreground.\n";
 
 typedef struct ServerSettings {
     char * directory;
@@ -91,16 +94,27 @@ void
 print_usage(const char * progname)
 {
     fprintf(stderr,
-        "%s SOCKET DIRECTORY\n"
-        "\nIt's possible to specify all socket types supported by zeromq,"
-        "\nalthough socket types like inproc (local in-process communication)"
-        "\nare probably pretty useless for this case."
-        "\n\nOptions:"
-        "\n%s"
-        "\nExample:"
-        "\nServe the directory /home/myself/files on all network interfaces"
-        "\non port 11555"
-        "\n  rhizofs tcp://0.0.0.0:11555 /home/myself/files"
+        "%s SOCKET DIRECTORY [options]\n"
+        "\n"
+        HELPTEXT_INTRO
+        "\n"
+        "This program implements the server.\n"
+        "\n"
+        "Parameters\n"
+        "==========\n"
+        "\n"
+        "The parameters SOCKET and MOUNTPOINT are mandatory.\n"
+        "\n"
+        HELPTEXT_SOCKET
+        "\n"
+        "Directory\n"
+        "---------\n"
+        "   The directory to be shared.\n"
+        "\n"
+        "Options\n"
+        "-------\n"
+        "%s\n"
+        HELPTEXT_LOGGING
         "\n", progname, opts_desc
     );
 }

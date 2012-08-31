@@ -17,6 +17,7 @@
 #include "../version.h"
 #include "../dbg.h"
 #include "../path.h"
+#include "../helptext.h"
 #include "attrcache.h"
 
 // use the 2.6 fuse api
@@ -39,7 +40,7 @@ typedef struct RhizoSettings {
     char * host_socket;
 
     /** timeout (in seconds) after which the filesystem will stop waiting
-     *  * for a response from the server 
+     *  * for a response from the server
      *  * for being able to send the request to the server
      *
      *  instead return a errno = EAGAIN
@@ -973,9 +974,28 @@ Rhizofs_usage(const char * progname)
     fprintf(stderr,
         "usage: %s SOCKET MOUNTPOINT [options]\n"
         "\n"
-        "general options:\n"
+        HELPTEXT_INTRO
+        "\n"
+        "This program implements the client-side filesystem.\n"
+        "\n"
+        "Parameters\n"
+        "==========\n"
+        "\n"
+        "The parameters SOCKET and MOUNTPOINT are mandatory.\n"
+        "\n"
+        HELPTEXT_SOCKET
+        "\n"
+        "Mountpoint\n"
+        "----------\n"
+        "   The directory to mount the filesystem in.\n"
+        "   The directory has to be empty.\n"
+        "\n"
+        "general options\n"
+        "---------------\n"
         "    -h   --help      print help\n"
         "    -V   --version   print version\n"
+        "\n"
+        HELPTEXT_LOGGING
         "\n", progname
     );
 }
