@@ -11,9 +11,12 @@ extern FILE *LOG_FILE;
 
 #define log_print(LEVEL, M, ...) dbg_print(LEVEL, "[%s] " M "\n", dbg_level_string(LEVEL), ##__VA_ARGS__)
 
+
 #ifdef DEBUG
-#define debug(M, ...) log_print(DBG_DEBUG, "%s:%d: " M , __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_POSITION  "[" __FILE__ ":" STRINGIFY(__LINE__) "] "
+#define debug(M, ...) log_print(DBG_DEBUG, LOG_POSITION M , ##__VA_ARGS__)
 #else
+#define LOG_POSITION ""
 #define debug(M, ...)
 #endif
 
@@ -25,17 +28,9 @@ extern FILE *LOG_FILE;
 
 #define clean_errno() (errno == 0 ? "None" : strerror(errno))
 
-#ifdef DEBUG
-/* also print line number */
-#define log_err(M, ...) log_print(DBG_ERROR, "(%s:%d: errno: %s) " M, __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) log_print(DBG_WARN, "(%s:%d: errno: %s) " M, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) log_print(DBG_INFO, "(%s:%d) " M, __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-/* without line number and file */
-#define log_err(M, ...) log_print(DBG_ERROR, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) log_print(DBG_WARN, "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) log_print(DBG_INFO, "" M, ##__VA_ARGS__)
-#endif
+#define log_err(M, ...) log_print(DBG_ERROR, LOG_POSITION "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_warn(M, ...) log_print(DBG_WARN, LOG_POSITION "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_info(M, ...) log_print(DBG_INFO, LOG_POSITION M, ##__VA_ARGS__)
 
 #define check(A, M, ...) if(!(A)) { \
     log_err(M, ##__VA_ARGS__); \
