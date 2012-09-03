@@ -33,7 +33,8 @@ FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) ${PROTO_C_COMPILED}
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 
 
-release: CFLAGS+=-DNDEBUG -O2
+# do not strip debuging information in release builds
+release: CFLAGS+=-DNDEBUG -O2 -g
 release: all
 
 dev: CFLAGS+=-DDEBUG -O0 -g
