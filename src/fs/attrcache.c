@@ -176,10 +176,16 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
         AttrCache_shrink(attrcache);
     }
 
-    // remove the old entry if there is one
-    AttrCache_remove(attrcache, path);
 
     Attrcache_lock_modify_mutex(attrcache);
+
+    // remove the old entry if there is one
+    hnode_t * hash_node = hash_lookup(attrcache->hashtable, path);
+    if (hash_node) {
+        debug("Replacing %s in cache", path);
+        hash_delete_free(attrcache->hashtable, hash_node);
+    }
+
     check(hash_alloc_insert(attrcache->hashtable, path, cache_entry) == 1,
             "could not add cacheEntry to hash");
     Attrcache_unlock_modify_mutex(attrcache);
