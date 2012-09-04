@@ -889,9 +889,6 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 {
     (void) data;
 
-    // set the default response tiemout
-    settings.response_timeout = RESPONSE_TIMEOUT_DEFAULT;
-
     switch (key) {
         case KEY_HELP:
             Rhizofs_usage(outargs->argv[0]);
@@ -907,7 +904,7 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 
         case FUSE_OPT_KEY_NONOPT:
             if (!settings.host_socket) {
-                settings.host_socket = strdup(arg); /* TODO: free this + handle failure */
+                settings.host_socket = strdup(arg); /* TODO: handle failure */
                 return 0;
             }
             return 1;
@@ -916,12 +913,29 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 }
 
 
+static inline void
+Rhizofs_settings_init()
+{
+    memset(&settings, 0, sizeof(settings));
+
+    // set the default response timeout
+    settings.response_timeout = RESPONSE_TIMEOUT_DEFAULT;
+}
+
+
+static inline void
+Rhizofs_settings_deinit()
+{
+    free(settings.host_socket);
+}
+
+
 /**
  * check the settings from the command line arguments
  * returns -1 o failure, 0 on correct arguments
  */
-int
-Rhizofs_check_settings()
+static int
+Rhizofs_settings_check()
 {
     if (settings.host_socket == NULL) {
         fprintf(stderr, "Missing host");
@@ -937,36 +951,39 @@ error:
 int
 Rhizofs_run(int argc, char * argv[])
 {
+#define TMPBUF_SIZE 1024
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-    char tmpbuf[1024];
+    char tmpbuf[TMPBUF_SIZE];
     int rc;
 
-    memset(&settings, 0, sizeof(settings));
+    Rhizofs_settings_init();
 
     fuse_opt_parse(&args, &settings, rhizo_opts, Rhizofs_opt_proc);
-    check_debug((Rhizofs_check_settings() == 0),
+    check_debug((Rhizofs_settings_check() == 0),
             "Invalid command line arguments");
 
     /* set the host/socket to show in /etc/mtab */
     if (settings.host_socket != NULL) {
         if (fuse_version() >= 27) {
-            sprintf(tmpbuf, "-osubtype=%.20s,fsname=%.990s", RHI_NAME_LOWER,
+            snprintf(tmpbuf, TMPBUF_SIZE, "-osubtype=%.20s,fsname=%.990s", RHI_NAME_LOWER,
                     settings.host_socket);
         }
         else {
-            sprintf(tmpbuf, "-ofsname=%.20s#%.990s",
+            snprintf(tmpbuf, TMPBUF_SIZE, "-ofsname=%.20s#%.990s",
                     RHI_NAME_LOWER, settings.host_socket);
         }
         fuse_opt_insert_arg(&args, 1, tmpbuf);
     }
+#undef TMPBUF_SIZE
 
     rc = Rhizofs_fuse_main(&args);
 
+    Rhizofs_settings_deinit();
     fuse_opt_free_args(&args);
     return rc;
 
 error:
-
+    Rhizofs_settings_deinit();
     fuse_opt_free_args(&args);
     return -1;
 }
