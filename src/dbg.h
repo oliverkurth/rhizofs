@@ -9,9 +9,14 @@
 
 extern FILE *LOG_FILE;
 
+#define log_print(LEVEL, M, ...) dbg_print(LEVEL, "[%s] " M "\n", dbg_level_string(LEVEL), ##__VA_ARGS__)
+
+
 #ifdef DEBUG
-#define debug(M, ...) fprintf(LOG_FILE, "[DEBUG] %s:%d: " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_POSITION  "[" __FILE__ ":" STRINGIFY(__LINE__) "] "
+#define debug(M, ...) log_print(DBG_DEBUG, LOG_POSITION M , ##__VA_ARGS__)
 #else
+#define LOG_POSITION ""
 #define debug(M, ...)
 #endif
 
@@ -23,17 +28,9 @@ extern FILE *LOG_FILE;
 
 #define clean_errno() (errno == 0 ? "None" : strerror(errno))
 
-#ifdef DEBUG
-/* also print line number */
-#define log_err(M, ...) fprintf(LOG_FILE, "[ERROR] (%s:%d: errno: %s) " M "\n", __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) fprintf(LOG_FILE, "[WARN] (%s:%d: errno: %s) " M "\n", __FILE__, __LINE__, clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) fprintf(LOG_FILE, "[INFO] (%s:%d) " M "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-/* without line number and file */
-#define log_err(M, ...) fprintf(LOG_FILE, "[ERROR] (errno: %s) " M "\n", clean_errno(), ##__VA_ARGS__)
-#define log_warn(M, ...) fprintf(LOG_FILE, "[WARN] (errno: %s) " M "\n", clean_errno(), ##__VA_ARGS__)
-#define log_info(M, ...) fprintf(LOG_FILE, "[INFO] " M "\n", ##__VA_ARGS__)
-#endif
+#define log_err(M, ...) log_print(DBG_ERROR, LOG_POSITION "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_warn(M, ...) log_print(DBG_WARN, LOG_POSITION "(errno: %s) " M, clean_errno(), ##__VA_ARGS__)
+#define log_info(M, ...) log_print(DBG_INFO, LOG_POSITION M, ##__VA_ARGS__)
 
 #define check(A, M, ...) if(!(A)) { \
     log_err(M, ##__VA_ARGS__); \
@@ -57,5 +54,24 @@ extern FILE *LOG_FILE;
 #else
 # define UNUSED_PARAMETER(x) x
 #endif
+
+typedef enum _DBG_LEVEL {
+    DBG_DEBUG = 0,
+    DBG_INFO = 1,
+    DBG_WARN = 2,
+    DBG_ERROR = 3
+} DBG_LEVEL;
+
+
+void dbg_set_logfile(FILE * file);
+void dbg_set_loglevel(const DBG_LEVEL level); 
+void dbg_disable_logfile();
+void dbg_enable_syslog();
+void dbg_disable_syslog();
+const char * dbg_level_string(const DBG_LEVEL level);
+void dbg_print(const DBG_LEVEL level, const char * fmtstr, ...)
+    __attribute__ ((format (printf, 2, 3))); // attribute to void warnings
+                            // caused by using a variable for the
+                            // format string. Works on gcc and clang
 
 #endif /* __dbg_h__ */

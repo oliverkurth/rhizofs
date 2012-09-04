@@ -26,6 +26,7 @@ enum RequestType {
     TRUNCATE = 15;
     CHMOD = 16;
     UTIMENS = 17;
+    LINK = 18;
 }
 
 enum Errno {

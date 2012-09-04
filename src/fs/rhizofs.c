@@ -16,6 +16,7 @@
 #include "socketpool.h"
 #include "../version.h"
 #include "../dbg.h"
+#include "../path.h"
 #include "attrcache.h"
 
 // use the 2.6 fuse api
@@ -334,7 +335,7 @@ Rhizofs_readdir(const char * path, void * buf,
     fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
 {
     unsigned int entry_n = 0;
-    char * path_copy = NULL;
+    char * path_entry = NULL;
     CacheEntry * cache_entry = NULL;
 
     (void) offset;
@@ -360,8 +361,9 @@ Rhizofs_readdir(const char * path, void * buf,
         }
 
         // add to cache
-        path_copy = strdup(path);
-        check_mem(path_copy);
+        check(path_join(path, response->directory_entries[entry_n]->name, &path_entry) == 0,
+                "could not join path for directory entry %s", response->directory_entries[entry_n]->name);
+        check_mem(path_entry);
         cache_entry = CacheEntry_create();
         check_mem(cache_entry);
 
@@ -370,7 +372,7 @@ Rhizofs_readdir(const char * path, void * buf,
         check(Rhizofs_convert_attrs_stat(response->directory_entries[entry_n], &(cache_entry->stat_result)) == true,
                 "could not convert attrs");
 
-        check(AttrCache_set(&attrcache, path_copy, cache_entry),
+        check(AttrCache_set(&attrcache, path_entry, cache_entry),
                 "Could not add stat to AttrCache");
     }
 
@@ -378,7 +380,7 @@ Rhizofs_readdir(const char * path, void * buf,
     return 0;
 
 error:
-    free(path_copy);
+    free(path_entry);
     CacheEntry_destroy(cache_entry);
 
     OP_DEINIT(request, response)
@@ -591,10 +593,9 @@ Rhizofs_read(const char *path, char *buf, size_t size,
     request.requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     OP_COMMUNICATE(request, response, returned_err)
-    check((Response_has_data(response) != 0), "Server did send no data in response");
+    check((Response_has_data(response) != -1), "Server did not send data in response");
 
     size_read = DataBlock_get_data_noalloc(response->datablock, (uint8_t *)buf, size);
-    check((size_read > 0), "Could not read data");
 
     OP_DEINIT(request, response)
     return size_read;
@@ -710,6 +711,48 @@ error:
     return -returned_err;
 }
 
+
+static int
+Rhizofs_link(const char * path_from, const char * path_to)
+{
+    OP_INIT(request, response, returned_err);
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__LINK;
+    request.path = (char *)path_from;
+    request.path_to = (char *)path_to;
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+}
+
+
+static int
+Rhizofs_rename(const char * path_from, const char * path_to)
+{
+    OP_INIT(request, response, returned_err);
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
+    request.path = (char *)path_from;
+    request.path_to = (char *)path_to;
+
+    OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path_from);
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+}
+
+
 static int
 Rhizofs_readlink(const char * path, char * link_target, size_t len)
 {
@@ -721,6 +764,7 @@ Rhizofs_readlink(const char * path, char * link_target, size_t len)
     return -ENOTSUP;
 }
 
+
 static int
 Rhizofs_symlink(const char * path_from, const char * path_to)
 {
@@ -728,17 +772,6 @@ Rhizofs_symlink(const char * path_from, const char * path_to)
     (void) path_to;
 
     log_warn("SYMLINK is not (yet) supported");
-    return -ENOTSUP;
-}
-
-
-static int
-Rhizofs_link(const char * path_from, const char * path_to)
-{
-    (void) path_from;
-    (void) path_to;
-
-    log_warn("LINK is not (yet) supported");
     return -ENOTSUP;
 }
 
@@ -806,11 +839,12 @@ static struct fuse_operations rhizofs_operations = {
     .truncate   = Rhizofs_truncate,
     .chmod      = Rhizofs_chmod,
     .utimens    = Rhizofs_utimens,
+    .link       = Rhizofs_link,
+    .rename     = Rhizofs_rename,
 //  stubs to implement
     .chown      = Rhizofs_chown,
     .readlink   = Rhizofs_readlink,
     .symlink    = Rhizofs_symlink,
-    .link       = Rhizofs_link,
     .statfs     = Rhizofs_statfs
     //.release    = Rhizofs_release,
     //.fsync      = Rhizofs_fsync,

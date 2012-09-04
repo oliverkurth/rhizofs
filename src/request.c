@@ -126,7 +126,7 @@ Request_set_data(Rhizofs__Request * request, const uint8_t * data, size_t len)
 {
     Rhizofs__DataBlock * datablock = NULL;
 
-    check((request->datablock == NULL), "Request has aleady a data block");
+    check((request->datablock == NULL), "Request already has a data block");
 
     datablock = DataBlock_create();
     check_mem(datablock);

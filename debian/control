@@ -12,3 +12,11 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},  libzmq1 (>= 2.1.0), libprotobuf-c0 (>= 0.13),
         libfuse2 (>= 2.8~)
 Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
+
+Package: rhizofs-dbg
+Section: debug
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends},  libzmq1 (>= 2.1.0), libprotobuf-c0 (>= 0.13),
+        libfuse2 (>= 2.8~)
+Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
+        This package contains the debugging symbols.

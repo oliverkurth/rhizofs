@@ -176,10 +176,16 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
         AttrCache_shrink(attrcache);
     }
 
-    // remove the old entry if there is one
-    AttrCache_remove(attrcache, path);
 
     Attrcache_lock_modify_mutex(attrcache);
+
+    // remove the old entry if there is one
+    hnode_t * hash_node = hash_lookup(attrcache->hashtable, path);
+    if (hash_node) {
+        debug("Replacing %s in cache", path);
+        hash_delete_free(attrcache->hashtable, hash_node);
+    }
+
     check(hash_alloc_insert(attrcache->hashtable, path, cache_entry) == 1,
             "could not add cacheEntry to hash");
     Attrcache_unlock_modify_mutex(attrcache);
@@ -248,10 +254,14 @@ AttrCache_shrink(AttrCache * attrcache)
     // check if deleting the depracated entries made enough space,
     // otherwise simply delete the first entries until shrink_num is
     // reached
-    while( (nodes_removed_count < shrink_num) && (hash_node = hash_scan_next(&hash_scan)) ) {
-        hash_scan_delete(attrcache->hashtable, hash_node);
-        nodes_removed_count++;
+    if (nodes_removed_count < shrink_num) {
+        hash_scan_begin(&hash_scan, attrcache->hashtable);
+        while( (nodes_removed_count < shrink_num) && (hash_node = hash_scan_next(&hash_scan)) ) {
+            hash_scan_delete(attrcache->hashtable, hash_node);
+            nodes_removed_count++;
+        }
     }
+    debug("Removed %d nodes from attrcache", (int)nodes_removed_count);
 
     Attrcache_unlock_modify_mutex(attrcache);
     return true;

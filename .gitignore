@@ -12,3 +12,6 @@ debian/files
 debian/rhizofs.debhelper.log
 debian/rhizofs.substvars
 debian/rhizofs/
+src/proto/rhizofs.pb-c.c
+src/proto/rhizofs.pb-c.h
+/bin

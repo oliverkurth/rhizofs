@@ -3,11 +3,12 @@
 #include "../dbg.h"
 #include "../fs/rhizofs.h"
 
-FILE *LOG_FILE = NULL;
 
 int main(int argc, char *argv[])
 {
-    LOG_FILE = stderr;
+    // logging configuration
+    dbg_set_logfile(NULL);
+    dbg_enable_syslog();
 
     umask(0);
     return Rhizofs_run(argc, argv);
