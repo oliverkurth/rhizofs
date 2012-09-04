@@ -261,7 +261,7 @@ AttrCache_shrink(AttrCache * attrcache)
             nodes_removed_count++;
         }
     }
-    debug("Removed %d nodes from attrcache", nodes_removed_count);
+    debug("Removed %d nodes from attrcache", (int)nodes_removed_count);
 
     Attrcache_unlock_modify_mutex(attrcache);
     return true;
