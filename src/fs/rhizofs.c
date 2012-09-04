@@ -39,9 +39,12 @@ typedef struct RhizoSettings {
     char * host_socket;
 
     /** timeout (in seconds) after which the filesystem will stop waiting
-     *  a response from the server and instead return a errno = EAGAIN
+     *  * for a response from the server 
+     *  * for being able to send the request to the server
+     *
+     *  instead return a errno = EAGAIN
      */
-    uint32_t response_timeout;
+    uint32_t timeout;
 } RhizoSettings;
 
 
@@ -173,6 +176,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
         log_and_error("Could not pack request");
     }
 
+    uint32_t repetition = 0;
     do {
         rc = zmq_send(sock, &msg_req, 0);
         if (rc != 0) {
@@ -194,6 +198,21 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
                 log_and_error("Could not send request [errno: %d]", errno);
             }
         }
+
+        ++repetition;
+
+        // check for a timeout while waiting for being able to send the request
+        uint32_t seconds_waited = (repetition * SEND_SLEEP_USEC) / (1000 * 1000);
+        if (seconds_waited >= settings.timeout) {
+            log_info("Timeout after trying to send request to server for %d seconds.", seconds_waited);
+            (*err) = EAGAIN;
+
+            // this basically implements the "The Lazy Pirate Pattern" described
+            // in the ZMQ Guide
+            SocketPool_renew_socket(&socketpool);
+
+            goto error;
+        }
     } while (rc != 0);
 
     zmq_pollitem_t pollset[] = {
@@ -207,7 +226,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     rc = 1; /* set to an non-zero value to prevent exit of loop
              * before a response arrived */
-    uint32_t repetition = 0;
+    repetition = 0;
     do {
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
@@ -242,7 +261,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
         // check for response timeout
         uint32_t seconds_waited = (repetition * POLL_TIMEOUT_USEC) / (1000 * 1000);
-        if (seconds_waited >= settings.response_timeout) {
+        if (seconds_waited >= settings.timeout) {
             log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
             (*err) = EAGAIN;
 
@@ -889,8 +908,8 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 {
     (void) data;
 
-    // set the default response tiemout
-    settings.response_timeout = RESPONSE_TIMEOUT_DEFAULT;
+    // set the default timeout
+    settings.timeout = TIMEOUT_DEFAULT;
 
     switch (key) {
         case KEY_HELP:
