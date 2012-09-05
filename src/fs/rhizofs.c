@@ -105,7 +105,6 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 
 error:
 
-    RhizoPriv_destroy(priv);
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
 
@@ -121,11 +120,8 @@ error:
  * destroy/free the resources allocated by the filesystem
  */
 static void
-Rhizofs_destroy(void * data)
+Rhizofs_destroy(void * UNUSED_PARAMETER(data))
 {
-    RhizoPriv * priv = data;
-    RhizoPriv_destroy(priv);
-
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
 }
@@ -1055,9 +1051,13 @@ Rhizofs_fuse_main(struct fuse_args *args)
         log_and_error("Could not connect to server");
     }
 
-    return fuse_main(args->argc, args->argv, &rhizofs_operations, (void*)priv );
+    int rc = fuse_main(args->argc, args->argv, &rhizofs_operations, (void*)priv );
+    RhizoPriv_destroy(priv);
+
+    return rc;
 
 error:
+    RhizoPriv_destroy(priv);
     return 1;
 }
 
