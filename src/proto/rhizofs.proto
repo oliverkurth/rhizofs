@@ -11,7 +11,7 @@ enum RequestType {
     STAT = 0;
     MKDIR = 1;
     UNKNOWN = 2;
-    PING = 3;       // ping the server - does not perform any filesystem actions
+    PING = 3;       // ping the server - used to check the connection on filesystem startup
     READDIR = 4;
     INVALID = 5;
     RMDIR = 6;
