@@ -66,6 +66,9 @@ static struct fuse_opt rhizo_opts[] = {
 // Prototypes
 bool Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf);
 int Rhizofs_getattr_remote(const char *path, struct stat *stbuf);
+static inline RhizoPriv * RhizoPriv_create();
+static inline void RhizoPriv_destroy(RhizoPriv * priv);
+
 
 /** global settings store */
 static RhizoSettings settings;
@@ -86,12 +89,8 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
     RhizoPriv * priv = NULL;
 
-    priv = calloc(sizeof(RhizoPriv), 1);
-    check_mem(priv);
-    priv->context = NULL;
-
-    priv->context = zmq_init(1);
-    check((priv->context != NULL), "Could not create Zmq context");
+    priv = RhizoPriv_create();
+    check(priv, "Could not create RhizoPriv context");
 
     /* create the socket pool */
     check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
@@ -104,16 +103,7 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 
 error:
 
-    if (priv != NULL) {
-        if (priv->context != NULL) {
-            zmq_term(priv->context);
-            priv->context = NULL;
-        }
-
-        free(priv);
-        priv = NULL;
-    }
-
+    RhizoPriv_destroy(priv);
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
 
@@ -132,14 +122,7 @@ static void
 Rhizofs_destroy(void * data)
 {
     RhizoPriv * priv = data;
-
-    if (priv != NULL) {
-        if (priv->context != NULL) {
-            zmq_term(priv->context);
-            priv->context = NULL;
-        }
-        free(priv);
-    }
+    RhizoPriv_destroy(priv);
 
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
@@ -870,6 +853,85 @@ static struct fuse_operations rhizofs_operations = {
 };
 
 
+/** settings ******************************************************/
+
+static inline void
+Rhizofs_settings_init()
+{
+    memset(&settings, 0, sizeof(settings));
+
+    // set the default timeout
+    settings.timeout = TIMEOUT_DEFAULT;
+}
+
+
+static inline void
+Rhizofs_settings_deinit()
+{
+    free(settings.host_socket);
+}
+
+
+/**
+ * check the settings from the command line arguments
+ * returns -1 o failure, 0 on correct arguments
+ */
+static int
+Rhizofs_settings_check()
+{
+    if (settings.host_socket == NULL) {
+        fprintf(stderr, "Missing host");
+        goto error;
+    }
+    return 0;
+
+error:
+    return -1;
+}
+
+
+/** priv **********************************************************/
+
+/**
+ * create a new pivate struct
+ *
+ * returns NULL on error
+ */
+static inline RhizoPriv *
+RhizoPriv_create()
+{
+    RhizoPriv * priv = NULL;
+
+    priv = calloc(sizeof(RhizoPriv), 1);
+    check_mem(priv);
+    priv->context = NULL;
+
+    priv->context = zmq_init(1);
+    check((priv->context != NULL), "Could not create Zmq context");
+
+    return priv;
+
+error:
+    return 0;
+}
+
+
+/**
+ * destory a private struct
+ */
+static inline void
+RhizoPriv_destroy(RhizoPriv * priv)
+{
+    if (priv) {
+        if (priv->context != NULL) {
+            zmq_term(priv->context);
+            priv->context = NULL;
+        }
+
+        free(priv);
+        priv = NULL;
+    }
+}
 
 /*******************************************************************/
 /* general methods                                                 */
@@ -932,41 +994,6 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
             return 1;
     }
     return 1;
-}
-
-
-static inline void
-Rhizofs_settings_init()
-{
-    memset(&settings, 0, sizeof(settings));
-
-    // set the default timeout
-    settings.timeout = TIMEOUT_DEFAULT;
-}
-
-
-static inline void
-Rhizofs_settings_deinit()
-{
-    free(settings.host_socket);
-}
-
-
-/**
- * check the settings from the command line arguments
- * returns -1 o failure, 0 on correct arguments
- */
-static int
-Rhizofs_settings_check()
-{
-    if (settings.host_socket == NULL) {
-        fprintf(stderr, "Missing host");
-        goto error;
-    }
-    return 0;
-
-error:
-    return -1;
 }
 
 
