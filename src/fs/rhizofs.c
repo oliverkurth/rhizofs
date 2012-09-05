@@ -1017,8 +1017,8 @@ Rhizofs_check_connection(RhizoPriv * priv)
     request.requesttype = RHIZOFS__REQUEST_TYPE__PING;
     OP_COMMUNICATE_USING_SOCKET(request, response, returned_err, socket, false);
 
-    fprintf(stdout, "Connection successful. (Server version %d.%d)\n", response->version->major,
-            response->version->minor);
+    fprintf(stdout, "Connection successful. (Server version %d.%d.%d)\n", response->version->major,
+            response->version->minor,  response->version->patch);
 
     OP_DEINIT(request, response)
     zmq_close(socket);

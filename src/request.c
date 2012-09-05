@@ -72,6 +72,7 @@ bool Request_init(Rhizofs__Request * request)
 
     version->major = RHI_VERSION_MAJOR;
     version->minor = RHI_VERSION_MINOR;
+    version->patch = RHI_VERSION_PATCH;
 
     request->version = version;
 
