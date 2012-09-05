@@ -82,15 +82,17 @@ static AttrCache attrcache;
  *
  * provides:
  * - starting of background threads
- * - setting up a 0mq context
  */
 static void *
 Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
     RhizoPriv * priv = NULL;
 
-    priv = RhizoPriv_create();
-    check(priv, "Could not create RhizoPriv context");
+    struct fuse_context * fcontext = fuse_get_context();
+    check(fcontext, "FUSE returned an empty fuse_context");
+
+    priv = (RhizoPriv *)fcontext->private_data;
+    check(priv, "Got an empty RhizoPriv from fuse_context");
 
     /* create the socket pool */
     check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
@@ -132,11 +134,19 @@ Rhizofs_destroy(void * data)
 /**
  * send the request and wait for a reponse
  *
- * returns NULL on error, otherwise a Reesponse the caller
+ * "socket_to_use" is an optional parameter. if it is not null, the function
+ * will use this socket. When it is NULL, a socket from the socketpool will
+ * be used.
+ *
+ * "check_fuse_interrupts" enables checking for any interupts/signals
+ * detected by libfuse. set to false to use this function outside
+ * of a valid fuse_context
+ *
+ * returns NULL on error, otherwise a Response the caller
  * is responsible tor free.
  */
 Rhizofs__Response *
-Rhizofs_communicate(Rhizofs__Request * req, int * err)
+Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, bool check_fuse_interrupts)
 {
     void * sock = NULL;
     int rc;
@@ -147,8 +157,14 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
     (*err) = 0;
 
-    /* get a socket from the socketpool, return an errno on failure */
-    sock = SocketPool_get_socket(&socketpool);
+    if (socket_to_use) {
+        sock = socket_to_use;
+    }
+    else {
+        /* get a socket from the socketpool, return an errno on failure */
+        sock = SocketPool_get_socket(&socketpool);
+    }
+
     if (sock == NULL) {
         (*err) = ENOTSOCK; /* Socket operation on non-socket */
         log_and_error("Could not fetch socket from socketpool");
@@ -170,10 +186,12 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
                  */
                 usleep(SEND_SLEEP_USEC);
 
-                if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
-                    (*err) = EINTR;
-                    log_info("The request has been interrupted");
-                    goto error;
+                if (check_fuse_interrupts) {
+                    if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+                        (*err) = EINTR;
+                        log_info("The request has been interrupted");
+                        goto error;
+                    }
                 }
             }
             else {
@@ -192,7 +210,9 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
             // this basically implements the "The Lazy Pirate Pattern" described
             // in the ZMQ Guide
-            SocketPool_renew_socket(&socketpool);
+            if (!socket_to_use) {
+               SocketPool_renew_socket(&socketpool);
+            }
 
             goto error;
         }
@@ -233,10 +253,12 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
              * check if fuse has recieved a interrupt
              * while waiting for a response
              */
-            if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
-                log_info("The request has been interrupted");
-                (*err) = EINTR;
-                goto error;
+            if (check_fuse_interrupts) {
+                if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+                    log_info("The request has been interrupted");
+                    (*err) = EINTR;
+                    goto error;
+                }
             }
         }
 
@@ -250,7 +272,9 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err)
 
             // this basically implements the "The Lazy Pirate Pattern" described
             // in the ZMQ Guide
-            SocketPool_renew_socket(&socketpool);
+            if (!socket_to_use) {
+                SocketPool_renew_socket(&socketpool);
+            }
 
             goto error;
         }
@@ -322,10 +346,13 @@ error:
         log_and_error("Could not iniialize Request"); \
     }
 
-#define OP_COMMUNICATE(REQ, RESP, RET_ERR) \
-    RESP = Rhizofs_communicate(&REQ, &RET_ERR); \
+#define OP_COMMUNICATE_USING_SOCKET(REQ, RESP, RET_ERR, SOCK, CHECK_FUSE_INTERRUPTS) \
+    RESP = Rhizofs_communicate(&REQ, &RET_ERR, SOCK, CHECK_FUSE_INTERRUPTS); \
     check_debug((RET_ERR == 0), "Server reported an error: %d", RET_ERR); \
     check((RESP != NULL), "communicate failed");
+
+#define OP_COMMUNICATE(REQ, RESP, RET_ERR) \
+    OP_COMMUNICATE_USING_SOCKET(REQ, RESP, RET_ERR, NULL, true)
 
 #define OP_DEINIT(REQ, RESP) \
     Request_deinit(&REQ); \
@@ -895,6 +922,9 @@ error:
 /**
  * create a new pivate struct
  *
+ * provides
+ * - setting up a 0mq context
+ *
  * returns NULL on error
  */
 static inline RhizoPriv *
@@ -927,7 +957,6 @@ RhizoPriv_destroy(RhizoPriv * priv)
             zmq_term(priv->context);
             priv->context = NULL;
         }
-
         free(priv);
         priv = NULL;
     }
@@ -952,10 +981,84 @@ Rhizofs_usage(const char * progname)
 }
 
 
+/**
+ * check if a connection to the server is possible by sending a ping
+ *
+ * return true when the connection was successful, otherwise false
+ */
+bool
+Rhizofs_check_connection(RhizoPriv * priv)
+{
+    void * socket = NULL;
+    OP_INIT(request, response, returned_err);
+
+    check(priv, "Got an empty RhizoPriv struct");
+
+    fprintf(stdout, "Trying to connect to server at %s\n", settings.host_socket);
+
+    socket = zmq_socket(priv->context, ZMQ_REQ);
+    check((socket != NULL), "Could not create 0mq socket");
+
+    int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
+    zmq_setsockopt(socket, ZMQ_HWM, &hwm, sizeof(hwm));
+
+#ifdef ZMQ_MAKE_VERSION
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)
+    int linger = 0;
+    zmq_setsockopt(socket, ZMQ_LINGER, &linger, sizeof(linger));
+#endif
+#endif
+
+    if (zmq_connect(socket, settings.host_socket) != 0) {
+        fprintf(stderr, "Could not connect to server at %s\n", settings.host_socket);
+        log_and_error("could not connect socket to %s", settings.host_socket);
+    }
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__PING;
+    OP_COMMUNICATE_USING_SOCKET(request, response, returned_err, socket, false);
+
+    fprintf(stdout, "Connection successful. (Server version %d.%d)\n", response->version->major,
+            response->version->minor);
+
+    OP_DEINIT(request, response)
+    zmq_close(socket);
+
+    return true;
+error:
+
+    if (returned_err != 0) {
+        fprintf(stderr, "Connecting to server failed: %s\n", strerror(returned_err));
+    }
+
+    OP_DEINIT(request, response)
+    if (socket) {
+        zmq_close(socket);
+    }
+    return false;
+}
+
+
+/**
+ * start the filesystem
+ *
+ * returns the errorcode of the process. 0 on success
+ */
 int
 Rhizofs_fuse_main(struct fuse_args *args)
 {
-    return fuse_main(args->argc, args->argv, &rhizofs_operations, NULL);
+    RhizoPriv * priv = NULL;
+
+    priv = RhizoPriv_create();
+    check(priv, "Could not create RhizoPriv context");
+
+    if (!Rhizofs_check_connection(priv)) {
+        log_and_error("Could not connect to server");
+    }
+
+    return fuse_main(args->argc, args->argv, &rhizofs_operations, (void*)priv );
+
+error:
+    return 1;
 }
 
 
