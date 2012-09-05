@@ -150,6 +150,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
     struct fuse_context * fcontext = fuse_get_context();
+    bool renew_socket = false;
 
     (*err) = 0;
 
@@ -171,6 +172,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         log_and_error("Could not pack request");
     }
 
+    renew_socket = true;
     uint32_t repetition = 0;
     do {
         rc = zmq_send(sock, &msg_req, 0);
@@ -192,6 +194,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             }
             else {
                 (*err) = EIO;
+                renew_socket = false;
                 log_and_error("Could not send request [errno: %d]", errno);
             }
         }
@@ -203,13 +206,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         if (seconds_waited >= settings.timeout) {
             log_info("Timeout after trying to send request to server for %d seconds.", seconds_waited);
             (*err) = EAGAIN;
-
-            // this basically implements the "The Lazy Pirate Pattern" described
-            // in the ZMQ Guide
-            if (!socket_to_use) {
-               SocketPool_renew_socket(&socketpool);
-            }
-
             goto error;
         }
     } while (rc != 0);
@@ -265,13 +261,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         if (seconds_waited >= settings.timeout) {
             log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
             (*err) = EAGAIN;
-
-            // this basically implements the "The Lazy Pirate Pattern" described
-            // in the ZMQ Guide
-            if (!socket_to_use) {
-                SocketPool_renew_socket(&socketpool);
-            }
-
             goto error;
         }
     } while (rc != 0);
@@ -285,6 +274,15 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     return response;
 
 error:
+    if (renew_socket && !socket_to_use) {
+        // renew socket as soon there is any chance of it being in an
+        // inconsistent state
+        //
+        // this basically implements the "The Lazy Pirate Pattern" described
+        // in the ZMQ Guide
+        debug("Renewing socket");
+        SocketPool_renew_socket(&socketpool);
+    }
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_resp);
     return NULL;
