@@ -6,8 +6,8 @@
 /* response timeout after which interrupts will be checked */
 #define POLL_TIMEOUT_USEC 10000
 
-/* default response timeout (in seconds). see RhizoSettings struct */
-#define RESPONSE_TIMEOUT_DEFAULT 30
+/* default timeout (in seconds). see RhizoSettings struct */
+#define TIMEOUT_DEFAULT 30
 
 #define SEND_SLEEP_USEC 1
 
