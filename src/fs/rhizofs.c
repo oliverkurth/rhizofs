@@ -337,7 +337,7 @@ error:
     Rhizofs__Response * RESP = NULL; \
     if (!Request_init(&REQ)) { \
         RET_ERR = ENOMEM; \
-        log_and_error("Could not iniialize Request"); \
+        log_and_error("Could not initialize Request"); \
     }
 
 #define OP_COMMUNICATE_USING_SOCKET(REQ, RESP, RET_ERR, SOCK, CHECK_FUSE_INTERRUPTS) \
@@ -496,8 +496,6 @@ Rhizofs_mkdir(const char * path, mode_t mode)
     debug("mkdir mode: %d", (int)mode);
     request.permissions = Permissions_create((mode_t)mode);
     check((request.permissions != NULL), "Could not create access permissions struct");
-
-    // TODO: filetype needed ??
 
     OP_COMMUNICATE(request, response, returned_err)
 
@@ -1018,6 +1016,7 @@ Rhizofs_check_connection(RhizoPriv * priv)
     zmq_close(socket);
 
     return true;
+
 error:
 
     if (returned_err != 0) {
