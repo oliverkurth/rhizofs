@@ -11,12 +11,11 @@ extern FILE *LOG_FILE;
 
 #define log_print(LEVEL, M, ...) dbg_print(LEVEL, "[%s] " M "\n", dbg_level_string(LEVEL), ##__VA_ARGS__)
 
+#define LOG_POSITION  "[" __FILE__ ":" STRINGIFY(__LINE__) "] "
 
 #ifdef DEBUG
-#define LOG_POSITION  "[" __FILE__ ":" STRINGIFY(__LINE__) "] "
 #define debug(M, ...) log_print(DBG_DEBUG, LOG_POSITION M , ##__VA_ARGS__)
 #else
-#define LOG_POSITION ""
 #define debug(M, ...)
 #endif
 
