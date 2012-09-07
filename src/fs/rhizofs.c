@@ -45,6 +45,12 @@ typedef struct RhizoSettings {
      *  instead return a errno = EAGAIN
      */
     uint32_t timeout;
+
+    /** check socket connection.
+     * this is set to false if the program is only supposed to
+     * print its help text and exit */
+    bool check_socket_connection;
+
 } RhizoSettings;
 
 
@@ -881,6 +887,8 @@ Rhizofs_settings_init()
 
     // set the default timeout
     settings.timeout = TIMEOUT_DEFAULT;
+
+    settings.check_socket_connection = true;
 }
 
 
@@ -985,6 +993,7 @@ Rhizofs_check_connection(RhizoPriv * priv)
     OP_INIT(request, response, returned_err);
 
     check(priv, "Got an empty RhizoPriv struct");
+    check(settings.host_socket, "Can not check connection. No host socket given.")
 
     fprintf(stdout, "Trying to connect to server at %s\n", settings.host_socket);
 
@@ -1044,8 +1053,10 @@ Rhizofs_fuse_main(struct fuse_args *args)
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
 
-    if (!Rhizofs_check_connection(priv)) {
-        log_and_error("Could not connect to server");
+    if (settings.check_socket_connection) {
+        if (!Rhizofs_check_connection(priv)) {
+            log_and_error("Could not connect to server");
+        }
     }
 
     int rc = fuse_main(args->argc, args->argv, &rhizofs_operations, (void*)priv );
@@ -1072,12 +1083,14 @@ Rhizofs_opt_proc(void * data, const char *arg, int key, struct fuse_args *outarg
 
     switch (key) {
         case KEY_HELP:
+            settings.check_socket_connection = false;
             Rhizofs_usage(outargs->argv[0]);
             fuse_opt_add_arg(outargs, "-ho");
             Rhizofs_fuse_main(outargs);
-            exit(1);
+            exit(0);
 
         case KEY_VERSION:
+            settings.check_socket_connection = false;
             fprintf(stderr, "%s version %s\n", RHI_NAME, RHI_VERSION_FULL);
             fuse_opt_add_arg(outargs, "--version");
             Rhizofs_fuse_main(outargs);
