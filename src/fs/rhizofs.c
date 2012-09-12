@@ -95,11 +95,8 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 {
     RhizoPriv * priv = NULL;
 
-    struct fuse_context * fcontext = fuse_get_context();
-    check(fcontext, "FUSE returned an empty fuse_context");
-
-    priv = (RhizoPriv *)fcontext->private_data;
-    check(priv, "Got an empty RhizoPriv from fuse_context");
+    priv = RhizoPriv_create();
+    check(priv, "Could not create RhizoPriv context");
 
     /* create the socket pool */
     check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
@@ -114,6 +111,7 @@ error:
 
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
+    RhizoPriv_destroy(priv);
 
     /* exiting here is the last fallback when
        setting up the socket fails. see the NOTES
@@ -131,6 +129,12 @@ Rhizofs_destroy(void * UNUSED_PARAMETER(data))
 {
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
+
+    struct fuse_context * fcontext = fuse_get_context();
+    if (fcontext) {
+        RhizoPriv * priv = (RhizoPriv *)fcontext->private_data;
+        RhizoPriv_destroy(priv);
+    }
 }
 
 
@@ -1079,7 +1083,7 @@ Rhizofs_fuse_main(struct fuse_args *args)
         }
     }
 
-    int rc = fuse_main(args->argc, args->argv, &rhizofs_operations, (void*)priv );
+    int rc = fuse_main(args->argc, args->argv, &rhizofs_operations, NULL );
     RhizoPriv_destroy(priv);
 
     return rc;
