@@ -27,8 +27,7 @@ install: build
 	dh_prep
 	dh_installdirs
 	mkdir -p $(CURDIR)/debian/rhizofs/usr/bin/
-	install bin/rhizofs $(CURDIR)/debian/rhizofs/usr/bin/
-	install bin/rhizosrv $(CURDIR)/debian/rhizofs/usr/bin/
+	PREFIX=$(CURDIR)/debian/rhizofs/usr make install
 
 binary-indep: build install
 

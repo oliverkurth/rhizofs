@@ -8,7 +8,6 @@ CFLAGS= -Wall \
 	-D_XOPEN_SOURCE=500 \
 	-D_BSD_SOURCE \
 	-I. $(shell pkg-config fuse --cflags)
-	#-D_BSD_SOURCE \
 
 # clang emits a warning if the -std flag is passed to it when linking
 # objects
@@ -21,6 +20,7 @@ FUSE_LIBS=$(shell pkg-config fuse --libs)
 PROTOCC=protoc-c
 #CC=clang
 
+PREFIX?=/usr/local
 BINDIR=./bin
 
 # input files
@@ -71,3 +71,7 @@ valgrind-srv: dev ${BINDIR}/rhizosrv
 
 deb:
 	dpkg-buildpackage -uc -us
+
+install: release
+	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
+	install ${BINDIR}/rhizofs $(PREFIX)/bin/
