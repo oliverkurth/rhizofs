@@ -1,3 +1,11 @@
+rhizofs (0.2.0-1) unstable; urgency=low
+
+  * filesystem checks connection to server before daemonizing
+  * Server is a daemon now
+  * most filesystem methods implemented
+
+ -- Nico Mandery <nico@nmandery.net>  Mon, 09 May 2011 18:28:29 +0200
+
 rhizofs (0.1.0-1) unstable; urgency=low
 
   * first packaging 
