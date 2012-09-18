@@ -28,6 +28,8 @@ enum RequestType {
     CHMOD = 16;
     UTIMENS = 17;
     LINK = 18;
+    SYMLINK = 19;
+    READLINK = 20;
 }
 
 enum Errno {
@@ -56,14 +58,13 @@ enum CompressionType {
 };
 
 enum FileType {
-    DIRECTORY = 0;
-    CHARACTER_DEVICE = 1;
-    BLOCK_DEVICE = 2;
-    REGULAR_FILE = 3;
-    FIFO = 4;
-    SOCKET = 5;
-    // symlinks are not supported so far
-    // SYMLINK = 6;
+    FT_DIRECTORY = 0;
+    FT_CHARACTER_DEVICE = 1;
+    FT_BLOCK_DEVICE = 2;
+    FT_REGULAR_FILE = 3;
+    FT_FIFO = 4;
+    FT_SOCKET = 5;
+    FT_SYMLINK = 6;
 };
 
 message PermissionSet {
@@ -177,4 +178,8 @@ message Response {
 
     // number of bytes to read/write
     optional int32 size = 8;
+
+    // the target a link/symlink points to
+    // this string has to be null terminated
+    optional string link_target = 9;
 }

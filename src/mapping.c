@@ -258,28 +258,25 @@ FileType_to_local(const Rhizofs__FileType filetype)
     int local_filetype = 0;
 
     switch (filetype) {
-        case RHIZOFS__FILE_TYPE__DIRECTORY:
+        case RHIZOFS__FILE_TYPE__FT_DIRECTORY:
             local_filetype = S_IFDIR;
             break;
-        case RHIZOFS__FILE_TYPE__CHARACTER_DEVICE:
+        case RHIZOFS__FILE_TYPE__FT_CHARACTER_DEVICE:
             local_filetype = S_IFCHR;
             break;
-        case RHIZOFS__FILE_TYPE__BLOCK_DEVICE:
+        case RHIZOFS__FILE_TYPE__FT_BLOCK_DEVICE:
             local_filetype = S_IFBLK;
             break;
-        case RHIZOFS__FILE_TYPE__REGULAR_FILE:
-            local_filetype = S_IFREG;
-            break;
-        case RHIZOFS__FILE_TYPE__FIFO:
+        case RHIZOFS__FILE_TYPE__FT_FIFO:
             local_filetype = S_IFIFO;
             break;
-        /*
-        // symlinks are not supported so far
-        case RHIZOFS__FILE_TYPE__SYMLINK:
+        case RHIZOFS__FILE_TYPE__FT_SYMLINK:
             local_filetype = S_IFLNK;
             break;
-        */
-        case RHIZOFS__FILE_TYPE__SOCKET:
+        case RHIZOFS__FILE_TYPE__FT_REGULAR_FILE:
+            local_filetype = S_IFREG;
+            break;
+        case RHIZOFS__FILE_TYPE__FT_SOCKET:
             local_filetype = S_IFSOCK;
             break;
         default:
@@ -294,15 +291,15 @@ FileType_to_local(const Rhizofs__FileType filetype)
 Rhizofs__FileType
 FileType_from_local(const mode_t stat_result)
 {
-    Rhizofs__FileType filetype = RHIZOFS__FILE_TYPE__REGULAR_FILE; 
+    Rhizofs__FileType filetype = RHIZOFS__FILE_TYPE__FT_REGULAR_FILE; 
 
-    if (stat_result & S_IFDIR)       { filetype = RHIZOFS__FILE_TYPE__DIRECTORY; }
-    else if (stat_result & S_IFCHR)  { filetype = RHIZOFS__FILE_TYPE__CHARACTER_DEVICE; }
-    else if (stat_result & S_IFBLK)  { filetype = RHIZOFS__FILE_TYPE__BLOCK_DEVICE; }
-    else if (stat_result & S_IFREG)  { filetype = RHIZOFS__FILE_TYPE__REGULAR_FILE; }
-    else if (stat_result & S_IFIFO)  { filetype = RHIZOFS__FILE_TYPE__FIFO; }
-    else if (stat_result & S_IFLNK)  { filetype = RHIZOFS__FILE_TYPE__REGULAR_FILE; } // symlinks are not supported so far
-    else if (stat_result & S_IFSOCK) { filetype = RHIZOFS__FILE_TYPE__SOCKET; }
+    if (S_ISDIR(stat_result))       { filetype = RHIZOFS__FILE_TYPE__FT_DIRECTORY; }
+    else if (S_ISLNK(stat_result))  { filetype = RHIZOFS__FILE_TYPE__FT_SYMLINK; }
+    else if (S_ISBLK(stat_result))  { filetype = RHIZOFS__FILE_TYPE__FT_BLOCK_DEVICE; }
+    else if (S_ISFIFO(stat_result)) { filetype = RHIZOFS__FILE_TYPE__FT_FIFO; }
+    else if (S_ISSOCK(stat_result)) { filetype = RHIZOFS__FILE_TYPE__FT_SOCKET; }
+    else if (S_ISREG(stat_result))  { filetype = RHIZOFS__FILE_TYPE__FT_REGULAR_FILE; }
+    else if (S_ISCHR(stat_result))  { filetype = RHIZOFS__FILE_TYPE__FT_CHARACTER_DEVICE; }
     
     return filetype;
 }

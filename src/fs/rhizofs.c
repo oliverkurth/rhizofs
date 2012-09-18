@@ -788,23 +788,45 @@ error:
 static int
 Rhizofs_readlink(const char * path, char * link_target, size_t len)
 {
-    (void) len;
-    (void) path;
-    (void) link_target;
+    OP_INIT(request, response, returned_err);
 
-    log_warn("READLINK is not (yet) supported");
-    return -ENOTSUP;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__READLINK;
+    request.path = (char *)path;
+
+    OP_COMMUNICATE(request, response, returned_err)
+    check((response->link_target != NULL), "Response did not contain link_target");
+
+    size_t min_len = len < (strlen(response->link_target)+1) ? len : strlen(response->link_target)+1;
+    memcpy(link_target, response->link_target, min_len-1);
+    link_target[min_len] = '\0';
+    debug("symlink points to %s", link_target);
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
 }
 
 
 static int
 Rhizofs_symlink(const char * path_from, const char * path_to)
 {
-    (void) path_from;
-    (void) path_to;
+    OP_INIT(request, response, returned_err);
 
-    log_warn("SYMLINK is not (yet) supported");
-    return -ENOTSUP;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__SYMLINK;
+    request.path = (char *)path_from;
+    request.path_to = (char *)path_to;
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
 }
 
 
@@ -873,10 +895,10 @@ static struct fuse_operations rhizofs_operations = {
     .utimens    = Rhizofs_utimens,
     .link       = Rhizofs_link,
     .rename     = Rhizofs_rename,
+    .symlink    = Rhizofs_symlink,
+    .readlink   = Rhizofs_readlink,
 //  stubs to implement
     .chown      = Rhizofs_chown,
-    .readlink   = Rhizofs_readlink,
-    .symlink    = Rhizofs_symlink,
     .statfs     = Rhizofs_statfs
     //.release    = Rhizofs_release,
     //.fsync      = Rhizofs_fsync,
