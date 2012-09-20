@@ -66,6 +66,7 @@ SERVEDIR_OP(write)
 SERVEDIR_OP(link)
 SERVEDIR_OP(symlink)
 SERVEDIR_OP(readlink)
+SERVEDIR_OP(mknod)
 #undef SERVEDIR_OP
 
 
@@ -195,6 +196,7 @@ ServeDir_serve(ServeDir * sd)
                     CASE_OP(LINK, link)
                     CASE_OP(SYMLINK, symlink)
                     CASE_OP(READLINK, readlink)
+                    CASE_OP(MKNOD, mknod)
 #undef CASE_OP
                     default:
                         // dont know what to do with that request
@@ -250,7 +252,7 @@ error:
     return -1;
 }
 
-// ########## fileststem operations ############################
+// ########## filesystem operations ############################
 
 /**
  * check if the request has a optional (in the proto defintion)
@@ -957,6 +959,49 @@ ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     if (utimes(path, times) != 0) {
         Response_set_errno(response, errno);
         debug("Could not call utimes on %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+    free(path);
+    return -1;
+}
+
+
+static int
+ServeDir_op_mknod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    mode_t mode;
+
+    debug("MKNOD");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__MKNOD;
+
+    REQ_HAS_OPTIONAL_PTR(request, response, permissions);
+    REQ_HAS_OPTIONAL(request, response, filetype);
+
+    bool success = false;
+    mode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
+    check(success, "Could not create bitmask from mknod permissions");
+
+    mode |= FileType_to_local(request->filetype);
+
+    if (S_ISREG(mode)) {
+
+        check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+                "Could not assemble path.");
+        debug("requested path: %s", path);
+
+        if (mknod(path, mode, 0) != 0) {
+            Response_set_errno(response, errno);
+            debug("Could not mknod %s", path);
+        }
+    }
+    else {
+        Response_set_errno(response, EPERM);
+        debug("No permission to call mknod with other filetypes than regular files");
     }
 
     free(path);

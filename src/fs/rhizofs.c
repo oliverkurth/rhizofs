@@ -831,6 +831,39 @@ error:
 
 
 static int
+Rhizofs_mknod(const char * path, mode_t mode, dev_t dev)
+{
+    (void) dev;
+
+    if (!S_ISREG(mode)) {
+        log_err("Using mknod to create something other than regular files is not supported.");
+        return -EPERM;
+    }
+
+    OP_INIT(request, response, returned_err);
+
+    request.requesttype = RHIZOFS__REQUEST_TYPE__MKNOD;
+    request.path = (char *)path;
+
+    request.filetype = FileType_from_local(mode);
+    request.has_filetype = 1;
+
+    request.permissions = Permissions_create(mode);
+    check((request.permissions != NULL), "Could not create mknod permissions struct");
+
+    OP_COMMUNICATE(request, response, returned_err)
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
+
+}
+
+
+static int
 Rhizofs_chown(const char * path, uid_t user, gid_t group)
 {
     (void) path;
@@ -851,6 +884,7 @@ Rhizofs_statfs(const char * path, struct statvfs * svfs)
     log_warn("STATFS is not (yet) supported");
     return -ENOTSUP;
 }
+
 
 /*
 static int
@@ -897,6 +931,7 @@ static struct fuse_operations rhizofs_operations = {
     .rename     = Rhizofs_rename,
     .symlink    = Rhizofs_symlink,
     .readlink   = Rhizofs_readlink,
+    .mknod      = Rhizofs_mknod,
 //  stubs to implement
     .chown      = Rhizofs_chown,
     .statfs     = Rhizofs_statfs

@@ -30,6 +30,7 @@ enum RequestType {
     LINK = 18;
     SYMLINK = 19;
     READLINK = 20;
+    MKNOD = 21;
 }
 
 enum Errno {
