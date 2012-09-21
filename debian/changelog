@@ -1,10 +1,18 @@
+rhizofs (0.2.1-1) unstable; urgency=low
+
+  * support for mknod to support git.
+  * implementing symlink and readlink.
+  * downgrade required protobuf-c version number to allow building debs on debian stable
+
+ -- Nico Mandery <nico@nmandery.net>  Fri, 21 Sep 2012 12:03:00 +0200
+
 rhizofs (0.2.0-1) unstable; urgency=low
 
   * filesystem checks connection to server before daemonizing
   * Server is a daemon now
   * most filesystem methods implemented
 
- -- Nico Mandery <nico@nmandery.net>  Mon, 09 May 2011 18:28:29 +0200
+ -- Nico Mandery <nico@nmandery.net>  Fri, 14 Sep 2012 10:29:37 +0200
 
 rhizofs (0.1.0-1) unstable; urgency=low
 
