@@ -186,8 +186,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     renew_socket = true;
     uint32_t repetition = 0;
     do {
-        rc = zmq_send(sock, &msg_req, 0);
-        if (rc != 0) {
+        rc = zmq_msg_send(&msg_req, sock, 0);
+        if (rc == -1) {
             if ((errno == EAGAIN) || (errno == EFSM)) {
                 /* sleep for a short time before retrying
                  * also sleep on EFSM as the server might just be starting up
@@ -219,7 +219,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             (*err) = EAGAIN;
             goto error;
         }
-    } while (rc != 0);
+    } while (rc == -1);
 
     zmq_pollitem_t pollset[] = {
         { sock, 0, ZMQ_POLLIN, 0 }
@@ -237,8 +237,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
 
         if (pollset[0].revents & ZMQ_POLLIN) {
-            rc = zmq_recv(sock, &msg_resp, 0);
-            if (rc == 0) {  /* successfuly recieved response */
+            rc = zmq_msg_recv(&msg_resp, sock, 0);
+            if (rc != -1) {  /* successfuly received response */
                 response = Response_from_message(&msg_resp);
                 if (response == NULL) {
                     (*err) = EIO;
@@ -248,7 +248,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
 
             else {
                 (*err) = EIO;
-                log_and_error("Failed to recieve response from server");
+                log_and_error("Failed to receive response from server");
             }
         }
         else {
@@ -274,7 +274,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             (*err) = EAGAIN;
             goto error;
         }
-    } while (rc != 0);
+    } while (rc == -1);
 
     /* close request after recieving reply as it sure 0mq does not
      * hold a reference anymore */
@@ -1082,7 +1082,8 @@ Rhizofs_check_connection(RhizoPriv * priv)
     check((socket != NULL), "Could not create 0mq socket");
 
     int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
-    zmq_setsockopt(socket, ZMQ_HWM, &hwm, sizeof(hwm));
+    zmq_setsockopt(socket, ZMQ_SNDHWM, &hwm, sizeof(hwm));
+    zmq_setsockopt(socket, ZMQ_RCVHWM, &hwm, sizeof(hwm));
 
 #ifdef ZMQ_MAKE_VERSION
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)

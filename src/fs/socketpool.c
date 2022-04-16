@@ -91,7 +91,8 @@ SocketPool_get_socket(SocketPool * sp)
         check((sock != NULL), "Could not create 0mq socket");
 
         int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
-        zmq_setsockopt(sock, ZMQ_HWM, &hwm, sizeof(hwm));
+        zmq_setsockopt(sock, ZMQ_SNDHWM, &hwm, sizeof(hwm));
+        zmq_setsockopt(sock, ZMQ_RCVHWM, &hwm, sizeof(hwm));
 
 #ifdef ZMQ_MAKE_VERSION
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)

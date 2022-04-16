@@ -146,9 +146,8 @@ ServeDir_serve(ServeDir * sd)
 
         check((zmq_msg_init(&msg_req) == 0), "Could not initialize request message");
 
-        zmq_rc = zmq_recv(sd->socket, &msg_req, 0);
-        if (zmq_rc == 0) {
-
+        zmq_rc = zmq_msg_recv(&msg_req, sd->socket, 0);
+        if (zmq_rc != -1) {
             debug("Received a message");
 
             // create the response message
@@ -215,7 +214,7 @@ ServeDir_serve(ServeDir * sd)
             check((Response_pack(response, &msg_rep) == true), "Could not pack message");
 
             //  Send reply back to client
-            check((zmq_send(sd->socket, &msg_rep, 0) == 0), "Could not send message");
+            check((zmq_msg_send(&msg_rep, sd->socket, 0) != -1), "Could not send message");
             zmq_msg_close(&msg_rep);
 
             Response_destroy(response);
