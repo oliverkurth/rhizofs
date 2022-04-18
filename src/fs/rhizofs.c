@@ -878,11 +878,34 @@ Rhizofs_chown(const char * path, uid_t user, gid_t group)
 static int
 Rhizofs_statfs(const char * path, struct statvfs * svfs)
 {
-    (void) path;
-    (void) svfs;
+    OP_INIT(request, response, returned_err);
 
-    log_warn("STATFS is not (yet) supported");
-    return -ENOTSUP;
+    request.requesttype = RHIZOFS__REQUEST_TYPE__STATFS;
+    request.path = (char *)path;
+
+    OP_COMMUNICATE(request, response, returned_err)
+    check((response->statfs != NULL), "Response did not contain statfs");
+
+    svfs->f_bsize = response->statfs->bsize;
+    svfs->f_frsize = response->statfs->frsize;
+    svfs->f_blocks = response->statfs->blocks;
+    svfs->f_bfree = response->statfs->bfree;
+    svfs->f_bavail = response->statfs->bavail;
+
+    svfs->f_files = response->statfs->files;
+    svfs->f_ffree = response->statfs->ffree;
+    svfs->f_favail = response->statfs->favail;
+
+    svfs->f_fsid = response->statfs->fsid;
+    svfs->f_flag = response->statfs->flag;
+    svfs->f_namemax = response->statfs->namemax;
+
+    OP_DEINIT(request, response)
+    return 0;
+
+error:
+    OP_DEINIT(request, response)
+    return -returned_err;
 }
 
 

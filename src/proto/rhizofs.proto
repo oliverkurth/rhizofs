@@ -31,6 +31,7 @@ enum RequestType {
     SYMLINK = 19;
     READLINK = 20;
     MKNOD = 21;
+    STATFS = 22;
 }
 
 enum Errno {
@@ -133,6 +134,21 @@ message Attrs {
     optional string name = 7;
 }
 
+message StatFs {
+    required int64 bsize = 1;
+    required int64 frsize = 2;
+    required int64 blocks = 3;
+    required int64 bfree = 4;
+    required int64 bavail = 5;
+
+    required int64 files = 6;
+    required int64 ffree = 7;
+    required int64 favail = 8;
+
+    required int64 fsid = 9;
+    required int64 flag = 10;
+    required int64 namemax = 11;
+}
 
 message Request {
     required RequestType requesttype = 1;
@@ -183,4 +199,6 @@ message Response {
     // the target a link/symlink points to
     // this string has to be null terminated
     optional string link_target = 9;
+
+    optional StatFs statfs = 10;
 }

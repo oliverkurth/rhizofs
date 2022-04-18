@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
-
+#include <sys/statvfs.h>
 
 typedef struct mode_pair {
     unsigned int protocol;
@@ -481,3 +481,42 @@ TimeSet_destroy(Rhizofs__TimeSet * timeset)
 {
     free(timeset);
 }
+
+
+Rhizofs__StatFs *
+StatFs_create(const struct statvfs * statvfs_result)
+{
+    Rhizofs__StatFs * stfs = NULL;
+
+    stfs = calloc(sizeof(Rhizofs__StatFs), 1);
+    check_mem(stfs);
+    rhizofs__stat_fs__init(stfs);
+
+    stfs->bsize = statvfs_result->f_bsize;
+    stfs->frsize = statvfs_result->f_frsize;
+    stfs->blocks = statvfs_result->f_blocks;
+    stfs->bfree = statvfs_result->f_bfree;
+    stfs->bavail = statvfs_result->f_bavail;
+
+    stfs->files = statvfs_result->f_files;
+    stfs->ffree = statvfs_result->f_ffree;
+    stfs->favail = statvfs_result->f_favail;
+
+    stfs->fsid = statvfs_result->f_fsid;
+    stfs->flag = statvfs_result->f_flag;
+    stfs->namemax = statvfs_result->f_namemax;
+
+    return stfs;
+error:
+    StatFs_destroy(stfs);
+    return NULL;
+}
+
+void
+StatFs_destroy(Rhizofs__StatFs * stfs)
+{
+    if (stfs) {
+        free(stfs);
+    }
+}
+

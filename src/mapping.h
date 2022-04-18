@@ -2,6 +2,7 @@
 #define __mapping_h__
 
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <stdbool.h>
 #include <fcntl.h>
 #include "proto/rhizofs.pb-c.h"
@@ -128,11 +129,23 @@ bool Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
 Rhizofs__TimeSet * TimeSet_create();
 
 /**
- * free a Attrs struct
+ * free a TimeSet struct
  */
 void TimeSet_destroy(Rhizofs__TimeSet * timeset);
 
+/**
+ * create a new StatFs struct
+ *
+ * returns NULL on error
+ */
+Rhizofs__StatFs *
+StatFs_create(const struct statvfs * statvfs_result);
 
+/**
+ * free a StatFs struct
+ */
+void
+StatFs_destroy(Rhizofs__StatFs * stfs);
 
 #endif /* __mapping_h__ */
 

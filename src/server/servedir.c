@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <dirent.h>
 
 #include <zmq.h>
@@ -67,6 +68,7 @@ SERVEDIR_OP(link)
 SERVEDIR_OP(symlink)
 SERVEDIR_OP(readlink)
 SERVEDIR_OP(mknod)
+SERVEDIR_OP(statfs)
 #undef SERVEDIR_OP
 
 
@@ -196,6 +198,7 @@ ServeDir_serve(ServeDir * sd)
                     CASE_OP(SYMLINK, symlink)
                     CASE_OP(READLINK, readlink)
                     CASE_OP(MKNOD, mknod)
+                    CASE_OP(STATFS, statfs)
 #undef CASE_OP
                     default:
                         // dont know what to do with that request
@@ -631,7 +634,6 @@ error:
 }
 
 
-
 static int
 ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
@@ -1010,3 +1012,36 @@ error:
     free(path);
     return -1;
 }
+
+static int
+ServeDir_op_statfs(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
+{
+    char * path = NULL;
+    struct statvfs stfs;
+
+    debug("STATFS");
+    response->requesttype = RHIZOFS__REQUEST_TYPE__STATFS;
+
+    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+            "Could not assemble path.");
+    debug("requested path: %s", path);
+
+    if (statvfs(path, &stfs) == 0)  {
+        response->statfs = StatFs_create(&stfs);
+        check((response->statfs != NULL), "could not create attrs from stat");
+    }
+    else {
+        Response_set_errno(response, errno);
+        debug("Could not statvfs %s", path);
+    }
+
+    free(path);
+    return 0;
+
+error:
+
+    StatFs_destroy(response->statfs);
+    free(path);
+    return -1;
+}
+
