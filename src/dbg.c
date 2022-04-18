@@ -87,9 +87,17 @@ dbg_print(const DBG_LEVEL level, const char * fmtstr, ...)
             fflush(log_file);
         }
         if (use_syslog && (level < (sizeof(dbg_level_syslog)/sizeof(const int)))) {
+#ifndef __APPLE__
             va_start(args, fmtstr);
             vsyslog(dbg_level_syslog[level], fmtstr, args);
             va_end(args);
+#else
+            char buf[1024];
+            va_start(args, fmtstr);
+            vsnprintf(buf, sizeof(buf), fmtstr, args);
+            va_end(args);
+            syslog(dbg_level_syslog[level], "%s", buf);
+#endif
         }
     }
 }
