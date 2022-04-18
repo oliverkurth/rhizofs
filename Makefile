@@ -5,8 +5,8 @@ CFLAGS= -Wall \
 	-Wformat-security \
 	-Wformat=2 \
 	-Isrc \
-	-D_XOPEN_SOURCE=500 \
-	-D_BSD_SOURCE \
+	-D_XOPEN_SOURCE=600 \
+	-D_DEFAULT_SOURCE \
 	-I. $(shell pkg-config fuse --cflags)
 
 # clang emits a warning if the -std flag is passed to it when linking
