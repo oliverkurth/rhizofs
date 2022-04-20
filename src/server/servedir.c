@@ -588,7 +588,7 @@ ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
         debug("Could not read link %s", path);
     }
     else {
-        link_target[max_link_len] = '\0';
+        link_target[max_link_len-1] = '\0';
         response->link_target = link_target;
     }
 
