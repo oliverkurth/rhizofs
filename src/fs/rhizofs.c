@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 #include "../mapping.h"
 #include "../request.h"
@@ -721,6 +722,8 @@ error:
 static int
 Rhizofs_utimens(const char * path, const struct timespec tv[2])
 {
+    time_t asec = 0, msec = 0;
+
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
@@ -729,8 +732,22 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2])
     request.timestamps = TimeSet_create();
     check((request.timestamps != NULL), "Could not create utimens timestamps struct");
 
-    request.timestamps->access       = tv[0].tv_sec;
-    request.timestamps->modification = tv[1].tv_sec;
+    if (tv != NULL) {
+        asec = tv[0].tv_sec;
+        msec = tv[1].tv_sec;
+    }
+
+    if (asec == 0 || msec == 0) {
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        if (asec == 0)
+            asec = now.tv_sec;
+        if (msec == 0)
+            msec = now.tv_sec;
+    }
+
+    request.timestamps->access       = asec;
+    request.timestamps->modification = msec;
 
     OP_COMMUNICATE(request, response, returned_err)
     AttrCache_remove(&attrcache, path);
