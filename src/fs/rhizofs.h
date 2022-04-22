@@ -4,7 +4,7 @@
 #define INTERNAL_SOCKET_NAME "inproc://fuse"
 
 /* response timeout after which interrupts will be checked */
-#define POLL_TIMEOUT_USEC 10000
+#define POLL_TIMEOUT_MSEC 1000
 
 /* default timeout (in seconds). see RhizoSettings struct */
 #define TIMEOUT_DEFAULT 30

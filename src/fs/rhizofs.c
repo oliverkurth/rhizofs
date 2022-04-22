@@ -192,7 +192,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             if ((errno == EAGAIN) || (errno == EFSM)) {
                 /* sleep for a short time before retrying
                  * also sleep on EFSM as the server might just be starting up
-                 * with the socket no being in the correct state.
+                 * with the socket not being in the correct state.
                  */
                 usleep(SEND_SLEEP_USEC);
 
@@ -231,11 +231,11 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         log_and_error("Could not initialize response message");
     }
 
-    rc = 1; /* set to an non-zero value to prevent exit of loop
+    rc = 1; /* set to a non-zero value to prevent exit of loop
              * before a response arrived */
     repetition = 0;
     do {
-        zmq_poll(pollset, 1, POLL_TIMEOUT_USEC);
+        zmq_poll(pollset, 1, POLL_TIMEOUT_MSEC);
 
         if (pollset[0].revents & ZMQ_POLLIN) {
             rc = zmq_msg_recv(&msg_resp, sock, 0);
@@ -254,7 +254,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         }
         else {
             /* no response available at this time
-             * check if fuse has recieved a interrupt
+             * check if fuse has received an interrupt
              * while waiting for a response
              */
             if (check_fuse_interrupts) {
@@ -269,7 +269,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         ++repetition;
 
         // check for response timeout
-        uint32_t seconds_waited = (repetition * POLL_TIMEOUT_USEC) / (1000 * 1000);
+        uint32_t seconds_waited = (repetition * POLL_TIMEOUT_MSEC) / 1000;
         if (seconds_waited >= settings.timeout) {
             log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
             (*err) = EAGAIN;
@@ -277,7 +277,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         }
     } while (rc == -1);
 
-    /* close request after recieving reply as it sure 0mq does not
+    /* close request after receiving reply as it is sure 0mq does not
      * hold a reference anymore */
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_resp);
