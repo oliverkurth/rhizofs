@@ -244,7 +244,8 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
                 if (response == NULL) {
                     (*err) = EIO;
                     log_and_error("Could not unpack response");
-                }
+                } else
+                    break;
             }
 
             else {
@@ -282,7 +283,11 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_resp);
 
-    (*err) = Response_get_errno(response);
+    if (response != NULL)
+        *err = Response_get_errno(response);
+    else
+        *err = EIO;
+
     return response;
 
 error:
