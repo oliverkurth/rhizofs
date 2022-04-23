@@ -817,10 +817,9 @@ Rhizofs_readlink(const char * path, char * link_target, size_t len)
 
     OP_COMMUNICATE(request, response, returned_err)
     check((response->link_target != NULL), "Response did not contain link_target");
+    strncpy(link_target, response->link_target, len);
+    link_target[len-1] = 0;
 
-    size_t min_len = len < (strlen(response->link_target)+1) ? len : strlen(response->link_target)+1;
-    memcpy(link_target, response->link_target, min_len-1);
-    link_target[min_len] = '\0';
     debug("symlink points to %s", link_target);
 
     OP_DEINIT(request, response)
@@ -833,7 +832,7 @@ error:
 
 
 static int
-Rhizofs_symlink(const char * path_from, const char * path_to)
+Rhizofs_symlink(const char * path_to, const char * path_from)
 {
     OP_INIT(request, response, returned_err);
 

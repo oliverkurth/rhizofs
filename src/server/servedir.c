@@ -343,7 +343,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         check((path_join(dirpath, de->d_name, &entry_fullpath)==0),
             "error processing path for directory entry");
 
-        if (stat(entry_fullpath, &sb) == 0)  {
+        if (lstat(entry_fullpath, &sb) == 0)  {
             response->directory_entries[response->n_directory_entries] = Attrs_create(&sb, de->d_name);
             check((response->directory_entries[response->n_directory_entries] != NULL),
                         "could not create attrs from stat");
@@ -533,33 +533,27 @@ error:
 static int
 ServeDir_op_symlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path_from = NULL;
-    char * path_to = NULL;
+    char *path_from = NULL;
 
     debug("SYMLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__LINK;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check((path_join(sd->directory, request->path_to, &path_to)==0),
-            "error processing path_to");
-    check_debug((path_to != NULL), "path_to is null");
-
-
     check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
             "Could not assemble path.");
-    debug("requested path: %s -> %s", path_from, path_to);
-    if (symlink(path_from, path_to) == -1) {
+
+    debug("requested path: %s -> %s", path_from, request->path_to);
+
+    if (symlink(request->path_to, path_from) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not link %s to %s", path_from, path_to);
+        debug("Could not link %s to %s", path_from, request->path_to);
     }
 
-    free(path_to);
     free(path_from);
     return 0;
 
 error:
-    free(path_to);
     free(path_from);
     return -1;
 }
@@ -568,8 +562,8 @@ error:
 static int
 ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
-    char * link_target = NULL;
+    char *path = NULL;
+    char link_target[PATH_MAX];
 
     debug("READLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READLINK;
@@ -578,26 +572,25 @@ ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
             "Could not assemble path.");
     debug("requested directory path: %s", path);
 
-    size_t max_link_len = PATH_MAX;
-    link_target = calloc(sizeof(char), max_link_len);
-    check_mem_response(link_target);
-
-    ssize_t link_target_len = readlink(path, link_target, max_link_len-1);
-    if (link_target_len == -1) {
+    /* readlink does not null terminate. (!!!) Use size of buffer minus 1 to have room
+     * for termininating NUL */
+    ssize_t target_len = readlink(path, link_target, sizeof(link_target) - 1);
+    if (target_len == -1) {
         Response_set_errno(response, errno);
         debug("Could not read link %s", path);
     }
     else {
-        link_target[max_link_len-1] = '\0';
-        response->link_target = link_target;
+        link_target[target_len] = '\0';
+        response->link_target = strdup(link_target);
+        check((response->link_target != NULL), "Could not allocate link_target");
     }
 
     free(path);
     return 0;
 
 error:
-    free(link_target);
-    free(path);
+    if (path)
+        free(path);
     return -1;
 }
 
