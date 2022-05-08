@@ -21,6 +21,7 @@ Response_create()
     version->major = RHI_VERSION_MAJOR;
     version->minor = RHI_VERSION_MINOR;
     version->patch = RHI_VERSION_PATCH;
+    version->has_patch = 1;
 
     response->version = version;
     response->errnotype = RHIZOFS__ERRNO__ERRNO_NONE;
