@@ -171,7 +171,7 @@ Building
 This software has three main dependencies:
 
 * [FUSE](http://fuse.sourceforge.net/)
-* [ZeroMQ](http://www.zeromq.org) version 2.1+, the filesystem has not been tested or ported to ZeroMQ 3 yet.
+* [ZeroMQ](http://www.zeromq.org)
 * [protobuf-c](http://code.google.com/p/protobuf-c/)
 
 Besides that there is only GNU Make and C compiler with support for the C99 standard required.
