@@ -1,3 +1,12 @@
+rhizofs (0.2.2-1) unstable; urgency=low
+
+  * build with ZeroMQ 3
+  * statfs
+  * fix symlinks
+  * and other bug fixes
+
+ -- Oliver Kurth <okurth@gmail.com>  Sun, 08 May 2022 19:56:45 -0700
+
 rhizofs (0.2.1-1) unstable; urgency=low
 
   * support for mknod to support git.

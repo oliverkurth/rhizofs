@@ -10,7 +10,14 @@ Standards-Version: 3.9.1
 Package: rhizofs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
+Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c.
+    This package contains the client.
+
+Package: rhizofs-server
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: a simple remote filesystem based on FUSE, ZeroMQ and protobuf-c.
+    This package contains the server.
 
 Package: rhizofs-dbg
 Section: debug

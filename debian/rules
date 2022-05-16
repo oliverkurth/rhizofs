@@ -26,8 +26,8 @@ install: build
 	dh_testroot
 	dh_prep
 	dh_installdirs
-	mkdir -p $(CURDIR)/debian/rhizofs/usr/bin/
-	PREFIX=$(CURDIR)/debian/rhizofs/usr make install
+	mkdir -p $(CURDIR)/debian/tmp/usr/bin/
+	PREFIX=$(CURDIR)/debian/tmp/usr make install
 
 binary-indep: build install
 
