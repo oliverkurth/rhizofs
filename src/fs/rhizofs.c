@@ -213,12 +213,14 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
 
         ++repetition;
 
-        // check for a timeout while waiting for being able to send the request
-        uint32_t seconds_waited = (repetition * SEND_SLEEP_USEC) / (1000 * 1000);
-        if (seconds_waited >= settings.timeout) {
-            log_info("Timeout after trying to send request to server for %d seconds.", seconds_waited);
-            (*err) = EAGAIN;
-            goto error;
+        if (rc == -1) {
+            // check for a timeout while waiting for being able to send the request
+            uint32_t seconds_waited = (repetition * SEND_SLEEP_USEC) / (1000 * 1000);
+            if (seconds_waited >= settings.timeout) {
+                log_info("Timeout after trying to send request to server for %d seconds.", seconds_waited);
+                (*err) = EAGAIN;
+                goto error;
+            }
         }
     } while (rc == -1);
 
@@ -231,52 +233,35 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
         log_and_error("Could not initialize response message");
     }
 
-    rc = 1; /* set to a non-zero value to prevent exit of loop
-             * before a response arrived */
-    repetition = 0;
-    do {
-        zmq_poll(pollset, 1, POLL_TIMEOUT_MSEC);
+    rc = zmq_poll(pollset, 1, POLL_TIMEOUT_MSEC);
 
-        if (pollset[0].revents & ZMQ_POLLIN) {
-            rc = zmq_msg_recv(&msg_resp, sock, 0);
-            if (rc != -1) {  /* successfuly received response */
-                response = Response_from_message(&msg_resp);
-                if (response == NULL) {
-                    (*err) = EIO;
-                    log_and_error("Could not unpack response");
-                } else
-                    break;
-            }
-
-            else {
+    if (rc > 0 && (pollset[0].revents & ZMQ_POLLIN)) {
+        rc = zmq_msg_recv(&msg_resp, sock, 0);
+        if (rc != -1) {  /* successfuly received response */
+            response = Response_from_message(&msg_resp);
+            if (response == NULL) {
                 (*err) = EIO;
-                log_and_error("Failed to receive response from server");
+                log_and_error("Could not unpack response");
+            } else
+                *err = errno;
+        } else {
+            (*err) = EIO;
+            log_and_error("Failed to receive response from server");
+        }
+    } else {
+        /* no response available at this time
+         * check if fuse has received an interrupt
+         * while waiting for a response
+         */
+        if (check_fuse_interrupts) {
+            if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+                log_info("The request has been interrupted");
+                *err = EINTR;
             }
-        }
-        else {
-            /* no response available at this time
-             * check if fuse has received an interrupt
-             * while waiting for a response
-             */
-            if (check_fuse_interrupts) {
-                if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
-                    log_info("The request has been interrupted");
-                    (*err) = EINTR;
-                    goto error;
-                }
-            }
-        }
-
-        ++repetition;
-
-        // check for response timeout
-        uint32_t seconds_waited = (repetition * POLL_TIMEOUT_MSEC) / 1000;
-        if (seconds_waited >= settings.timeout) {
-            log_info("Timeout after waiting for response from server for %d seconds.", seconds_waited);
-            (*err) = EAGAIN;
-            goto error;
-        }
-    } while (rc == -1);
+        } else
+            *err = errno;
+        goto error;
+    }
 
     /* close request after receiving reply as it is sure 0mq does not
      * hold a reference anymore */
@@ -285,8 +270,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
 
     if (response != NULL)
         *err = Response_get_errno(response);
-    else
-        *err = EIO;
 
     return response;
 
@@ -340,7 +323,6 @@ Rhizofs_convert_attrs_stat(Rhizofs__Attrs * attrs, struct stat * stbuf)
 error:
     return false;
 }
-
 
 /*******************************************************************/
 /* filesystem methods                                              */
