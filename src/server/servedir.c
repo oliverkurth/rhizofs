@@ -803,6 +803,17 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         response->size = (int)bytes_written;
 
         check((close(fd) != -1), "Could not close file opened for writing.");
+
+        struct timeval now;
+        struct timeval times[2];
+
+        gettimeofday(&now, NULL);
+        times[0].tv_sec  = now.tv_sec;
+        times[0].tv_usec = now.tv_usec;
+        times[1].tv_sec  = now.tv_sec;
+        times[1].tv_usec = now.tv_usec;
+
+        utimes(path, times);
     }
     else {
         Response_set_errno(response, errno);
@@ -935,17 +946,17 @@ static int
 ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     char * path = NULL;
-    struct timeval times [2];
+    struct timeval times[2];
 
     debug("UTIMENS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
 
     REQ_HAS_OPTIONAL_PTR(request, response, timestamps);
 
-    times[0].tv_usec = 0;
-    times[0].tv_sec  = request->timestamps->access;
-    times[1].tv_usec = 0;
-    times[1].tv_sec  = request->timestamps->modification;
+    times[0].tv_sec  = request->timestamps->access_sec;
+    times[0].tv_usec  = request->timestamps->access_usec;
+    times[1].tv_sec  = request->timestamps->modify_sec;
+    times[1].tv_usec  = request->timestamps->modify_usec;
 
     check_debug((ServeDir_fullpath(sd, request, &path) == 0),
             "Could not assemble path.");
