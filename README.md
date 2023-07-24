@@ -117,6 +117,31 @@ which binds to a socket and waits for incoming requests
     =======
        In the case of errors or warnings this program will log to the syslog.
 
+**use with systemd**
+
+systemd provides a way to start services for non-privileged users. For example, you can start the `rhizosrv` server when you log in, and stop it when your last login session ends. Create this file in the sub directory `.config/systemd/user/rhizosrv.service` in your home directory. `%h` is your home directory:
+```
+[Unit]
+Description=RhizoFS server
+
+[Service]
+ExecStart=/usr/local/bin/rhizosrv -f tcp://0.0.0.0:1234 %h
+
+[Install]
+WantedBy=default.target
+```
+You can check the status with `systemctl --user status rhizosrv`:
+```
+● rhizosrv.service - RhizoFS server
+     Loaded: loaded (/home/okurth/.config/systemd/user/rhizosrv.service; disabled; vendor preset: enabled)
+     Active: active (running) since Sun 2023-07-23 18:06:00 PDT; 16s ago
+   Main PID: 44464 (rhizosrv)
+      Tasks: 8 (limit: 9430)
+     Memory: 800.0K
+        CPU: 5ms
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/rhizosrv.service
+             └─44464 /usr/local/bin/rhizosrv -f tcp://0.0.0.0:1234 /home/okurth
+```
 
 **rhizofs**
 
