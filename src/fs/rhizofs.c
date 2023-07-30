@@ -38,7 +38,9 @@ typedef struct RhizoPriv {
 
 typedef struct RhizoSettings {
     /** the name of the zmq socket to connect to */
-    char * host_socket;
+    char *host_socket;
+
+    char *server_public_key;
 
     /** timeout (in seconds) after which the filesystem will stop waiting
      *  * for a response from the server
@@ -62,12 +64,16 @@ enum {
     KEY_VERSION,
 };
 
+#define OPTION(t, p)                           \
+    { t, offsetof(RhizoSettings, p), 1 }
 
 static struct fuse_opt rhizo_opts[] = {
     FUSE_OPT_KEY("-V",             KEY_VERSION),
     FUSE_OPT_KEY("--version",      KEY_VERSION),
     FUSE_OPT_KEY("-h",             KEY_HELP),
     FUSE_OPT_KEY("--help",         KEY_HELP),
+    OPTION("-k=%s",    server_public_key),
+    OPTION("--key=%s", server_public_key),
     FUSE_OPT_END
 };
 
@@ -102,6 +108,9 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
     /* create the socket pool */
     check((SocketPool_init(&socketpool, priv->context, settings.host_socket, ZMQ_REQ) == true),
             "Could not initialize the socket pool");
+
+    if (settings.server_public_key != NULL)
+        SocketPool_set_server_public_key(&socketpool, settings.server_public_key);
 
     check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, ATTRCACHE_DEFAULT_MAXAGE_SEC) == true),
             "could not initialize the attrcache");
@@ -1099,6 +1108,9 @@ bool
 Rhizofs_check_connection(RhizoPriv * priv)
 {
     void * socket = NULL;
+    char public_key[41];
+    char secret_key[41];
+
     OP_INIT(request, response, returned_err);
 
     check(priv, "Got an empty RhizoPriv struct");
@@ -1112,6 +1124,14 @@ Rhizofs_check_connection(RhizoPriv * priv)
     int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
     zmq_setsockopt(socket, ZMQ_SNDHWM, &hwm, sizeof(hwm));
     zmq_setsockopt(socket, ZMQ_RCVHWM, &hwm, sizeof(hwm));
+
+    zmq_curve_keypair(public_key, secret_key);
+
+    if (settings.server_public_key != NULL) {
+        zmq_setsockopt(socket, ZMQ_CURVE_SERVERKEY, settings.server_public_key, 40);
+        zmq_setsockopt(socket, ZMQ_CURVE_PUBLICKEY, public_key, 40);
+        zmq_setsockopt(socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+    }
 
 #ifdef ZMQ_MAKE_VERSION
 #if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)

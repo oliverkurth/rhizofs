@@ -80,6 +80,8 @@ void *
 SocketPool_get_socket(SocketPool * sp)
 {
     void * sock = NULL;
+    char public_key[41];
+    char secret_key[41];
 
     check(sp != NULL, "passed socketpool is NULL");
 
@@ -100,6 +102,14 @@ SocketPool_get_socket(SocketPool * sp)
         zmq_setsockopt(sock, ZMQ_LINGER, &linger, sizeof(linger));
 #endif
 #endif
+
+        zmq_curve_keypair(public_key, secret_key);
+
+        if (sp->server_public_key != NULL) {
+            zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, sp->server_public_key, 40);
+            zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40);
+            zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+        }
 
         check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
         check((pthread_setspecific(sp->key, sock) == 0), "could not set socket in thread");

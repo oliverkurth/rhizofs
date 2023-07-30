@@ -67,7 +67,7 @@ void print_wrong_arg(const char *);
 void print_version();
 void print_usage(const char *);
 void shutdown(int);
-void startup();
+void startup(const char *secret_key);
 void daemonize();
 void * worker_routine(void *);
 
@@ -121,7 +121,7 @@ print_usage(const char * progname)
 
 
 void
-startup()
+startup(const char *secret_key)
 {
     /* initialize the zmq context */
     context = zmq_init(1);
@@ -134,6 +134,11 @@ startup()
     /* create the sockets */
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
+
+    const int curve_server_enable = 1;
+    zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable, sizeof(curve_server_enable));
+    zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+
     check((zmq_bind(in_socket, settings.socketname) == 0),
             "could not bind to socket %s", settings.socketname);
 
@@ -287,6 +292,8 @@ main(int argc, char *argv[])
 {
     int optc;
     const char * progname = argv[0];
+    char public_key[41];
+    char secret_key[41];
 
     // logging configuration
     dbg_disable_logfile();
@@ -367,6 +374,11 @@ main(int argc, char *argv[])
                 settings.directory, settings.socketname);
     }
 
+    {
+        zmq_curve_keypair(public_key, secret_key);
+        printf("public key: %s\n", public_key);
+    }
+
     if (!settings.foreground) {
         daemonize();
     }
@@ -379,7 +391,7 @@ main(int argc, char *argv[])
         }
     }
 
-    startup();
+    startup(secret_key);
 }
 
 
