@@ -76,12 +76,46 @@ error:
     return;
 }
 
-void *
-SocketPool_get_socket(SocketPool * sp)
+
+void *create_socket(void *ctx, int type, const char *server_public_key)
 {
     void * sock = NULL;
     char public_key[41];
     char secret_key[41];
+
+    sock = zmq_socket(ctx, type);
+    check((sock != NULL), "Could not create 0mq socket");
+
+    int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
+    zmq_setsockopt(sock, ZMQ_SNDHWM, &hwm, sizeof(hwm));
+    zmq_setsockopt(sock, ZMQ_RCVHWM, &hwm, sizeof(hwm));
+
+#ifdef ZMQ_MAKE_VERSION
+#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)
+    int linger = 0;
+    zmq_setsockopt(sock, ZMQ_LINGER, &linger, sizeof(linger));
+#endif
+#endif
+
+    zmq_curve_keypair(public_key, secret_key);
+
+    if (server_public_key != NULL) {
+        zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, server_public_key, 40);
+        zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40);
+        zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+    }
+    return sock;
+error:
+    if (sock)
+        zmq_close(sock);
+    return NULL;
+}
+
+
+void *
+SocketPool_get_socket(SocketPool * sp)
+{
+    void * sock = NULL;
 
     check(sp != NULL, "passed socketpool is NULL");
 
@@ -89,27 +123,8 @@ SocketPool_get_socket(SocketPool * sp)
     if (sock == NULL) {
 
         /* create a new socket */
-        sock = zmq_socket(sp->context, sp->socket_type);
+        sock = create_socket(sp->context, sp->socket_type, sp->server_public_key);
         check((sock != NULL), "Could not create 0mq socket");
-
-        int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
-        zmq_setsockopt(sock, ZMQ_SNDHWM, &hwm, sizeof(hwm));
-        zmq_setsockopt(sock, ZMQ_RCVHWM, &hwm, sizeof(hwm));
-
-#ifdef ZMQ_MAKE_VERSION
-#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)
-        int linger = 0;
-        zmq_setsockopt(sock, ZMQ_LINGER, &linger, sizeof(linger));
-#endif
-#endif
-
-        zmq_curve_keypair(public_key, secret_key);
-
-        if (sp->server_public_key != NULL) {
-            zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, sp->server_public_key, 40);
-            zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40);
-            zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40);
-        }
 
         check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
         check((pthread_setspecific(sp->key, sock) == 0), "could not set socket in thread");

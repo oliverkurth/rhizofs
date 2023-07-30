@@ -1108,8 +1108,6 @@ bool
 Rhizofs_check_connection(RhizoPriv * priv)
 {
     void * socket = NULL;
-    char public_key[41];
-    char secret_key[41];
 
     OP_INIT(request, response, returned_err);
 
@@ -1118,27 +1116,8 @@ Rhizofs_check_connection(RhizoPriv * priv)
 
     fprintf(stdout, "Trying to connect to server at %s\n", settings.host_socket);
 
-    socket = zmq_socket(priv->context, ZMQ_REQ);
+    socket = create_socket(priv->context, ZMQ_REQ, settings.server_public_key);
     check((socket != NULL), "Could not create 0mq socket");
-
-    int hwm = 1; /* prevents memory leaks when fuse interrupts while waiting on server */
-    zmq_setsockopt(socket, ZMQ_SNDHWM, &hwm, sizeof(hwm));
-    zmq_setsockopt(socket, ZMQ_RCVHWM, &hwm, sizeof(hwm));
-
-    zmq_curve_keypair(public_key, secret_key);
-
-    if (settings.server_public_key != NULL) {
-        zmq_setsockopt(socket, ZMQ_CURVE_SERVERKEY, settings.server_public_key, 40);
-        zmq_setsockopt(socket, ZMQ_CURVE_PUBLICKEY, public_key, 40);
-        zmq_setsockopt(socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
-    }
-
-#ifdef ZMQ_MAKE_VERSION
-#if ZMQ_VERSION >= ZMQ_MAKE_VERSION(2,1,0)
-    int linger = 0;
-    zmq_setsockopt(socket, ZMQ_LINGER, &linger, sizeof(linger));
-#endif
-#endif
 
     if (zmq_connect(socket, settings.host_socket) != 0) {
         fprintf(stderr, "Could not connect to server at %s\n", settings.host_socket);

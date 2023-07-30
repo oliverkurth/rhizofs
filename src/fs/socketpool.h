@@ -9,6 +9,8 @@
 #include <zmq.h>
 
 
+void *create_socket(void *ctx, int type, const char *server_public_key);
+
 typedef struct SocketPool {
     pthread_key_t   key;
     void * context;  /* 0mq context */
