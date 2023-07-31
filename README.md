@@ -10,7 +10,12 @@ allows mounting a remote directory in a local directory. It aims to be a
 lightweight solution to exchange and abandons on quite a few features to
 keep it usage as simple as possible.
 
-Please note that this filesystem is still pretty new and lacks excessive testing.
+The project was created by Nico Mandery a few years ago. Nico archived it, and
+this project was forked, and the detached from it. The original archive is at
+https://github.com/nmandery/rhizofs .
+
+Please note that this filesystem is still pretty in development and lacks
+excessive testing.
 
 Features
 --------
