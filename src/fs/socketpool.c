@@ -97,12 +97,16 @@ void *create_socket(void *ctx, int type, const char *server_public_key)
 #endif
 #endif
 
-    zmq_curve_keypair(public_key, secret_key);
-
     if (server_public_key != NULL) {
-        zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, server_public_key, 40);
-        zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40);
-        zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+        check((zmq_curve_keypair(public_key, secret_key) == 0),
+            "could not create client key pair");
+
+        check(zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, server_public_key, 40) == 0,
+            "could not set server public key");
+        check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40) == 0,
+            "could not set client public key");
+        check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0,
+            "could not set client secret key");
     }
     return sock;
 error:

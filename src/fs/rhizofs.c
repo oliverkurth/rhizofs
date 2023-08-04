@@ -41,6 +41,7 @@ typedef struct RhizoSettings {
     char *host_socket;
 
     char *server_public_key;
+    char *server_public_key_file;
 
     /** timeout (in seconds) after which the filesystem will stop waiting
      *  * for a response from the server
@@ -72,8 +73,9 @@ static struct fuse_opt rhizo_opts[] = {
     FUSE_OPT_KEY("--version",      KEY_VERSION),
     FUSE_OPT_KEY("-h",             KEY_HELP),
     FUSE_OPT_KEY("--help",         KEY_HELP),
-    OPTION("-k=%s",    server_public_key),
-    OPTION("--key=%s", server_public_key),
+    OPTION("--pubkeyfile=%s", server_public_key_file),
+    OPTION("-k=%s",           server_public_key),
+    OPTION("--pubkey=%s",     server_public_key),
     FUSE_OPT_END
 };
 
@@ -1090,14 +1092,15 @@ Rhizofs_usage(const char * progname)
         "\n"
         "general options\n"
         "---------------\n"
-        "    -h   --help      print help\n"
-        "    -V   --version   print version\n"
+        "   -h --help           print help\n"
+        "   -k --pubkey-<key>   set the server public key\n"
+        "   --pubkeyfile=<file> set to file that contains the public key\n"
+        "   -V --version        print version\n"
         "\n"
         HELPTEXT_LOGGING
         "\n", progname
     );
 }
-
 
 /**
  * check if a connection to the server is possible by sending a ping
@@ -1161,6 +1164,16 @@ Rhizofs_fuse_main(struct fuse_args *args)
 
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
+
+    if (settings.server_public_key_file != NULL) {
+        FILE *fptr = fopen(settings.server_public_key_file, "rt");
+        check(fptr, "could not open %s", settings.server_public_key_file);
+        settings.server_public_key = (char *)calloc(1, 41);
+        check((fread(settings.server_public_key, 1, 40, fptr) == 40),
+            "could not read %s", settings.server_public_key_file);
+        fclose(fptr);
+        printf("key = '%s'\n", settings.server_public_key);
+    }
 
     if (settings.check_socket_connection) {
         if (!Rhizofs_check_connection(priv)) {

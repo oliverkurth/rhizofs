@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <zmq.h>
@@ -19,36 +20,42 @@
 #define WORKER_SOCKET "inproc://workers"
 
 struct option opts_long[] = {
-    {"numworkers", 1, 0, 'n'},
-    {"help", 0, 0, 'h'},
-    {"version", 0, 0, 'v'},
-    {"verbose", 0, 0, 'V'},
-    {"logfile", 1, 0, 'l'},
-    {"pidfile", 1, 0, 'p'},
+    {"encrypt",    0, 0, 'e'},
     {"foreground", 0, 0, 'f'},
+    {"help",       0, 0, 'h'},
+    {"logfile",    1, 0, 'l'},
+    {"numworkers", 1, 0, 'n'},
+    {"pidfile",    1, 0, 'p'},
+    {"pubkeyfile", 1, 0, 'P'},
+    {"version",    0, 0, 'v'},
+    {"verbose",    0, 0, 'V'},
     {0, 0, 0, 0}
 };
 
-static const char *opts_short = "hvn:Vl:fp:";
+static const char *opts_short = "ehvn:Vl:fp:P:";
 
 static const char *opts_desc =
-    "  -h --help\n"
-    "  -v --version\n"
-    "  -V --verbose\n"
+    "  -e --encrypt\n"
     "  -f --foreground          foreground operation - do not daemonize.\n"
-    "  -n --numworkers=NUMBER   Number of worker threads to start [default=5]\n"
+    "  -h --help\n"
     "  -l --logfile=FILE        Logfile to use. Additionally it will always\n"
     "                           be logged to the syslog.\n"
+    "  -n --numworkers=NUMBER   Number of worker threads to start [default=5]\n"
     "  -p --pidfile=FILE        PID-file to write the PID of the daemonized server\n"
     "                           process to.\n"
-    "                           Has no effect if the server runs in the foreground.\n";
+    "                           Has no effect if the server runs in the foreground.\n"
+    "  -P --pubkeyfile          File to store the public key (needs --encrypt).\n"
+    "                           If not set, the public key will be written to stdout.\n"
+    "  -V --verbose\n"
+    "  -v --version\n";
 
 typedef struct ServerSettings {
     char * directory;
     char * socketname;
     int n_worker_threads;
-    bool verbose;
+    bool encrypt;
     bool foreground; // foreground operation - do not daemonize
+    bool verbose;
 } ServerSettings;
 static ServerSettings settings;
 
@@ -135,9 +142,11 @@ startup(const char *secret_key)
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
 
-    const int curve_server_enable = 1;
-    zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable, sizeof(curve_server_enable));
-    zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+    if (secret_key != NULL) {
+        const int curve_server_enable = 1;
+        zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable, sizeof(curve_server_enable));
+        zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+    }
 
     check((zmq_bind(in_socket, settings.socketname) == 0),
             "could not bind to socket %s", settings.socketname);
@@ -275,7 +284,7 @@ daemonize()
 
     // the PID file if desired
     if (pidfile) {
-        fprintf(pidfile, "%d", (int)sid);
+        fprintf(pidfile, "%d\n", (int)sid);
         fclose(pidfile);
         pidfile = NULL;
     }
@@ -294,6 +303,7 @@ main(int argc, char *argv[])
     const char * progname = argv[0];
     char public_key[41];
     char secret_key[41];
+    char *pubkey_file = NULL;
 
     // logging configuration
     dbg_disable_logfile();
@@ -331,8 +341,8 @@ main(int argc, char *argv[])
             case 'p':
                 pidfile = fopen(optarg, "w");
                 if (!pidfile) {
-                    fprintf(stderr, "Could not open pidfile %s for writting: %s\n",
-                        optarg, strerror(errno));
+                    fprintf(stderr, "Could not open pidfile %s for writting: %s (%d)\n",
+                        optarg, strerror(errno), errno);
                     shutdown(0);
                 }
                 break;
@@ -353,8 +363,16 @@ main(int argc, char *argv[])
                 settings.verbose = true;
                 break;
 
+            case 'e':
+                settings.encrypt = true;
+                break;
+
             case 'f':
                 settings.foreground = true;
+                break;
+
+            case 'P':
+                pubkey_file = strdup(optarg);
                 break;
 
             default:
@@ -374,15 +392,34 @@ main(int argc, char *argv[])
                 settings.directory, settings.socketname);
     }
 
-    {
-        zmq_curve_keypair(public_key, secret_key);
-        printf("public key: %s\n", public_key);
+    if (settings.encrypt) {
+        if (zmq_curve_keypair(public_key, secret_key) == 0) {
+            if (pubkey_file) {
+                 /* no rw for group and others */
+                mode_t old_mode = umask(0066);
+                FILE *fptr = fopen(pubkey_file, "wt");
+                if (fptr != NULL) {
+                    fprintf(fptr, "%s", public_key);
+                    fclose(fptr);
+                } else {
+                    fprintf(stderr, "Could not open public key file %s for writing: %s (%d)\n",
+                        pubkey_file, strerror(errno), errno);
+                        exit(1);
+                }
+                umask(old_mode);
+            } else {
+                printf("public key: %s\n", public_key);
+            }
+        } else {
+            fprintf(stderr, "Could not create key pair: %s (%d)\n",
+                strerror(errno), errno);
+            exit(1);
+        }
     }
 
     if (!settings.foreground) {
         daemonize();
-    }
-    else {
+    } else {
         // output log messages to stderr when no
         // other logfile is specified and the process
         // runs in foreground
@@ -391,7 +428,8 @@ main(int argc, char *argv[])
         }
     }
 
-    startup(secret_key);
+    startup(settings.encrypt ? secret_key : NULL);
+
+    if (pubkey_file)
+        free(pubkey_file);
 }
-
-
