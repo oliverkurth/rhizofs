@@ -249,6 +249,9 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             log_and_error("Failed to receive response from server");
         }
     } else {
+        *err = errno;
+        if (*err == 0)
+            *err = EIO;
         /* no response available at this time
          * check if fuse has received an interrupt
          * while waiting for a response
@@ -258,8 +261,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
                 log_info("The request has been interrupted");
                 *err = EINTR;
             }
-        } else
-            *err = errno;
+        }
         goto error;
     }
 
