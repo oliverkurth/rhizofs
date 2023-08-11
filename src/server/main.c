@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
@@ -19,10 +20,12 @@
 #define MAX_N_WORKER_THREADS 200
 #define WORKER_SOCKET "inproc://workers"
 
+
 struct option opts_long[] = {
     {"encrypt",    0, 0, 'e'},
     {"foreground", 0, 0, 'f'},
     {"help",       0, 0, 'h'},
+    {"keyfile",    1, 0, 'k'},
     {"logfile",    1, 0, 'l'},
     {"numworkers", 1, 0, 'n'},
     {"pidfile",    1, 0, 'p'},
@@ -32,12 +35,17 @@ struct option opts_long[] = {
     {0, 0, 0, 0}
 };
 
-static const char *opts_short = "ehvn:Vl:fp:P:";
+
+static const char *opts_short = "ehk:vn:Vl:fp:P:";
+
 
 static const char *opts_desc =
     "  -e --encrypt\n"
     "  -f --foreground          foreground operation - do not daemonize.\n"
     "  -h --help\n"
+    "  -k --keyfile=FILE        File to read for the public key. The secret key\n"
+    "                           will be read from the file with the same name but\n"
+    "                           with '.secret' appended.\n"
     "  -l --logfile=FILE        Logfile to use. Additionally it will always\n"
     "                           be logged to the syslog.\n"
     "  -n --numworkers=NUMBER   Number of worker threads to start [default=5]\n"
@@ -48,6 +56,7 @@ static const char *opts_desc =
     "                           If not set, the public key will be written to stdout.\n"
     "  -V --verbose\n"
     "  -v --version\n";
+
 
 typedef struct ServerSettings {
     char * directory;
@@ -300,10 +309,12 @@ int
 main(int argc, char *argv[])
 {
     int optc;
+    int exit_code = 0;
     const char * progname = argv[0];
     char public_key[41];
     char secret_key[41];
-    char *pubkey_file = NULL;
+    char *key_file = NULL; /* file to read for keys */
+    char *pubkey_file = NULL;   /* file to write the public key */
 
     // logging configuration
     dbg_disable_logfile();
@@ -325,7 +336,9 @@ main(int argc, char *argv[])
                     print_wrong_arg("Illegal value for numworkers");
                 }
                 break;
-
+            case 'k':
+                key_file = strdup(optarg);
+                break;
             case 'l':
                 logfile = fopen(optarg, "a");
                 if (!logfile) {
@@ -393,27 +406,39 @@ main(int argc, char *argv[])
     }
 
     if (settings.encrypt) {
-        if (zmq_curve_keypair(public_key, secret_key) == 0) {
+        /* if a keyfile is set, use that. Otherwise generate keypair on the fly */
+        if (key_file) {
+            FILE *fptr = NULL;
+            char secret_key_file[PATH_MAX];
+
+            fptr = fopen(key_file, "rt");
+            check(fptr, "could not open %s", key_file);
+            check((fread(public_key, 1, 40, fptr) == 40),
+                "could not read %s", key_file);
+            fclose(fptr);
+
+            snprintf(secret_key_file, sizeof(secret_key_file),
+                     "%s.secret", key_file);
+
+            fptr = fopen(secret_key_file, "rt");
+            check(fptr, "could not open %s", secret_key_file);
+            check((fread(secret_key, 1, 40, fptr) == 40),
+                "could not read %s", secret_key_file);
+            fclose(fptr);
+        } else {
+            check(zmq_curve_keypair(public_key, secret_key) == 0,
+                  "could not create key pair");
             if (pubkey_file) {
                  /* no rw for group and others */
                 mode_t old_mode = umask(0066);
                 FILE *fptr = fopen(pubkey_file, "wt");
-                if (fptr != NULL) {
-                    fprintf(fptr, "%s", public_key);
-                    fclose(fptr);
-                } else {
-                    fprintf(stderr, "Could not open public key file %s for writing: %s (%d)\n",
-                        pubkey_file, strerror(errno), errno);
-                        exit(1);
-                }
+                check(fptr, "could not open public key file %s for writing", pubkey_file);
+                fprintf(fptr, "%s", public_key);
+                fclose(fptr);
                 umask(old_mode);
             } else {
                 printf("public key: %s\n", public_key);
             }
-        } else {
-            fprintf(stderr, "Could not create key pair: %s (%d)\n",
-                strerror(errno), errno);
-            exit(1);
         }
     }
 
@@ -430,6 +455,14 @@ main(int argc, char *argv[])
 
     startup(settings.encrypt ? secret_key : NULL);
 
+cleanup:
     if (pubkey_file)
         free(pubkey_file);
+    if (key_file)
+        free(key_file);
+    exit(exit_code);
+
+error:
+   exit_code = 1;
+   goto cleanup;
 }
