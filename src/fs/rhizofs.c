@@ -43,6 +43,11 @@ typedef struct RhizoSettings {
     char *server_public_key;
     char *server_public_key_file;
 
+    char *client_public_key_file;
+
+    char *client_public_key;
+    char *client_secret_key;
+
     /** timeout (in seconds) after which the filesystem will stop waiting
      *  * for a response from the server
      *  * for being able to send the request to the server
@@ -76,6 +81,7 @@ static struct fuse_opt rhizo_opts[] = {
     OPTION("--pubkeyfile=%s", server_public_key_file),
     OPTION("-k=%s",           server_public_key),
     OPTION("--pubkey=%s",     server_public_key),
+    OPTION("--clientpubkeyfile=%s", client_public_key_file),
     FUSE_OPT_END
 };
 
@@ -113,6 +119,8 @@ Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
 
     if (settings.server_public_key != NULL)
         SocketPool_set_server_public_key(&socketpool, settings.server_public_key);
+    if (settings.client_public_key != NULL && settings.client_secret_key != NULL)
+        SocketPool_set_client_keypair(&socketpool, settings.client_public_key, settings.client_secret_key);
 
     check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, ATTRCACHE_DEFAULT_MAXAGE_SEC) == true),
             "could not initialize the attrcache");
@@ -1119,7 +1127,8 @@ Rhizofs_check_connection(RhizoPriv * priv)
 
     fprintf(stdout, "Trying to connect to server at %s\n", settings.host_socket);
 
-    socket = create_socket(priv->context, ZMQ_REQ, settings.server_public_key);
+    socket = create_socket(priv->context, ZMQ_REQ, settings.server_public_key,
+                           settings.client_public_key, settings.client_secret_key);
     check((socket != NULL), "Could not create 0mq socket");
 
     if (zmq_connect(socket, settings.host_socket) != 0) {
@@ -1172,7 +1181,28 @@ Rhizofs_fuse_main(struct fuse_args *args)
         check((fread(settings.server_public_key, 1, 40, fptr) == 40),
             "could not read %s", settings.server_public_key_file);
         fclose(fptr);
-        printf("key = '%s'\n", settings.server_public_key);
+    }
+
+    if (settings.client_public_key_file != NULL) {
+        FILE *fptr = NULL;
+        char client_secret_key_file[PATH_MAX];
+
+        fptr = fopen(settings.client_public_key_file, "rt");
+        check(fptr, "could not open %s", settings.client_public_key_file);
+        settings.client_public_key = (char *)calloc(1, 41);
+        check((fread(settings.client_public_key, 1, 40, fptr) == 40),
+            "could not read %s", settings.client_public_key_file);
+        fclose(fptr);
+
+        snprintf(client_secret_key_file, sizeof(client_secret_key_file),
+                 "%s.secret", settings.client_public_key_file);
+
+        fptr = fopen(client_secret_key_file, "rt");
+        check(fptr, "could not open %s", client_secret_key_file);
+        settings.client_secret_key = (char *)calloc(1, 41);
+        check((fread(settings.client_secret_key, 1, 40, fptr) == 40),
+            "could not read %s", client_secret_key_file);
+        fclose(fptr);
     }
 
     if (settings.check_socket_connection) {

@@ -9,13 +9,18 @@
 #include <zmq.h>
 
 
-void *create_socket(void *ctx, int type, const char *server_public_key);
+void *create_socket(void *ctx, int type,
+                    const char *server_public_key,
+                    const char *client_public_key,
+                    const char *client_secret_key);
 
 typedef struct SocketPool {
     pthread_key_t   key;
     void * context;  /* 0mq context */
     char * socket_name;
     int socket_type;
+    const char *client_public_key;
+    const char *client_secret_key;
     const char *server_public_key;
 } SocketPool;
 
@@ -30,6 +35,12 @@ bool SocketPool_init(SocketPool * sp, void * context, const char * socket_name,
 inline
 void SocketPool_set_server_public_key(SocketPool * sp, const char *key) {
     sp->server_public_key = key;
+}
+
+inline
+void SocketPool_set_client_keypair(SocketPool * sp, const char *public_key, const char *secret_key) {
+    sp->client_public_key = public_key;
+    sp->client_secret_key = secret_key;
 }
 
 /**

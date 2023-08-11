@@ -77,11 +77,12 @@ error:
 }
 
 
-void *create_socket(void *ctx, int type, const char *server_public_key)
+void *create_socket(void *ctx, int type,
+                    const char *server_public_key,
+                    const char *client_public_key,
+                    const char *client_secret_key)
 {
     void * sock = NULL;
-    char public_key[41];
-    char secret_key[41];
 
     sock = zmq_socket(ctx, type);
     check((sock != NULL), "Could not create 0mq socket");
@@ -97,16 +98,30 @@ void *create_socket(void *ctx, int type, const char *server_public_key)
 #endif
 #endif
 
+    /* if server_public_key is set, encryption is enabled , otherwise it's unencrypted */
+    /* if encryption is enabled: if client_public_key and client_secret_key are set,
+       use them. Otherwise, we generate client keys on the fly. */
     if (server_public_key != NULL) {
-        check((zmq_curve_keypair(public_key, secret_key) == 0),
-            "could not create client key pair");
-
         check(zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, server_public_key, 40) == 0,
             "could not set server public key");
-        check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40) == 0,
-            "could not set client public key");
-        check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0,
-            "could not set client secret key");
+
+        if (client_public_key == NULL || client_secret_key == NULL) {
+            char public_key[41];
+            char secret_key[41];
+
+            check((zmq_curve_keypair(public_key, secret_key) == 0),
+                "could not create client key pair");
+
+            check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40) == 0,
+                "could not set client public key");
+            check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0,
+                "could not set client secret key");
+        } else {
+            check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, client_public_key, 40) == 0,
+                "could not set client public key");
+            check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, client_secret_key, 40) == 0,
+                "could not set client secret key");
+        }
     }
     return sock;
 error:
@@ -127,7 +142,9 @@ SocketPool_get_socket(SocketPool * sp)
     if (sock == NULL) {
 
         /* create a new socket */
-        sock = create_socket(sp->context, sp->socket_type, sp->server_public_key);
+        sock = create_socket(sp->context, sp->socket_type,
+                             sp->server_public_key,
+                             sp->client_public_key, sp->client_secret_key);
         check((sock != NULL), "Could not create 0mq socket");
 
         check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
