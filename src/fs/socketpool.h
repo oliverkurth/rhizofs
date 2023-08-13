@@ -32,12 +32,12 @@ typedef struct SocketPool {
 bool SocketPool_init(SocketPool * sp, void * context, const char * socket_name,
     int socket_type);
 
-inline
+static inline
 void SocketPool_set_server_public_key(SocketPool * sp, const char *key) {
     sp->server_public_key = key;
 }
 
-inline
+static inline
 void SocketPool_set_client_keypair(SocketPool * sp, const char *public_key, const char *secret_key) {
     sp->client_public_key = public_key;
     sp->client_secret_key = secret_key;
