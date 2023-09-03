@@ -7,13 +7,15 @@ CFLAGS= -Wall \
 	-Isrc \
 	-D_XOPEN_SOURCE=600 \
 	-D_DEFAULT_SOURCE \
-	-I. $(shell pkg-config fuse --cflags)
+	-I. $(shell pkg-config fuse --cflags) \
+	-I. $(shell pkg-config libprotobuf-c --cflags) \
+	-I. $(shell pkg-config libzmq --cflags)
 
 # clang emits a warning if the -std flag is passed to it when linking
 # objects
 CFLAGS_EXTRA = -std=c99
 
-LIBS=-lzmq -lprotobuf-c -lpthread
+LIBS=$(shell pkg-config libzmq --libs) $(shell pkg-config libprotobuf-c --libs) -lpthread
 FUSE_LIBS=$(shell pkg-config fuse --libs)
 
 # tools
@@ -53,7 +55,7 @@ ${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
 
 ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
-	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(CFLAGS) -lzmq
+	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(CFLAGS) $(shell pkg-config libzmq --libs)
 
 ${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 
