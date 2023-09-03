@@ -7,13 +7,15 @@ CFLAGS= -Wall \
 	-Isrc \
 	-D_XOPEN_SOURCE=600 \
 	-D_DEFAULT_SOURCE \
-	-I. $(shell pkg-config fuse --cflags)
+	-I. $(shell pkg-config fuse --cflags) \
+	-I. $(shell pkg-config libprotobuf-c --cflags) \
+	-I. $(shell pkg-config libzmq --cflags)
 
 # clang emits a warning if the -std flag is passed to it when linking
 # objects
 CFLAGS_EXTRA = -std=c99
 
-LIBS=-lzmq -lprotobuf-c -lpthread
+LIBS=$(shell pkg-config libzmq --libs) $(shell pkg-config libprotobuf-c --libs) -lpthread
 FUSE_LIBS=$(shell pkg-config fuse --libs)
 
 # tools
@@ -31,7 +33,8 @@ SERVER_SOURCES=$(wildcard src/kazlib/*.c src/server/*.c src/*.c) ${PROTO_C_COMPI
 SERVER_OBJECTS=$(patsubst %.c,%.o,${SERVER_SOURCES})
 FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) ${PROTO_C_COMPILED}
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
-
+TOOLS_SOURCES=$(wildcard src/tools/*.c)
+TOOLS_OBJECTS=$(patsubst %.c,%.o,${TOOLS_SOURCES})
 
 # do not strip debuging information in release builds
 release: CFLAGS+=-DNDEBUG -O2 -g
@@ -40,7 +43,7 @@ release: all
 dev: CFLAGS+=-DDEBUG -O0 -g
 dev: all
 
-all: ${BINDIR}/rhizosrv ${BINDIR}/rhizofs
+all: ${BINDIR}/rhizosrv ${BINDIR}/rhizofs ${BINDIR}/rhizo-keygen
 
 ${BINDIR}:
 	@[ -d ${BINDIR} ] || mkdir ${BINDIR}
@@ -50,6 +53,9 @@ ${BINDIR}/rhizosrv: ${SERVER_OBJECTS} ${BINDIR}
 
 ${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
+
+${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
+	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(CFLAGS) $(shell pkg-config libzmq --libs)
 
 ${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 
@@ -63,7 +69,7 @@ ${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv
@@ -75,3 +81,5 @@ deb:
 install: release
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
 	install ${BINDIR}/rhizofs $(PREFIX)/bin/
+	install ${BINDIR}/rhizo-keygen $(PREFIX)/bin/
+
