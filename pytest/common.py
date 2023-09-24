@@ -1,5 +1,6 @@
 import os
 import signal
+import stat
 import subprocess
 
 
@@ -63,3 +64,8 @@ def stop_client(directory):
     assert ret.retval == 0
 
 
+def vmci_supported():
+    try:
+        return stat.S_ISCHR(os.stat("/dev/vmci").st_mode)
+    except FileNotFoundError:
+        return False

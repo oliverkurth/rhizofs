@@ -1,0 +1,28 @@
+name: rhizofs pytests
+
+on: [pull_request, push, workflow_dispatch]
+
+jobs:
+    pytests:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: install build deps
+              run: sudo apt-get -y install libzmq3-dev pkg-config libprotobuf-c-dev protobuf-c-compiler libfuse-dev
+
+            - name: build
+              working-directory: ${{ github.workspace }}
+              run: make
+
+            - name: set up python 3
+              uses: actions/setup-python@v4
+              with:
+                python-version: '3.x'
+
+            - name: install pytest
+              run: pip install pytest
+
+            - name: run tests
+              working-directory: ${{ github.workspace }}
+              run: pytest pytest/
