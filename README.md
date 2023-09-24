@@ -204,14 +204,15 @@ Mountpoint
 
 general options
 ---------------
-   -h --help           print help
-   -k --pubkey=<key>   set the server public key
-   --pubkeyfile=<file> set to file that contains the public key
-   -V --version        print version
+   --clientpubkeyfile=<file> set client keypair file
+   -h --help                 print help
+   -k --pubkey=<key>         set the server public key
+   --pubkeyfile=<file>       set to file that contains the public key
+   -V --version              print version
 
 Logging
 =======
-   In the case of errors or warnings this program will log to the syslog.
+   In the case of errors or warnings this program will log to syslog.
 
 FUSE options:
     -d   -o debug          enable debug output (implies -f)

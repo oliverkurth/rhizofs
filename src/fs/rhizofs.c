@@ -1100,10 +1100,11 @@ Rhizofs_usage(const char * progname)
         "\n"
         "general options\n"
         "---------------\n"
-        "   -h --help           print help\n"
-        "   -k --pubkey-<key>   set the server public key\n"
-        "   --pubkeyfile=<file> set to file that contains the public key\n"
-        "   -V --version        print version\n"
+        "   --clientpubkeyfile=<file> set client keypair file\n"
+        "   -h --help                 print help\n"
+        "   -k --pubkey=<key>         set the server public key\n"
+        "   --pubkeyfile=<file>       set to file that contains the public key\n"
+        "   -V --version              print version\n"
         "\n"
         HELPTEXT_LOGGING
         "\n", progname
@@ -1183,26 +1184,34 @@ Rhizofs_fuse_main(struct fuse_args *args)
         fclose(fptr);
     }
 
-    if (settings.client_public_key_file != NULL) {
-        FILE *fptr = NULL;
-        char client_secret_key_file[PATH_MAX];
+    if (settings.server_public_key != NULL) {
+        if (settings.client_public_key_file != NULL) {
+            FILE *fptr = NULL;
+            char client_secret_key_file[PATH_MAX];
 
-        fptr = fopen(settings.client_public_key_file, "rt");
-        check(fptr, "could not open %s", settings.client_public_key_file);
-        settings.client_public_key = (char *)calloc(1, 41);
-        check((fread(settings.client_public_key, 1, 40, fptr) == 40),
-            "could not read %s", settings.client_public_key_file);
-        fclose(fptr);
+            fptr = fopen(settings.client_public_key_file, "rt");
+            check(fptr, "could not open %s", settings.client_public_key_file);
+            settings.client_public_key = (char *)calloc(1, 41);
+            check((fread(settings.client_public_key, 1, 40, fptr) == 40),
+                "could not read %s", settings.client_public_key_file);
+            fclose(fptr);
 
-        snprintf(client_secret_key_file, sizeof(client_secret_key_file),
-                 "%s.secret", settings.client_public_key_file);
+            snprintf(client_secret_key_file, sizeof(client_secret_key_file),
+                     "%s.secret", settings.client_public_key_file);
 
-        fptr = fopen(client_secret_key_file, "rt");
-        check(fptr, "could not open %s", client_secret_key_file);
-        settings.client_secret_key = (char *)calloc(1, 41);
-        check((fread(settings.client_secret_key, 1, 40, fptr) == 40),
-            "could not read %s", client_secret_key_file);
-        fclose(fptr);
+            fptr = fopen(client_secret_key_file, "rt");
+            check(fptr, "could not open %s", client_secret_key_file);
+            settings.client_secret_key = (char *)calloc(1, 41);
+            check((fread(settings.client_secret_key, 1, 40, fptr) == 40),
+                "could not read %s", client_secret_key_file);
+            fclose(fptr);
+        } else {
+            settings.client_public_key = (char *)calloc(1, 41);
+            settings.client_secret_key = (char *)calloc(1, 41);
+            check((zmq_curve_keypair(settings.client_public_key,
+                                     settings.client_secret_key) == 0),
+                "could not create client key pair");
+        }
     }
 
     if (settings.check_socket_connection) {
