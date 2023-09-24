@@ -102,26 +102,15 @@ void *create_socket(void *ctx, int type,
     /* if encryption is enabled: if client_public_key and client_secret_key are set,
        use them. Otherwise, we generate client keys on the fly. */
     if (server_public_key != NULL) {
+        check(client_public_key != NULL, "client public key is not set");
+        check(client_secret_key != NULL, "client secret key is not set");
+
         check(zmq_setsockopt(sock, ZMQ_CURVE_SERVERKEY, server_public_key, 40) == 0,
             "could not set server public key");
-
-        if (client_public_key == NULL || client_secret_key == NULL) {
-            char public_key[41];
-            char secret_key[41];
-
-            check((zmq_curve_keypair(public_key, secret_key) == 0),
-                "could not create client key pair");
-
-            check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, public_key, 40) == 0,
-                "could not set client public key");
-            check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0,
-                "could not set client secret key");
-        } else {
-            check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, client_public_key, 40) == 0,
-                "could not set client public key");
-            check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, client_secret_key, 40) == 0,
-                "could not set client secret key");
-        }
+        check(zmq_setsockopt(sock, ZMQ_CURVE_PUBLICKEY, client_public_key, 40) == 0,
+            "could not set client public key");
+        check(zmq_setsockopt(sock, ZMQ_CURVE_SECRETKEY, client_secret_key, 40) == 0,
+            "could not set client secret key");
     }
     return sock;
 error:
