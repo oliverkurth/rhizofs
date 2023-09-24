@@ -1,4 +1,5 @@
 import os
+import pytest
 import shutil
 import tempfile
 import time
@@ -7,6 +8,7 @@ import time
 from common import start_server, stop_server, \
                    start_client, stop_client, \
                    run, \
+                   vmci_supported, \
                    RHIZOSRV, RHIZOFS, RHIZOKEYGEN
 
 
@@ -24,7 +26,8 @@ def test_start_stop_server():
 
 def test_start_stop_server_localhost():
     pwd = os.getcwd()
-    endpoint = "tcp://localhost:9999"
+    # github workflow needs IP, "localhost" does not work
+    endpoint = "tcp://127.0.0.1:9999"
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
     ret = start_server(endpoint, srv_dir)
 
@@ -34,6 +37,7 @@ def test_start_stop_server_localhost():
     shutil.rmtree(srv_dir)
 
 
+@pytest.mark.skipif(not vmci_supported(), reason="VMCI not supported")
 def test_start_stop_server_vmci():
     pwd = os.getcwd()
     endpoint = "vmci://1:9999"
@@ -81,6 +85,7 @@ def test_mount():
     shutil.rmtree(srv_dir)
 
 
+@pytest.mark.skipif(not vmci_supported(), reason="VMCI not supported")
 def test_mount_vmci():
     pwd = os.getcwd()
     endpoint = "vmci://1:9999"
