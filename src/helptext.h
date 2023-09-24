@@ -27,7 +27,7 @@
 #define HELPTEXT_LOGGING \
 "Logging\n" \
 "=======\n" \
-"   In the case of errors or warnings this program will log to the syslog.\n"
+"   In the case of errors or warnings this program will log to syslog.\n"
 
 
 #endif

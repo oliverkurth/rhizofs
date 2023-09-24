@@ -1100,10 +1100,11 @@ Rhizofs_usage(const char * progname)
         "\n"
         "general options\n"
         "---------------\n"
-        "   -h --help           print help\n"
-        "   -k --pubkey-<key>   set the server public key\n"
-        "   --pubkeyfile=<file> set to file that contains the public key\n"
-        "   -V --version        print version\n"
+        "   --clientpubkeyfile=<file> set client keypair file\n"
+        "   -h --help                 print help\n"
+        "   -k --pubkey=<key>         set the server public key\n"
+        "   --pubkeyfile=<file>       set to file that contains the public key\n"
+        "   -V --version              print version\n"
         "\n"
         HELPTEXT_LOGGING
         "\n", progname
