@@ -1,6 +1,6 @@
 name: build RPMs
 
-on: [pull_request, push, workflow_dispatch]
+on: [pull_request, push, release, workflow_dispatch]
 
 jobs:
     photon-rpms:
@@ -8,7 +8,7 @@ jobs:
             DIST: photon
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v4
             - name: build container
               working-directory: ${{ github.workspace }}
               run: |
@@ -18,7 +18,12 @@ jobs:
               run: |
                 docker run --rm -v $(pwd):/workdir -w /workdir ${DIST}-builder ./ci/${DIST}/build-rpms.sh
             - name: upload RPMs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               with:
                   name: ${{ env.DIST }}-rpms
                   path: rpmbuild/RPMS/
+            - name: upload as release artifacts
+              if: github.event_name == 'release'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: gh release upload ${{ github.event.release.tag_name }} rpmbuild/RPMS/*/*.rpm
