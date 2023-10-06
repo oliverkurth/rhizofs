@@ -1,8 +1,9 @@
 Name:       rhizofs
-Version:    0.2.2
+Version:    0.2.4
 Release:    1%{?dist}
 URL:        https://github.com/oliverkurth/rhizofs
 Source0:    %{name}-%{version}.tar.gz
+%define sha512 %{name}=4fb07af2aa21631c1b9ebe2416ff749b61b7f8723bade6230f90596d7305797c35fc959d7899fdc31b0c9f83e7850a526f0e083a9dd32a93c05cdabd9331d5a8
 Summary:    A simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
 License:    BSD
 
@@ -32,10 +33,14 @@ export PREFIX=%{buildroot}/%{_prefix}
 
 %files
 %{_bindir}/rhizofs
+%{_bindir}/rhizo-keygen
 
 %files server
 %{_bindir}/rhizosrv
+%{_bindir}/rhizo-keygen
 
 %changelog
-* Mon May 23 2022 <okurth@vmware.com> 0.2.2-1
+* Fri Oct 06 2023 <okurth@gmail.com> 0.2.4-1
+- update to 0.2.4
+* Mon May 23 2022 <okurth@gmail.com> 0.2.2-1
 - initial rpm package
