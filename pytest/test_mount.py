@@ -174,3 +174,66 @@ def test_mount_pubkeyfile_client_keyfile():
     stop_server()
     shutil.rmtree(srv_dir)
 
+
+def test_mount_zap():
+    pwd = os.getcwd()
+    endpoint = f"ipc://{pwd}/.rhizo.sock"
+    pubkey_file = os.path.join(pwd, "rhizo-key.pub")
+    client_key_file = os.path.join(pwd, "rhizo-client-key")
+    authorized_keys_file = os.path.join(pwd, "authorized_keys")
+
+    run([RHIZOKEYGEN, client_key_file])
+    assert os.path.exists(client_key_file)
+    assert os.path.exists(f"{client_key_file}.secret")
+
+    shutil.copyfile(client_key_file, authorized_keys_file)
+
+    srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
+    ret = start_server(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
+
+    client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
+    start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file}"])
+
+    time.sleep(1)
+
+    # make sure we can do something with it
+    basename = "readdir.txt"
+    filename = os.path.join(client_dir, basename)
+    with open(filename, "w") as f:
+        f.write("bla")
+
+    entries = os.listdir(client_dir)
+    assert basename in entries
+
+    stop_client(client_dir)
+    shutil.rmtree(client_dir)
+
+    stop_server()
+    shutil.rmtree(srv_dir)
+
+
+def test_mount_zap_invalid():
+    pwd = os.getcwd()
+    endpoint = f"ipc://{pwd}/.rhizo.sock"
+    pubkey_file = os.path.join(pwd, "rhizo-key.pub")
+    client_key_file = os.path.join(pwd, "rhizo-client-key")
+    authorized_keys_file = os.path.join(pwd, "authorized_keys")
+
+    run([RHIZOKEYGEN, client_key_file])
+    assert os.path.exists(client_key_file)
+    assert os.path.exists(f"{client_key_file}.secret")
+
+    with open(authorized_keys_file, "wt") as f:
+        f.write("totallywrongkey")
+
+    srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
+    ret = start_server(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
+
+    client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
+    ret = start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file}"], ignore_fail=True)
+    assert ret.retval != 0
+
+    shutil.rmtree(client_dir)
+
+    stop_server()
+    shutil.rmtree(srv_dir)

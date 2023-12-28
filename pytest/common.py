@@ -45,15 +45,19 @@ def start_server(endpoint, directory, args=[]):
     ret = run([RHIZOSRV, endpoint, directory] + args + ["-p", pidfile_path])
     print(ret.stderr)
     print(ret.stdout)
+    print(ret.retval)
+
     assert ret.retval == 0
 
     return ret
 
 
-def start_client(endpoint, directory, args=[]):
+def start_client(endpoint, directory, args=[], ignore_fail=False):
     pwd = os.getcwd()
     ret = run([RHIZOFS] + args + [endpoint, directory])
-    assert ret.retval == 0
+
+    if not ignore_fail:
+        assert ret.retval == 0
 
     return ret
 
