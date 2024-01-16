@@ -19,6 +19,7 @@ class CmdReturn:
 
 
 def run(cmd):
+    print(f"starting process: {cmd}")
     process = subprocess.Popen(cmd, shell=False,  # nosec
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -54,6 +55,7 @@ def start_server(endpoint, directory, args=[]):
 
 def start_client(endpoint, directory, args=[], ignore_fail=False):
     pwd = os.getcwd()
+
     ret = run([RHIZOFS] + args + [endpoint, directory])
 
     if not ignore_fail:
