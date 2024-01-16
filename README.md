@@ -33,18 +33,16 @@ Features
     `ls -la` by a great amount. This is especially true when the filesystem
     operates over a slow or/and high latency network connection.
 
--   **Encryption**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
-    encryption.
+-   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
+    encryption and authentication (ZAP).
 
 Authentication
 --------------
 
-So far, rhizofs supports encryption, but no real authentication. Encryption is
-based on public and private key pairs. If the public server key is kept as a secret,
-this can be used as a form of authentication, since a client can only connect
-when it knows the public server key.
+`rhizofs` supports encryption and authentication. Encryption is
+based on public and private key pairs.
 
-Real authentication, based on client keys will be implemented soon.
+Authentication is based on the client key, using [ZMQ's ZAP](https://rfc.zeromq.org/spec/27/) protocol.
 
 
 File ownership and user mapping
@@ -104,6 +102,7 @@ Directory
 
 Options
 -------
+  -a --authorized-keys-file authorized keys file.
   -e --encrypt
   -f --foreground          foreground operation - do not daemonize.
   -h --help
@@ -138,6 +137,10 @@ when the server gets started again, it will use another newly generated key pair
 
 When given the `--keyfile` with a filename, it will be read for the public key, and another
 file with the name `.secret` appended will be read for the secret key (see `rhizo-keygen` below).
+
+When given the `--authorized-keys-file` with a filename, it will be read for a list of authenticated
+(public) client keys, with one key per line. Only clients that use any of one the keys will be
+allowed access.
 
 **use with systemd**
 
