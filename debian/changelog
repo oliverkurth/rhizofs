@@ -1,3 +1,10 @@
+rhizofs (0.2.5-1) unstable; urgency=low
+
+  * ZAP CURVE authentication
+  * and other bug fixes
+
+ -- Oliver Kurth <okurth@gmail.com>  Mon, 15 Jan 2024 18:16:59 -0800
+
 rhizofs (0.2.4-1) unstable; urgency=low
 
   * enable encryption
