@@ -232,6 +232,40 @@ Optionally, the client can use a keypair as well. See `rhizo-keygen` below to se
 To use it, set the `--clientpubkeyfile` option to specify the name of the public key file. The secret
 key will be read from the file with the same name but `.secret` appended.
 
+**use with systemd**
+
+Just like the server, the client can be used with `systemd` for non-provileged users.
+As an example, if the server is `nuc-oliver.home`,
+your key is in `.config/rhizofs/key`, the public server key in `.config/rhizofs/nuc-oliver` and
+you want to mount on `rhizofs/nuc-oliver` in your home dir,
+put this into `.config/systemd/user/rhizofs-nuc-oliver.service` in your home directory:
+```
+[Unit]
+Description=Mount nuc-oliver with rhizofs
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Install]
+WantedBy=default.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/rhizofs -f --clientpubkeyfile=.config/rhizofs/key --pubkeyfile=.config/rhizofs/nuc-oliver tcp://nuc-oliver.home:5555 %h/rhizofs/nuc-oliver
+ExecStop=/usr/bin/umount %h/rhizofs/nuc-oliver
+Restart=on-failure
+RestartSec=20
+```
+Start the service with
+```
+systemctl --user daemon-reload
+systemctl --user start rhizofs-nuc-oliver.service
+```
+The filesystem can easily be unmounted with
+```
+systemctl --user stop rhizofs-nuc-oliver.service
+```
 
 Utilities
 ---------
