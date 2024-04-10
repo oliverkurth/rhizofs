@@ -167,8 +167,8 @@ message Request {
     optional DataBlock datablock = 7;
 
     // number of bytes to read/write
-    optional int32 size = 8;
-    optional int32 offset = 9;
+    optional int64 size = 8;
+    optional int64 offset = 9;
 
     // filetype - for open operation
     optional FileType filetype = 10;
@@ -194,7 +194,7 @@ message Response {
     optional DataBlock datablock = 6;
 
     // number of bytes to read/write
-    optional int32 size = 8;
+    optional int64 size = 8;
 
     // the target a link/symlink points to
     // this string has to be null terminated
