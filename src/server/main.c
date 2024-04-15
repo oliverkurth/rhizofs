@@ -155,10 +155,29 @@ char *receive_string(void* socket)
     if (poll_items[0].revents & ZMQ_POLLIN) {
         char buf[1024];
         int rc = zmq_recv(socket, buf, 1024, 0);
-        if (rc >= 0) {
-            buf[rc] = 0;
-            return strdup(buf);
-        }
+        check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
+        buf[rc] = 0;
+        return strdup(buf);
+    }
+error:
+    return NULL;
+}
+
+static
+char *receive_message(void* socket, size_t size)
+{
+    const int timeout_in_ms = -1;
+    zmq_pollitem_t poll_items[] = {{ socket, 0, ZMQ_POLLIN, 0 }};
+    check((zmq_poll(poll_items, 1, timeout_in_ms) >= 0), "zmq_poll() failed");
+
+    if (poll_items[0].revents & ZMQ_POLLIN) {
+        char buf[size];
+        int rc = zmq_recv(socket, buf, size, 0);
+        check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
+        check((rc == (int)size), "unexpected size %d from zmq_recv(), expected %d", rc, (int)size)
+        char *ptr = (char *)malloc(size);
+        memcpy(ptr, buf, size);
+        return ptr;
     }
 error:
     return NULL;
@@ -177,6 +196,9 @@ void *auth_routine(void* ctx)
 
     while (true)
     {
+        char *status_code = "400";
+        char *status_msg = "denied";
+
         char *version = receive_string(sock);
         char *request_id = receive_string(sock);
         char *domain = receive_string(sock);
@@ -187,12 +209,15 @@ void *auth_routine(void* ctx)
         char *client_key = NULL;
         char client_key_text[41];
         if (strcmp(mechanism, "CURVE") == 0) {
-            client_key = receive_string(sock);
+            client_key = receive_message(sock, 32);
+            if (client_key == NULL) {
+                log_err("could not receive client key");
+                status_code = "300";
+                status_msg = "internal error";
+                goto out;
+            }
             zmq_z85_encode(client_key_text, (uint8_t *)client_key, 32);
         }
-
-        char *status_code = "400";
-        char *status_msg = "denied";
 
         if (strcmp(version, "1.0") != 0) {
             log_err("invalid ZAP version received");
@@ -216,16 +241,17 @@ void *auth_routine(void* ctx)
                     status_code = "200";
                     status_msg = "OK";
                 } else {
-                    log_warn("request from %s key not authorized", address);
+                    log_warn("request from %s key '%s' not authorized", address, client_key_text);
                 }
             } else {
-                log_err("could not open authorized keys file %s",
-                        settings.authorized_keys_file);
+                log_err("could not open authorized keys file %s: %s (%d)",
+                        settings.authorized_keys_file, strerror(errno), errno);
                 status_code = "300";
                 status_msg = "internal error";
             }
         }
 
+out:
         send_string(sock, "1.0", true);
         send_string(sock, request_id, true);
         send_string(sock, status_code, true);
