@@ -24,11 +24,12 @@ def run(cmd):
     print(f"starting process: {cmd}")
     process = subprocess.Popen(cmd, shell=False,  # nosec
                                stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
+                               stderr=subprocess.PIPE,
+                               text=True)
     out, err = process.communicate()
 
-    stdout = out.decode().strip()
-    stderr = err.decode().strip()
+    stdout = out.strip()
+    stderr = err.strip()
     retval = process.returncode
 
     return CmdReturn(retval, stdout.split('\n'), stderr.split('\n'))
@@ -55,10 +56,23 @@ def start_server(endpoint, directory, args=[]):
     return ret
 
 
-def start_client(endpoint, directory, args=[], ignore_fail=False):
-    pwd = os.getcwd()
+def start_server_fg(endpoint, directory, args=[]):
 
+    cmd = [RHIZOSRV, endpoint, directory] + args + ["-f"]
+    print("starting server in foreground:", " ".join(cmd))
+    return subprocess.Popen(cmd, text=True)
+
+
+def stop_server_fg(process):
+    process.terminate()
+    process.wait()
+
+
+def start_client(endpoint, directory, args=[], ignore_fail=False):
     ret = run([RHIZOFS] + args + [endpoint, directory])
+    print(ret.stderr)
+    print(ret.stdout)
+    print(ret.retval)
 
     if not ignore_fail:
         assert ret.retval == 0

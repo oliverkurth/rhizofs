@@ -6,6 +6,7 @@ import time
 
 
 from common import start_server, stop_server, \
+                   start_server_fg, stop_server_fg, \
                    start_client, stop_client, \
                    run, \
                    vmci_supported, \
@@ -189,12 +190,12 @@ def test_mount_zap():
     shutil.copyfile(client_key_file, authorized_keys_file)
 
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
-    ret = start_server(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
-
-    client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
-    start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file}"])
+    server_process = start_server_fg(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
 
     time.sleep(1)
+
+    client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
+    ret = start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file}"], ignore_fail=False)
 
     # make sure we can do something with it
     basename = "readdir.txt"
@@ -208,7 +209,7 @@ def test_mount_zap():
     stop_client(client_dir)
     shutil.rmtree(client_dir)
 
-    stop_server()
+    stop_server_fg(server_process)
     shutil.rmtree(srv_dir)
 
 
@@ -231,6 +232,7 @@ def test_mount_zap_invalid():
 
     client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
     ret = start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file}"], ignore_fail=True)
+
     assert ret.retval != 0
 
     shutil.rmtree(client_dir)
