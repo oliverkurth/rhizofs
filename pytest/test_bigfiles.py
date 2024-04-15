@@ -72,3 +72,16 @@ def test_gigafile():
 
     assert checksum_true == checksum_client
 
+
+def test_giga5file():
+    basename = "giga5.blob"
+
+    filepath_srv = os.path.join(SRV_DIR, basename)
+    write_random_binary(filepath_srv, 5 * 1024**3)
+    checksum_true = calc_checksum(filepath_srv)
+
+    filepath_client = os.path.join(CLIENT_DIR, basename)
+    checksum_client = calc_checksum(filepath_client)
+
+    assert checksum_true == checksum_client
+

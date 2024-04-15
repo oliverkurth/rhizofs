@@ -795,7 +795,7 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         ssize_t bytes_written = pwrite(fd, data, (size_t)request->size, (off_t)request->offset);
         if (bytes_written == -1) {
             Response_set_errno(response, errno);
-            debug("Could not write %d bytes to %s", (int)request->size, path);
+            debug("Could not write %ld bytes to %s", (int64_t)request->size, path);
             errno = 0;
         }
 

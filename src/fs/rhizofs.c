@@ -628,9 +628,9 @@ Rhizofs_read(const char *path, char *buf, size_t size,
 
     request.path = (char *)path;
     request.has_size = 1;
-    request.size = (int)size;
+    request.size = (int64_t)size;
     request.has_offset = 1;
-    request.offset = (int)offset;
+    request.offset = (int64_t)offset;
     request.requesttype = RHIZOFS__REQUEST_TYPE__READ;
 
     OP_COMMUNICATE(request, response, returned_err)
@@ -660,9 +660,9 @@ Rhizofs_write(const char * path, const char * buf, size_t size, off_t offset,
 
     request.path = (char *)path;
     request.has_size = 1;
-    request.size = (int)size;
+    request.size = (int64_t)size;
     request.has_offset = 1;
-    request.offset = (int)offset;
+    request.offset = (int64_t)offset;
     request.requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
     check((Request_set_data(&request, (const uint8_t *) buf, (size_t)size) == true),
             "could not set request data");
@@ -688,7 +688,7 @@ Rhizofs_truncate(const char * path, off_t offset)
     OP_INIT(request, response, returned_err);
 
     request.path = (char *)path;
-    request.offset = (int)offset;
+    request.offset = (int64_t)offset;
     request.has_offset = 1;
     request.requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 

@@ -49,13 +49,13 @@ ${BINDIR}:
 	@[ -d ${BINDIR} ] || mkdir ${BINDIR}
 
 ${BINDIR}/rhizosrv: ${SERVER_OBJECTS} ${BINDIR}
-	$(CC) -o ${BINDIR}/rhizosrv ${SERVER_OBJECTS} $(CFLAGS) $(LIBS)
+	$(CC) -o ${BINDIR}/rhizosrv ${SERVER_OBJECTS} $(LIBS)
 
 ${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
-	$(CC) -o ${BINDIR}/rhizofs ${FS_OBJECTS} $(CFLAGS) $(LIBS) $(FUSE_LIBS)
+	$(CC) -o ${BINDIR}/rhizofs ${FS_OBJECTS} $(LIBS) $(FUSE_LIBS)
 
 ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
-	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(CFLAGS) $(shell pkg-config libzmq --libs)
+	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(shell pkg-config libzmq --libs)
 
 ${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 
