@@ -752,6 +752,8 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2])
         request.timestamps->modify_sec  = now.tv_sec;
         request.timestamps->modify_usec = now.tv_usec;
     }
+    request.timestamps->has_access_usec = 1;
+    request.timestamps->has_modify_usec = 1;
 
     OP_COMMUNICATE(request, response, returned_err)
     AttrCache_remove(&attrcache, path);
