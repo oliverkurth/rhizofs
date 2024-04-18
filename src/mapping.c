@@ -385,10 +385,25 @@ Attrs_create(const struct stat * stat_result, const char * name)
 
     attrs->timestamps = TimeSet_create();
     check((attrs->timestamps != NULL), "Could not create timeset struct");
-    attrs->timestamps->access          = (int)stat_result->st_atime;
-    attrs->timestamps->modification    = (int)stat_result->st_mtime;
-    attrs->timestamps->creation        = (int)stat_result->st_ctime;
-    attrs->timestamps->has_creation    = 1;
+#ifndef __USE_XOPEN2K8
+    attrs->timestamps->access_sec       = stat_result->st_atime;
+    attrs->timestamps->modify_sec       = stat_result->st_mtime;
+    attrs->timestamps->creation_sec     = stat_result->st_ctime;
+
+    attrs->timestamps->access_usec       = stat_result->st_atimensec/1000;
+    attrs->timestamps->modify_usec       = stat_result->st_mtimensec/1000;
+    attrs->timestamps->creation_usec     = stat_result->st_ctimensec/1000;
+#else
+    attrs->timestamps->access_sec       = stat_result->st_atim.tv_sec;
+    attrs->timestamps->modify_sec       = stat_result->st_mtim.tv_sec;
+    attrs->timestamps->creation_sec     = stat_result->st_ctim.tv_sec;
+
+    attrs->timestamps->access_usec       = stat_result->st_atim.tv_nsec/1000;
+    attrs->timestamps->modify_usec       = stat_result->st_mtim.tv_nsec/1000;
+    attrs->timestamps->creation_usec     = stat_result->st_ctim.tv_nsec/1000;
+#endif
+    attrs->timestamps->has_creation_sec = 1;
+    attrs->timestamps->has_creation_usec = 1;
 
     attrs->filetype = FileType_from_local((mode_t)stat_result->st_mode);
 
@@ -447,11 +462,11 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
     stat_result->st_mode = filetype | permissions;
     stat_result->st_nlink = 1;
 
-    stat_result->st_atime  = attrs->timestamps->access;
-    stat_result->st_mtime  = attrs->timestamps->modification;
-    check(attrs->timestamps->has_creation, "the attrs timestamps are "
+    stat_result->st_atime  = attrs->timestamps->access_sec;
+    stat_result->st_mtime  = attrs->timestamps->modify_sec;
+    check(attrs->timestamps->has_creation_sec, "the attrs timestamps are "
                 "missing the creation time")
-    stat_result->st_ctime  = attrs->timestamps->creation;
+    stat_result->st_ctime  = attrs->timestamps->creation_sec;
 
     return true;
 

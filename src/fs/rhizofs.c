@@ -730,8 +730,6 @@ error:
 static int
 Rhizofs_utimens(const char * path, const struct timespec tv[2])
 {
-    time_t asec = 0, msec = 0;
-
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
@@ -741,21 +739,19 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2])
     check((request.timestamps != NULL), "Could not create utimens timestamps struct");
 
     if (tv != NULL) {
-        asec = tv[0].tv_sec;
-        msec = tv[1].tv_sec;
-    }
-
-    if (asec == 0 || msec == 0) {
+        request.timestamps->access_sec  = tv[0].tv_sec;
+        request.timestamps->access_usec = tv[0].tv_nsec / 1000;
+        request.timestamps->modify_sec  = tv[1].tv_sec;
+        request.timestamps->modify_usec = tv[1].tv_nsec / 1000;
+    } else {
         struct timeval now;
         gettimeofday(&now, NULL);
-        if (asec == 0)
-            asec = now.tv_sec;
-        if (msec == 0)
-            msec = now.tv_sec;
-    }
 
-    request.timestamps->access       = asec;
-    request.timestamps->modification = msec;
+        request.timestamps->access_sec  = now.tv_sec;
+        request.timestamps->access_usec = now.tv_usec;
+        request.timestamps->modify_sec  = now.tv_sec;
+        request.timestamps->modify_usec = now.tv_usec;
+    }
 
     OP_COMMUNICATE(request, response, returned_err)
     AttrCache_remove(&attrcache, path);

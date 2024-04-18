@@ -94,11 +94,16 @@ message OpenFlags {
 
 message TimeSet {
     // timestamps (unixtime)
-    required int32 access = 1;
-    required int32 modification = 2;
+    required int64 access_sec = 1;
+
+    required int64 modify_sec = 2;
 
     // creation time is not always mandatory
-    optional int32 creation = 3;
+    optional int64 creation_sec = 3;
+
+    optional int32 access_usec = 4;
+    optional int32 modify_usec = 5;
+    optional int32 creation_usec = 6;
 }; 
 
 message DataBlock {
@@ -120,7 +125,7 @@ message Attrs {
     // unsigned int. see mapping.c
     //required int32 modemask = 2;
 
-    // userinfo - simply inticate if the user who runs the server is the owner
+    // userinfo - simply indicate if the user who runs the server is the owner
     // of the file and and if this user is part of the group of the file
     required bool is_owner = 2;
     required bool is_in_group = 3;
