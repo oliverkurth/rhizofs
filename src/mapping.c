@@ -403,6 +403,9 @@ Attrs_create(const struct stat * stat_result, const char * name)
     attrs->timestamps->creation_usec     = stat_result->st_ctim.tv_nsec/1000;
 #endif
     attrs->timestamps->has_creation_sec = 1;
+
+    attrs->timestamps->has_access_usec = 1;
+    attrs->timestamps->has_modify_usec = 1;
     attrs->timestamps->has_creation_usec = 1;
 
     attrs->filetype = FileType_from_local((mode_t)stat_result->st_mode);
@@ -467,6 +470,16 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
     check(attrs->timestamps->has_creation_sec, "the attrs timestamps are "
                 "missing the creation time")
     stat_result->st_ctime  = attrs->timestamps->creation_sec;
+
+#ifndef __USE_XOPEN2K8
+	stat_result->st_atimensec.tv_nsec = attrs->timestamps->access_usec * 1000;
+	stat_result->st_mtimensec.tv_nsec = attrs->timestamps->modify_usec * 1000;
+	stat_result->st_ctimensec.tv_nsec = attrs->timestamps->creation_usec * 1000;
+#else
+	stat_result->st_atim.tv_nsec = attrs->timestamps->access_usec * 1000;
+	stat_result->st_mtim.tv_nsec = attrs->timestamps->modify_usec * 1000;
+	stat_result->st_ctim.tv_nsec = attrs->timestamps->creation_usec * 1000;
+#endif
 
     return true;
 

@@ -171,10 +171,25 @@ def test_utimens():
     now = int(time.time())
     atime = now - random.randrange(1, 86400)
     mtime = now - random.randrange(1, 86400)
-    os.utime(filename, times = (atime, mtime))
+    os.utime(filename, times=(atime, mtime))
     s = os.stat(filename)
     assert s.st_atime == atime
     assert s.st_mtime == mtime
+
+
+def test_utimens_ns():
+    filename = os.path.join(CLIENT_DIR, "utimens-ns.txt")
+    write_file(filename, "something from client")
+
+    now = int(time.time())
+    atime = now - random.randrange(1, 86400)
+    mtime = now - random.randrange(1, 86400)
+    atime_ns = (random.randrange(1, 1000000) + atime * 1000000) * 1000
+    mtime_ns = (random.randrange(1, 1000000) + mtime * 1000000) * 1000
+    os.utime(filename, ns=(atime_ns, mtime_ns))
+    s = os.stat(filename)
+    assert s.st_atime_ns == atime_ns
+    assert s.st_mtime_ns == mtime_ns
 
 
 def test_link():
