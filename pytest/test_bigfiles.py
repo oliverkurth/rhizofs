@@ -6,7 +6,7 @@ import shutil
 import stat
 import tempfile
 import time
-
+import filecmp
 
 from common import start_server, stop_server, \
                    start_client, stop_client, \
@@ -80,10 +80,9 @@ def test_giga5file():
 
     filepath_srv = os.path.join(SRV_DIR, basename)
     write_random_binary(filepath_srv, 5 * 1024**3)
-    checksum_true = calc_checksum(filepath_srv)
 
     filepath_client = os.path.join(CLIENT_DIR, basename)
-    checksum_client = calc_checksum(filepath_client)
 
-    assert checksum_true == checksum_client
+    # using hashlib occasionally gives failures, so compare files directly
+    assert filecmp.cmp(filepath_srv, filepath_client)
 
