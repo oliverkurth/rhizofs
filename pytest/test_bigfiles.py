@@ -57,7 +57,9 @@ def write_random_binary(filename, size):
 
 def calc_checksum(filename):
     with open(filename, "rb") as f:
-        return hashlib.md5(f.read()).hexdigest()
+        m = hashlib.sha256()
+        m.update(f.read())
+        return m.hexdigest()
 
 
 def test_gigafile():
