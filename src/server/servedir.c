@@ -220,7 +220,7 @@ ServeDir_serve(ServeDir * sd)
             check((zmq_msg_send(&msg_rep, sd->socket, 0) != -1), "Could not send message");
             zmq_msg_close(&msg_rep);
 
-            Response_destroy(response);
+            Response_destroy(response); response = NULL;
         }
         else {
             if (errno == ETERM) {
@@ -237,7 +237,7 @@ ServeDir_serve(ServeDir * sd)
 error:
     zmq_msg_close(&msg_req);
     zmq_msg_close(&msg_rep);
-    Response_destroy(response);
+    if (response != NULL) Response_destroy(response);
     return false;
 }
 
@@ -353,7 +353,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
             Response_set_errno(response, errno);
             log_warn("Could not stat %s", entry_fullpath);
         }
-        free(entry_fullpath);
+        free(entry_fullpath); entry_fullpath = NULL;
     }
 
     closedir(dir);
@@ -368,7 +368,8 @@ error:
         }
     }
     free(response->directory_entries);
-    free(entry_fullpath);
+
+    if (entry_fullpath != NULL) free(entry_fullpath);
 
     if (dir != NULL) {
         closedir(dir);
@@ -680,10 +681,11 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
             "Could not assemble path.");
     debug("requested path: %s, openflags: %o", path, openflags);
     fd = open(path, openflags, default_file_creation_permissions);
-    if (fd == -1) {
+    if (fd < 0) {
         Response_set_errno(response, errno);
         debug("Could not call open on %s: %s", path, strerror(errno));
         errno = 0;
+        goto error;
     }
 
     close(fd);
@@ -755,9 +757,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
 error:
     free(databuf);
-    if (fd == -1) {
-        close(fd);
-    }
+    if (fd >= 0) close(fd);
     free(path);
     return -1;
 }
@@ -828,9 +828,7 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
 
 error:
 
-    if (fd != -1) {
-        close(fd);
-    }
+    if (fd >= 0) close(fd);
     free(data);
     free(path);
     return -1;
@@ -870,6 +868,7 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
         Response_set_errno(response, errno);
         debug("Could not call creat on %s: %s", path, strerror(errno));
         errno = 0;
+        goto error;
     }
 
     close(fd);

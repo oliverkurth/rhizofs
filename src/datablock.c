@@ -151,8 +151,8 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
     return len;
 
 error:
-    free(data);
-    data = NULL;
+    if (*data != NULL) free(*data);
+    *data = NULL;
     return -1;
 }
 

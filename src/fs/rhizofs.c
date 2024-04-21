@@ -1049,6 +1049,7 @@ RhizoPriv_create()
     return priv;
 
 error:
+    if (priv != NULL) free(priv);
     return 0;
 }
 
@@ -1169,22 +1170,22 @@ int
 Rhizofs_fuse_main(struct fuse_args *args)
 {
     RhizoPriv * priv = NULL;
+    FILE *fptr = NULL;
 
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
 
     if (settings.server_public_key_file != NULL) {
-        FILE *fptr = fopen(settings.server_public_key_file, "rt");
+        fptr = fopen(settings.server_public_key_file, "rt");
         check(fptr, "could not open %s", settings.server_public_key_file);
         settings.server_public_key = (char *)calloc(1, 41);
         check((fread(settings.server_public_key, 1, 40, fptr) == 40),
             "could not read %s", settings.server_public_key_file);
-        fclose(fptr);
+        fclose(fptr); fptr = NULL;
     }
 
     if (settings.server_public_key != NULL) {
         if (settings.client_public_key_file != NULL) {
-            FILE *fptr = NULL;
             char client_secret_key_file[PATH_MAX];
 
             fptr = fopen(settings.client_public_key_file, "rt");
@@ -1192,7 +1193,7 @@ Rhizofs_fuse_main(struct fuse_args *args)
             settings.client_public_key = (char *)calloc(1, 41);
             check((fread(settings.client_public_key, 1, 40, fptr) == 40),
                 "could not read %s", settings.client_public_key_file);
-            fclose(fptr);
+            fclose(fptr); fptr = NULL;
 
             snprintf(client_secret_key_file, sizeof(client_secret_key_file),
                      "%s.secret", settings.client_public_key_file);
@@ -1202,7 +1203,7 @@ Rhizofs_fuse_main(struct fuse_args *args)
             settings.client_secret_key = (char *)calloc(1, 41);
             check((fread(settings.client_secret_key, 1, 40, fptr) == 40),
                 "could not read %s", client_secret_key_file);
-            fclose(fptr);
+            fclose(fptr); fptr = NULL;
         } else {
             settings.client_public_key = (char *)calloc(1, 41);
             settings.client_secret_key = (char *)calloc(1, 41);
@@ -1224,6 +1225,7 @@ Rhizofs_fuse_main(struct fuse_args *args)
     return rc;
 
 error:
+    if (fptr != NULL) fclose(fptr);
     RhizoPriv_destroy(priv);
     return 1;
 }
