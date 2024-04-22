@@ -472,9 +472,9 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
     stat_result->st_ctime  = attrs->timestamps->creation_sec;
 
 #ifndef __USE_XOPEN2K8
-	stat_result->st_atimensec.tv_nsec = attrs->timestamps->access_usec * 1000;
-	stat_result->st_mtimensec.tv_nsec = attrs->timestamps->modify_usec * 1000;
-	stat_result->st_ctimensec.tv_nsec = attrs->timestamps->creation_usec * 1000;
+	stat_result->st_atimensec = attrs->timestamps->access_usec * 1000;
+	stat_result->st_mtimensec = attrs->timestamps->modify_usec * 1000;
+	stat_result->st_ctimensec = attrs->timestamps->creation_usec * 1000;
 #else
 	stat_result->st_atim.tv_nsec = attrs->timestamps->access_usec * 1000;
 	stat_result->st_mtim.tv_nsec = attrs->timestamps->modify_usec * 1000;
