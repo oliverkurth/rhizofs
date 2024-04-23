@@ -1059,9 +1059,10 @@ error:
 static inline void
 RhizoPriv_destroy(RhizoPriv * priv)
 {
+    SocketPool_deinit(&socketpool);
     if (priv) {
         if (priv->context != NULL) {
-            zmq_term(priv->context);
+            zmq_ctx_destroy(priv->context);
             priv->context = NULL;
         }
         free(priv);

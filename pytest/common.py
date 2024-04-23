@@ -1,7 +1,9 @@
 import os
 import signal
+import shutil
 import stat
 import subprocess
+import time
 
 
 BINDIR=os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "bin"))
@@ -64,9 +66,18 @@ def start_client(endpoint, directory, args=[], ignore_fail=False):
     return ret
 
 
-# this won't work on MacOS
 def stop_client(directory):
-    ret = run(["fusermount", "-u", directory])
+    if shutil.which("fusermount"):
+        ret = run(["fusermount", "-u", directory])
+    else:
+        # no fusermount on MacOS
+        ret = run(["umount", directory])
+        if ret.retval != 0:
+            # fails sometimes, works if we wait a sec
+            time.sleep(1)
+            ret = run(["umount", directory])
+
+    print (f"retval={ret.retval}")
     assert ret.retval == 0
 
 
