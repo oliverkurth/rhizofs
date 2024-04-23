@@ -16,7 +16,7 @@ typedef struct CacheEntry {
     struct stat stat_result;
 
     // timestamp of the creation of this cache entry
-    unsigned int cache_creation_ts;
+    time_t cache_creation_ts;
 } CacheEntry;
 
 

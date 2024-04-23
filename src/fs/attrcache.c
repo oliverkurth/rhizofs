@@ -22,7 +22,7 @@ CacheEntry_create()
     cache_entry = calloc(sizeof(CacheEntry), 1);
     check_mem(cache_entry);
 
-    cache_entry->cache_creation_ts = 0;; // default - way back in the past
+    cache_entry->cache_creation_ts = 0; // default - way back in the past
 
     return cache_entry;
 error:
@@ -244,7 +244,7 @@ AttrCache_shrink(AttrCache * attrcache)
 	while ((hash_node = hash_scan_next(&hash_scan))) {
         CacheEntry * cache_entry = hnode_get(hash_node);
 
-        if ((time_t)(cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time) {
+        if ((cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time) {
             // entry is already above max age - immdediately delete it
             hash_scan_delete(attrcache->hashtable, hash_node);
             nodes_removed_count++;
@@ -283,7 +283,7 @@ AttrCache_entry_is_deprecated(const AttrCache * attrcache, const CacheEntry * ca
     time_t current_time = time(NULL);
     check((current_time != -1), "could not fetch current time");
 
-    bool is_deprecated = (bool)((time_t)(cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time);
+    bool is_deprecated = (bool)((cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time);
 
     if (is_deprecated) {
         debug("CacheEntry is deprecated - older than %d seconds", (int)attrcache->max_age_sec);
