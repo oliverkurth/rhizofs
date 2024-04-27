@@ -1,3 +1,11 @@
+rhizofs (0.2.7-1) unstable; urgency=low
+
+    * fix MacOS build
+    * fix umount on MacOS
+    * coverity fixes
+
+ -- Oliver Kurth <okurth@gmail.com>  Sat, 27 Apr 2024 10:00:11 -0700
+
 rhizofs (0.2.6-1) unstable; urgency=low
 
   * support for 64 bit file sizes and offsets
