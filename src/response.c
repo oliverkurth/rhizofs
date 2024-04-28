@@ -56,6 +56,10 @@ Response_destroy(Rhizofs__Response * response)
             DataBlock_destroy(response->datablock);
         }
 
+        if (response->statfs != NULL) {
+            StatFs_destroy(response->statfs);
+        }
+
         free(response->version);
         free(response);
     }
