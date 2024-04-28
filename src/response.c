@@ -51,15 +51,15 @@ Response_destroy(Rhizofs__Response * response)
             }
             free(response->directory_entries);
         }
-
         if (response->datablock != NULL) {
             DataBlock_destroy(response->datablock);
         }
-
         if (response->statfs != NULL) {
             StatFs_destroy(response->statfs);
         }
-
+        if (response->link_target != NULL) {
+            free(response->link_target);
+        }
         free(response->version);
         free(response);
     }
