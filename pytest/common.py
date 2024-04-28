@@ -56,16 +56,21 @@ def start_server(endpoint, directory, args=[]):
     return ret
 
 
-def start_server_fg(endpoint, directory, args=[]):
+def start_server_fg(endpoint, directory, args=[], use_valgrind=False):
 
-    cmd = [RHIZOSRV, endpoint, directory] + args + ["-f"]
+    valgrind = []
+    if use_valgrind:
+        valgrind = ["valgrind", "--leak-check=full", "--track-origins=yes"]
+
+    cmd = valgrind + [RHIZOSRV, endpoint, directory] + args + ["-f"]
     print("starting server in foreground:", " ".join(cmd))
     return subprocess.Popen(cmd, text=True)
 
 
 def stop_server_fg(process):
     process.terminate()
-    process.wait()
+    ret = process.wait()
+    assert ret == 0
 
 
 def start_client(endpoint, directory, args=[], ignore_fail=False):
@@ -93,6 +98,22 @@ def stop_client(directory):
 
     print (f"retval={ret.retval}")
     assert ret.retval == 0
+
+
+def start_client_fg(endpoint, directory, args=[], ignore_fail=False, use_valgrind=False):
+    valgrind = []
+    if use_valgrind:
+        valgrind = ["valgrind", "--leak-check=full", "--track-origins=yes"]
+
+    cmd = valgrind + [RHIZOFS, "-f"] + args + [endpoint, directory]
+    print("starting client in foreground:", " ".join(cmd))
+    return subprocess.Popen(cmd, text=True)
+
+
+def stop_client_fg(process):
+    process.terminate()
+    ret = process.wait()
+    assert ret == 0
 
 
 def vmci_supported():
