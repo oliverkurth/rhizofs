@@ -11,6 +11,9 @@ jobs:
             - name: install build deps
               run: sudo apt-get -y install libzmq3-dev pkg-config libprotobuf-c-dev protobuf-c-compiler libfuse-dev
 
+            - name: install valgrind
+              run: sudo apt-get -y install valgrind
+
             - name: build
               working-directory: ${{ github.workspace }}
               run: make
@@ -25,4 +28,4 @@ jobs:
 
             - name: run tests
               working-directory: ${{ github.workspace }}
-              run: pytest pytest/
+              run: pytest -s pytest/

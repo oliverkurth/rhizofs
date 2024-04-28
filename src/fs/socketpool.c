@@ -51,9 +51,11 @@ SocketPool_deinit(SocketPool * sp)
     if (sp) {
         if (sp->socket_name != NULL) {
             free(sp->socket_name);
+            sp->socket_name = NULL;
         }
         if (sp->key) {
             pthread_key_delete(sp->key);
+            sp->key = 0;
         }
     }
 }

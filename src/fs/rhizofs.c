@@ -180,10 +180,14 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     Rhizofs__Response * response = NULL;
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
-    struct fuse_context * fcontext = fuse_get_context();
+    struct fuse_context * fcontext = NULL;
     bool renew_socket = false;
 
     (*err) = 0;
+
+    if (check_fuse_interrupts) {
+        fcontext = fuse_get_context();
+    }
 
     if (socket_to_use) {
         sock = socket_to_use;
