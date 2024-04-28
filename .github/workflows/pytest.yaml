@@ -28,4 +28,4 @@ jobs:
 
             - name: run tests
               working-directory: ${{ github.workspace }}
-              run: pytest pytest/
+              run: pytest -s pytest/
