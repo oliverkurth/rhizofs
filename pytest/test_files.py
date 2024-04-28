@@ -23,11 +23,21 @@ pytestmark = pytest.mark.parametrize("use_valgrind", [False, True], scope='modul
 @pytest.fixture(scope='module', autouse=True)
 def setup_test(use_valgrind):
     pwd = os.getcwd()
-    endpoint = f"ipc://{pwd}/.rhizo.sock"
+    socket_file = f"{pwd}/.rhizo.sock"
+    endpoint = f"ipc://{socket_file}"
 
     srv_dir = SRV_DIR
     os.makedirs(srv_dir, exist_ok=True)
     server_process = start_server_fg(endpoint, srv_dir, use_valgrind=use_valgrind)
+
+    for timeout in range(15, 0, -1):
+        if os.path.exists(socket_file):
+            mode = os.stat(socket_file).st_mode
+            if stat.S_ISSOCK(mode):
+                break
+        time.sleep(1)
+    else:
+        raise Exception("timed out waiting for rhizofs")
 
     client_dir = CLIENT_DIR
     os.makedirs(client_dir, exist_ok=True)
