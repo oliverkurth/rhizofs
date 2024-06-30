@@ -3,12 +3,12 @@ name: build RPMs
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
-    photon-rpms:
+    photon-rpms-docker:
         env:
             DIST: photon
-        runs-on: ubuntu-latest
+        runs-on: [ self-hosted, ARM64 ]
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v3
             - name: build container
               working-directory: ${{ github.workspace }}
               run: |
@@ -18,7 +18,7 @@ jobs:
               run: |
                 docker run --rm -v $(pwd):/workdir -w /workdir ${DIST}-builder ./ci/${DIST}/build-rpms.sh
             - name: upload RPMs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v4
               with:
                   name: ${{ env.DIST }}-rpms
                   path: rpmbuild/RPMS/

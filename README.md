@@ -289,6 +289,10 @@ This software has three main dependencies:
 * [ZeroMQ](http://www.zeromq.org)
 * [protobuf-c](http://code.google.com/p/protobuf-c/)
 
+On MacOS, you can install the dependencies with:
+* install macFUSE from https://osxfuse.github.io/
+* install zeromq, protobuf-c and pkg-config with `brew install zeromq protobuf-c pkg-config`
+
 Besides that there is only GNU Make and C compiler with support for the C99 standard required.
 
 The project has no `configure` script and the build is simply triggered by calling
