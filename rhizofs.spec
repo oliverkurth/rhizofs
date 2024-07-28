@@ -7,9 +7,13 @@ Source0:    %{name}-%{version}.tar.gz
 Summary:    A simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
 License:    BSD
 
-BuildRequires: protobuf-c-devel
 BuildRequires: fuse-devel
+BuildRequires: gcc
+BuildRequires: make
+BuildRequires: protobuf-c-devel
 BuildRequires: zeromq-devel
+
+Requires: fuse
 
 %description
 This package contains the client.
