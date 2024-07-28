@@ -7,7 +7,7 @@ CFLAGS= -Wall \
 	-Isrc \
 	-D_XOPEN_SOURCE=600 \
 	-D_DEFAULT_SOURCE \
-	-I. $(shell pkg-config fuse --cflags) \
+	-I. $(shell pkg-config fuse3 --cflags) \
 	-I. $(shell pkg-config libprotobuf-c --cflags) \
 	-I. $(shell pkg-config libzmq --cflags)
 
@@ -16,7 +16,7 @@ CFLAGS= -Wall \
 CFLAGS_EXTRA = -std=c99
 
 LIBS=$(shell pkg-config libzmq --libs) $(shell pkg-config libprotobuf-c --libs) -lpthread
-FUSE_LIBS=$(shell pkg-config fuse --libs)
+FUSE_LIBS=$(shell pkg-config fuse3 --libs)
 
 # tools
 PROTOCC=protoc-c

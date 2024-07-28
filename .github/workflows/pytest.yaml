@@ -9,7 +9,7 @@ jobs:
             - uses: actions/checkout@v4
 
             - name: install build deps
-              run: sudo apt-get -y install libzmq3-dev pkg-config libprotobuf-c-dev protobuf-c-compiler libfuse-dev
+              run: sudo apt-get -y install libzmq3-dev pkg-config libprotobuf-c-dev protobuf-c-compiler libfuse3-dev
 
             - name: build
               working-directory: ${{ github.workspace }}
