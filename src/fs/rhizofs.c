@@ -23,7 +23,7 @@
 
 // use the 2.6 fuse api
 #ifndef FUSE_USE_VERSION
-#define FUSE_USE_VERSION 26
+#define FUSE_USE_VERSION 31
 #endif
 #include <fuse.h>
 
@@ -106,9 +106,11 @@ static AttrCache attrcache;
  * - starting of background threads
  */
 static void *
-Rhizofs_init(struct fuse_conn_info * UNUSED_PARAMETER(conn))
+Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
     RhizoPriv * priv = NULL;
+	(void) conn;
+	(void) cfg;
 
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
@@ -180,7 +182,6 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     Rhizofs__Response * response = NULL;
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
-    struct fuse_context * fcontext = fuse_get_context();
     bool renew_socket = false;
 
     (*err) = 0;
@@ -216,7 +217,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
                 usleep(SEND_SLEEP_USEC);
 
                 if (check_fuse_interrupts) {
-                    if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+                    if (fuse_interrupted() != 0) {
                         (*err) = EINTR;
                         log_info("The request has been interrupted");
                         goto error;
@@ -276,7 +277,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
          * while waiting for a response
          */
         if (check_fuse_interrupts) {
-            if ((fuse_interrupted() != 0) || fuse_exited(fcontext->fuse)) {
+            if (fuse_interrupted() != 0) {
                 log_info("The request has been interrupted");
                 *err = EINTR;
             }
@@ -375,7 +376,8 @@ error:
 
 static int
 Rhizofs_readdir(const char * path, void * buf,
-    fuse_fill_dir_t filler, off_t offset, struct fuse_file_info * fi)
+                fuse_fill_dir_t filler, off_t offset,
+		struct fuse_file_info * fi, enum fuse_readdir_flags flags)
 {
     unsigned int entry_n = 0;
     char * path_entry = NULL;
@@ -383,6 +385,7 @@ Rhizofs_readdir(const char * path, void * buf,
 
     (void) offset;
     (void) fi;
+    (void) flags;
 
     OP_INIT(request, response, returned_err);
 
@@ -399,7 +402,7 @@ Rhizofs_readdir(const char * path, void * buf,
             "attrs is missing the name");
 
         // add to file list
-        if (filler(buf, response->directory_entries[entry_n]->name, NULL, 0)) {
+        if (filler(buf, response->directory_entries[entry_n]->name, NULL, 0, 0)) {
             break;
         }
 
@@ -432,8 +435,9 @@ error:
 
 
 static int
-Rhizofs_getattr(const char *path, struct stat *stbuf)
+Rhizofs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
+	(void) fi;
     if (AttrCache_copy_stat(&attrcache, path, stbuf) == false) {
         return Rhizofs_getattr_remote(path, stbuf);
     }
@@ -683,8 +687,9 @@ error:
 }
 
 static int
-Rhizofs_truncate(const char * path, off_t offset)
+Rhizofs_truncate(const char * path, off_t offset, struct fuse_file_info *fi)
 {
+	(void) fi;
     OP_INIT(request, response, returned_err);
 
     request.path = (char *)path;
@@ -705,8 +710,9 @@ error:
 
 
 static int
-Rhizofs_chmod(const char * path, mode_t access_mode)
+Rhizofs_chmod(const char * path, mode_t access_mode, struct fuse_file_info *fi)
 {
+	(void) fi;
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__CHMOD;
@@ -728,8 +734,9 @@ error:
 
 
 static int
-Rhizofs_utimens(const char * path, const struct timespec tv[2])
+Rhizofs_utimens(const char * path, const struct timespec tv[2], struct fuse_file_info *fi)
 {
+	(void) fi;
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
@@ -788,8 +795,9 @@ error:
 
 
 static int
-Rhizofs_rename(const char * path_from, const char * path_to)
+Rhizofs_rename(const char * path_from, const char * path_to, unsigned int flags)
 {
+	(void) flags;
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
@@ -886,11 +894,12 @@ error:
 
 
 static int
-Rhizofs_chown(const char * path, uid_t user, gid_t group)
+Rhizofs_chown(const char * path, uid_t user, gid_t group, struct fuse_file_info *fi)
 {
     (void) path;
     (void) user;
     (void) group;
+	(void) fi;
 
     log_warn("CHOWN is not (yet) supported");
     return -ENOTSUP;
