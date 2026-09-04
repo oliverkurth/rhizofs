@@ -724,7 +724,14 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     fd = open(path, O_RDONLY);
     if (fd != -1) {
 
-        databuf = calloc(sizeof(uint8_t), (int)request->size);
+        check((request->size >= 0), "requested size is negative: %d", (int)request->size);
+
+        /* allocate using the same (non-truncated) size that is passed to
+         * read()/pread() below - request->size is a 64bit value coming
+         * from the client, truncating it here for the allocation while
+         * using the full value for the read would allow a heap buffer
+         * overflow */
+        databuf = calloc(sizeof(uint8_t), (size_t)request->size);
         check_mem(databuf);
 
         if (request->offset == 0) {
