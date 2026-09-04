@@ -212,6 +212,61 @@ def test_mount_zap():
     shutil.rmtree(srv_dir)
 
 
+def test_mount_zap_multiple_keys():
+    """
+    authorized_keys supports one key per line - make sure a client
+    using a key that is not the first line of the file is still
+    correctly authenticated. auth_routine() reads the file with
+    fgets(buf, 41, fptr), a fixed 40-byte window per call that only
+    lines up with key boundaries again on the following call (the
+    trailing newline of a line is left unconsumed and returned as its
+    own throwaway "line" on the next call) - this test guards against
+    that lookup breaking for anything past the first key.
+    """
+    pwd = os.getcwd()
+    endpoint = f"ipc://{pwd}/.rhizo.sock"
+    pubkey_file = os.path.join(pwd, "rhizo-key.pub")
+    client_key_file_a = os.path.join(pwd, "rhizo-client-key-a")
+    client_key_file_b = os.path.join(pwd, "rhizo-client-key-b")
+    authorized_keys_file = os.path.join(pwd, "authorized_keys")
+
+    run([RHIZOKEYGEN, client_key_file_a])
+    assert os.path.exists(client_key_file_a)
+    run([RHIZOKEYGEN, client_key_file_b])
+    assert os.path.exists(client_key_file_b)
+
+    with open(client_key_file_a, "rb") as f:
+        key_a = f.read()
+    with open(client_key_file_b, "rb") as f:
+        key_b = f.read()
+
+    with open(authorized_keys_file, "wb") as f:
+        f.write(key_a + b"\n" + key_b + b"\n")
+
+    srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
+    ret = start_server(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
+
+    client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
+    # connect using the *second* key listed in authorized_keys
+    start_client(endpoint, client_dir, args=[f"--pubkeyfile={pubkey_file}", f"--clientpubkeyfile={client_key_file_b}"])
+
+    time.sleep(1)
+
+    basename = "readdir.txt"
+    filename = os.path.join(client_dir, basename)
+    with open(filename, "w") as f:
+        f.write("bla")
+
+    entries = os.listdir(client_dir)
+    assert basename in entries
+
+    stop_client(client_dir)
+    shutil.rmtree(client_dir)
+
+    stop_server()
+    shutil.rmtree(srv_dir)
+
+
 def test_mount_zap_invalid():
     pwd = os.getcwd()
     endpoint = f"ipc://{pwd}/.rhizo.sock"
