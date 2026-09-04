@@ -217,14 +217,22 @@ def test_mount_zap_invalid():
     endpoint = f"ipc://{pwd}/.rhizo.sock"
     pubkey_file = os.path.join(pwd, "rhizo-key.pub")
     client_key_file = os.path.join(pwd, "rhizo-client-key")
+    other_key_file = os.path.join(pwd, "rhizo-other-key")
     authorized_keys_file = os.path.join(pwd, "authorized_keys")
 
     run([RHIZOKEYGEN, client_key_file])
     assert os.path.exists(client_key_file)
     assert os.path.exists(f"{client_key_file}.secret")
 
-    with open(authorized_keys_file, "wt") as f:
-        f.write("totallywrongkey")
+    # authorized_keys contains a real, well-formed 40 character key -
+    # just not the one the client below will connect with. this makes
+    # sure the client is rejected because its key isn't on the list,
+    # rather than merely because the file's content doesn't parse as a
+    # key at all.
+    run([RHIZOKEYGEN, other_key_file])
+    assert os.path.exists(other_key_file)
+
+    shutil.copyfile(other_key_file, authorized_keys_file)
 
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
     ret = start_server(endpoint, srv_dir, args=["--encrypt", "--pubkeyfile", pubkey_file, "-a", authorized_keys_file])
