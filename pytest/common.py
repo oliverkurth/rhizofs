@@ -10,6 +10,7 @@ BINDIR=os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "bin"))
 RHIZOSRV=os.path.join(BINDIR, "rhizosrv")
 RHIZOFS=os.path.join(BINDIR, "rhizofs")
 RHIZOKEYGEN=os.path.join(BINDIR, "rhizo-keygen")
+RHIZORAWCLIENT=os.path.join(BINDIR, "rhizo-rawclient")
 
 
 class CmdReturn:
@@ -39,7 +40,11 @@ def stop_server():
     pidfile_path = os.path.join(pwd, "rhizosrv.pid")
     with open(pidfile_path, "r") as f:
         pid = int(f.read())
-    os.kill(pid, signal.SIGTERM)
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        # already gone (e.g. it crashed) - nothing left to stop
+        pass
 
 
 def start_server(endpoint, directory, args=[]):
@@ -86,3 +91,36 @@ def vmci_supported():
         return stat.S_ISCHR(os.stat("/dev/vmci").st_mode)
     except FileNotFoundError:
         return False
+
+
+def server_pid():
+    pwd = os.getcwd()
+    pidfile_path = os.path.join(pwd, "rhizosrv.pid")
+    with open(pidfile_path, "r") as f:
+        return int(f.read())
+
+
+def server_is_alive():
+    try:
+        os.kill(server_pid(), 0)
+        return True
+    except (ProcessLookupError, FileNotFoundError):
+        return False
+
+
+def run_rawclient(endpoint, *args):
+    """
+    invoke the rhizo-rawclient test tool, which speaks the wire protocol
+    directly (bypassing the FUSE client) so that raw/malicious requests
+    can be crafted for security regression tests.
+
+    returns a dict parsed from the tool's "KEY=VALUE" stdout lines
+    """
+    ret = run([RHIZORAWCLIENT, endpoint] + list(args))
+    result = {}
+    for line in ret.stdout:
+        if "=" in line:
+            key, _, value = line.partition("=")
+            result[key] = value
+    result["_retval"] = ret.retval
+    return result

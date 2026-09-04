@@ -51,6 +51,34 @@ error:
 
 
 
+bool
+path_has_parent_reference(const char * path)
+{
+    if (path == NULL) {
+        return false;
+    }
+
+    const char * component_start = path;
+    const char * p = path;
+
+    while (1) {
+        if (*p == PATH_SEP || *p == '\0') {
+            if ((p - component_start) == 2 &&
+                    component_start[0] == '.' && component_start[1] == '.') {
+                return true;
+            }
+            if (*p == '\0') {
+                break;
+            }
+            component_start = p + 1;
+        }
+        ++p;
+    }
+
+    return false;
+}
+
+
 int
 path_join_real(const char * path1, const char * path2, char ** pathjoined)
 {
