@@ -34,7 +34,10 @@ def setup_test():
 
     client_dir = CLIENT_DIR
     os.makedirs(client_dir, exist_ok=True)
-    start_client(endpoint, client_dir, args = [f"--pubkeyfile={pubkey_file}"])
+    # some of these tests create files directly in the served directory
+    # rather than through the mount - see the comment in test_bigfiles.py
+    start_client(endpoint, client_dir,
+                 args = [f"--pubkeyfile={pubkey_file}", "--attr-cache-timeout=0"])
 
     time.sleep(1)
 
