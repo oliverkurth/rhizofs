@@ -206,11 +206,14 @@ def test_mount_zap():
     entries = os.listdir(client_dir)
     assert basename in entries
 
-    stop_client(client_dir)
-    shutil.rmtree(client_dir)
-
-    stop_server_fg(server_process)
-    shutil.rmtree(srv_dir)
+    try:
+        stop_client(client_dir)
+    finally:
+        try:
+            stop_server_fg(server_process)
+        finally:
+            shutil.rmtree(client_dir)
+            shutil.rmtree(srv_dir)
 
 
 def test_mount_zap_multiple_keys():
