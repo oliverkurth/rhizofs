@@ -8,7 +8,7 @@ Summary:    A simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
 License:    BSD
 
 BuildRequires: protobuf-c-devel
-BuildRequires: fuse-devel
+BuildRequires: fuse3-devel
 BuildRequires: zeromq-devel
 
 %description

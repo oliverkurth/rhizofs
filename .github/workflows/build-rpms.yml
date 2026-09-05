@@ -8,7 +8,7 @@ jobs:
             DIST: photon
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@master
             - name: build container
               working-directory: ${{ github.workspace }}
               run: |
@@ -18,7 +18,8 @@ jobs:
               run: |
                 docker run --rm -v $(pwd):/workdir -w /workdir ${DIST}-builder ./ci/${DIST}/build-rpms.sh
             - name: upload RPMs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@master
               with:
                   name: ${{ env.DIST }}-rpms
                   path: rpmbuild/RPMS/
+
