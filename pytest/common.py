@@ -118,7 +118,9 @@ def start_client_fg(endpoint, directory, args=[], ignore_fail=False, use_valgrin
 def stop_client_fg(process):
     process.terminate()
     ret = process.wait()
-    assert ret == 0
+    # libfuse3 exits with 8, not 0, when fuse_main() is terminated by a
+    # signal (SIGTERM/SIGINT/SIGHUP) rather than an explicit unmount call.
+    assert ret in (0, 8)
 
 
 def vmci_supported():
