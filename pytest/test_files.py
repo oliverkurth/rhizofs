@@ -8,36 +8,65 @@ import time
 
 
 from common import start_server, stop_server, \
+                   start_server_fg, stop_server_fg, \
                    start_client, stop_client, \
+                   start_client_fg, stop_client_fg, \
                    RHIZOSRV, RHIZOFS
 
 
 SRV_DIR=os.path.join(os.getcwd(), "srvdir-files")
 CLIENT_DIR=os.path.join(os.getcwd(), "clientdir-files")
 
+pytestmark = pytest.mark.parametrize("use_valgrind", [False, True], scope='module')
+
 
 @pytest.fixture(scope='module', autouse=True)
-def setup_test():
+def setup_test(use_valgrind):
     pwd = os.getcwd()
-    endpoint = f"ipc://{pwd}/.rhizo.sock"
+    socket_file = f"{pwd}/.rhizo.sock"
+    endpoint = f"ipc://{socket_file}"
 
     srv_dir = SRV_DIR
     os.makedirs(srv_dir, exist_ok=True)
-    ret = start_server(endpoint, srv_dir)
+    server_process = start_server_fg(endpoint, srv_dir, use_valgrind=use_valgrind)
+
+    for timeout in range(15, 0, -1):
+        if os.path.exists(socket_file):
+            mode = os.stat(socket_file).st_mode
+            if stat.S_ISSOCK(mode):
+                break
+        time.sleep(1)
+    else:
+        raise Exception("timed out waiting for rhizofs")
 
     client_dir = CLIENT_DIR
     os.makedirs(client_dir, exist_ok=True)
-    start_client(endpoint, client_dir)
+    client_process = start_client_fg(endpoint, client_dir, use_valgrind=use_valgrind)
 
-    time.sleep(1)
+    # wait for the actual mount rather than guessing a fixed delay: under
+    # valgrind (and on slower/loaded CI runners) the client can take much
+    # longer than a second to connect and mount. proceeding before it has
+    # mounted means the tests silently run against a plain empty directory,
+    # and later, fuse_main()'s signal handlers not being installed yet means
+    # stop_client_fg()'s SIGTERM kills it via the default disposition instead
+    # of a clean libfuse shutdown.
+    for timeout in range(30, 0, -1):
+        if os.path.ismount(client_dir):
+            break
+        time.sleep(1)
+    else:
+        raise Exception("timed out waiting for rhizofs to mount")
 
     yield
 
-    stop_client(client_dir)
-    shutil.rmtree(client_dir)
-
-    stop_server()
-    shutil.rmtree(srv_dir)
+    try:
+        stop_client_fg(client_process)
+    finally:
+        try:
+            stop_server_fg(server_process)
+        finally:
+            shutil.rmtree(client_dir)
+            shutil.rmtree(srv_dir)
 
 
 def write_file(filename, text):
