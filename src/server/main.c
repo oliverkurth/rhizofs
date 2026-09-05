@@ -206,6 +206,19 @@ void *auth_routine(void* ctx)
         char *identity_property = receive_string(sock);
         char *mechanism = receive_string(sock);
 
+        if (version == NULL || request_id == NULL || domain == NULL ||
+                address == NULL || identity_property == NULL || mechanism == NULL) {
+            /* the zap socket errored out (e.g. the zmq context is being
+               torn down while we were blocked waiting for a request) */
+            free(version);
+            free(request_id);
+            free(domain);
+            free(address);
+            free(identity_property);
+            free(mechanism);
+            break;
+        }
+
         char *client_key = NULL;
         char client_key_text[41];
         if (strcmp(mechanism, "CURVE") == 0) {
