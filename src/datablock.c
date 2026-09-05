@@ -231,6 +231,7 @@ error:
 
     if (free_data) {
         free(*data);
+        *data = NULL;
     }
 
     return -1;
@@ -309,19 +310,31 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc
     }
     check(((*data) != NULL), "data buffer is null");
 
-    bytes_uncompressed = LZ4_uncompress((const char*)dblk->data.data,
-                (char*)(*data), len);
-    check((bytes_uncompressed >= 0), "LZ4_uncompress failed");
-    check((dblk->data.len == (size_t)bytes_uncompressed), "could not decompress "
-                "the whole block (only %d bytes of %d bytes)", 
-                bytes_uncompressed, (int)dblk->data.len);
+    /* LZ4_uncompress() trusts the source buffer to actually contain
+     * enough compressed data to produce "len" bytes of output and will
+     * read past the end of dblk->data.data if it does not - since that
+     * buffer's contents and length both come from the client, a
+     * malicious/malformed message could make it read out of bounds.
+     * LZ4_uncompress_unknownOutputSize() takes the size of the source
+     * buffer explicitly and never reads past it. */
+    bytes_uncompressed = LZ4_uncompress_unknownOutputSize((const char*)dblk->data.data,
+                (char*)(*data), (int)dblk->data.len, (int)len);
+    check((bytes_uncompressed >= 0), "LZ4_uncompress_unknownOutputSize failed");
+    check((len == (size_t)bytes_uncompressed), "could not decompress "
+                "the whole block (decoded %d bytes, expected %d bytes)",
+                bytes_uncompressed, (int)len);
 
     return len;
 
 error:
 
+    /* on the do_alloc path, *data was allocated by this function and the
+     * caller's own error handling (DataBlock_get_data) will also try to
+     * free(*data) on a negative return - clear the pointer after freeing
+     * it here so that doesn't turn into a double free */
     if (free_data) {
         free(*data);
+        *data = NULL;
     }
     return -1;
 }

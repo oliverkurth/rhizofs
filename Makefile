@@ -35,6 +35,11 @@ FS_SOURCES=$(wildcard src/kazlib/*.c src/fs/*.c src/*.c) ${PROTO_C_COMPILED}
 FS_OBJECTS=$(patsubst %.c,%.o,${FS_SOURCES})
 TOOLS_SOURCES=$(wildcard src/tools/*.c)
 TOOLS_OBJECTS=$(patsubst %.c,%.o,${TOOLS_SOURCES})
+RAWCLIENT_SOURCES=tests/rawclient.c
+RAWCLIENT_OBJECTS=$(patsubst %.c,%.o,${RAWCLIENT_SOURCES})
+RAWCLIENT_COMMON_OBJECTS=src/kazlib/hash.o src/datablock.o src/dbg.o src/hashfunc.o \
+	src/lz4.o src/mapping.o src/path.o src/posix.o src/request.o src/response.o \
+	src/proto/rhizofs.pb-c.o
 
 # do not strip debuging information in release builds
 release: CFLAGS+=-DNDEBUG -O2 -g
@@ -57,7 +62,14 @@ ${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
 ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(shell pkg-config libzmq --libs)
 
-${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
+# test-only tool used by the pytest regression tests to talk to the wire
+# protocol directly. not part of "all"/"install".
+testclient: ${BINDIR}/rhizo-rawclient
+
+${BINDIR}/rhizo-rawclient: ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
+	$(CC) -o ${BINDIR}/rhizo-rawclient ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
+
+${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES}: ${PROTO_H_COMPILED}
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -c $< -o $@
@@ -69,7 +81,7 @@ ${SERVER_SOURCES} ${FS_SOURCES}: ${PROTO_H_COMPILED}
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv

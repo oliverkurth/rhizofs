@@ -246,6 +246,8 @@ static int
 ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
 {
     check((request->path != NULL), "request path is null");
+    check_debug(!path_has_parent_reference(request->path),
+            "rejecting path escaping the served directory: %s", request->path);
     check((path_join(sd->directory, request->path, fullpath)==0), "error processing path");
     check_debug((fullpath != NULL), "fullpath is null");
 
@@ -472,6 +474,8 @@ ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
+    check_debug(!path_has_parent_reference(request->path_to),
+            "rejecting path_to escaping the served directory: %s", request->path_to);
     check((path_join(sd->directory, request->path_to, &path_to)==0),
             "error processing path_to");
     check_debug((path_to != NULL), "path_to is null");
@@ -507,6 +511,8 @@ ServeDir_op_link(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
+    check_debug(!path_has_parent_reference(request->path_to),
+            "rejecting path_to escaping the served directory: %s", request->path_to);
     check((path_join(sd->directory, request->path_to, &path_to)==0),
             "error processing path_to");
     check_debug((path_to != NULL), "path_to is null");
@@ -718,7 +724,14 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     fd = open(path, O_RDONLY);
     if (fd != -1) {
 
-        databuf = calloc(sizeof(uint8_t), (int)request->size);
+        check((request->size >= 0), "requested size is negative: %d", (int)request->size);
+
+        /* allocate using the same (non-truncated) size that is passed to
+         * read()/pread() below - request->size is a 64bit value coming
+         * from the client, truncating it here for the allocation while
+         * using the full value for the read would allow a heap buffer
+         * overflow */
+        databuf = calloc(sizeof(uint8_t), (size_t)request->size);
         check_mem(databuf);
 
         if (request->offset == 0) {

@@ -1,6 +1,7 @@
 #ifndef __util_path_h__
 #define __util_path_h__
 
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -18,6 +19,15 @@
 int path_join(const char *, const char *, char **);
 
 int path_join_real(const char *, const char *, char **);
+
+/**
+ * check if a (client-supplied) relative path contains a ".."
+ * component which, when joined onto a base directory, could be
+ * used to escape it (directory traversal)
+ *
+ * returns true if the path contains such a component, false otherwise
+ */
+bool path_has_parent_reference(const char * path);
 
 /**
  * return the basename of the path

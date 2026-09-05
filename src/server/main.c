@@ -448,10 +448,19 @@ daemonize()
         pidfile = NULL;
     }
 
-    // close open files
-    fclose(stdin);
-    fclose(stderr);
-    fclose(stdout);
+    // redirect the standard file descriptors to /dev/null instead of
+    // just closing them - otherwise fds 0/1/2 stay closed and get
+    // silently handed out again to the next thing that opens a file
+    // or socket
+    if (freopen("/dev/null", "r", stdin) == NULL) {
+        log_err("could not redirect stdin to /dev/null");
+    }
+    if (freopen("/dev/null", "w", stdout) == NULL) {
+        log_err("could not redirect stdout to /dev/null");
+    }
+    if (freopen("/dev/null", "w", stderr) == NULL) {
+        log_err("could not redirect stderr to /dev/null");
+    }
 }
 
 
