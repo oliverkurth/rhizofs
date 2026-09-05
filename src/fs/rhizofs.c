@@ -26,6 +26,7 @@
 #define FUSE_USE_VERSION 31
 #endif
 #include <fuse.h>
+#include <fuse_lowlevel.h>
 
 #include <zmq.h>
 
@@ -182,6 +183,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
     Rhizofs__Response * response = NULL;
     zmq_msg_t msg_req;
     zmq_msg_t msg_resp;
+    struct fuse_context * fcontext = fuse_get_context();
     bool renew_socket = false;
 
     (*err) = 0;
@@ -217,7 +219,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
                 usleep(SEND_SLEEP_USEC);
 
                 if (check_fuse_interrupts) {
-                    if (fuse_interrupted() != 0) {
+                    if ((fuse_interrupted() != 0) || fuse_session_exited(fuse_get_session(fcontext->fuse))) {
                         (*err) = EINTR;
                         log_info("The request has been interrupted");
                         goto error;
@@ -277,7 +279,7 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
          * while waiting for a response
          */
         if (check_fuse_interrupts) {
-            if (fuse_interrupted() != 0) {
+            if ((fuse_interrupted() != 0) || fuse_session_exited(fuse_get_session(fcontext->fuse))) {
                 log_info("The request has been interrupted");
                 *err = EINTR;
             }
