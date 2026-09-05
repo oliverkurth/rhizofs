@@ -43,16 +43,30 @@ def setup_test(use_valgrind):
     os.makedirs(client_dir, exist_ok=True)
     client_process = start_client_fg(endpoint, client_dir, use_valgrind=use_valgrind)
 
-    time.sleep(1)
+    # wait for the actual mount rather than guessing a fixed delay: under
+    # valgrind (and on slower/loaded CI runners) the client can take much
+    # longer than a second to connect and mount. proceeding before it has
+    # mounted means the tests silently run against a plain empty directory,
+    # and later, fuse_main()'s signal handlers not being installed yet means
+    # stop_client_fg()'s SIGTERM kills it via the default disposition instead
+    # of a clean libfuse shutdown.
+    for timeout in range(30, 0, -1):
+        if os.path.ismount(client_dir):
+            break
+        time.sleep(1)
+    else:
+        raise Exception("timed out waiting for rhizofs to mount")
 
     yield
 
     try:
         stop_client_fg(client_process)
-        stop_server_fg(server_process)
     finally:
-        shutil.rmtree(client_dir)
-        shutil.rmtree(srv_dir)
+        try:
+            stop_server_fg(server_process)
+        finally:
+            shutil.rmtree(client_dir)
+            shutil.rmtree(srv_dir)
 
 
 def write_file(filename, text):
