@@ -195,6 +195,18 @@ You can check the status with `systemctl --user status rhizosrv`:
              └─44464 /usr/local/bin/rhizosrv -f tcp://0.0.0.0:1234 /home/okurth
 ```
 
+Instead of setting this up by hand, the script `rhizosrv-setuptool.sh` automates it: it
+generates the server key pair (if one doesn't already exist) and creates and enables a
+systemd user unit which runs the server with encryption enabled on `tcp://0.0.0.0:5555`.
+```
+rhizosrv-setuptool.sh [DIRECTORY]
+```
+`DIRECTORY` is optional. If omitted, the home directory is shared, as in the example
+above. If given and it does not start with `/`, it is taken relative to the home
+directory. Access is restricted to clients whose public key is listed in
+`.config/rhizosrv/authorized_keys`, which is not managed by the script and needs to be
+populated separately (see `rhizo-keygen` below to generate client keys).
+
 **rhizofs**
 
 rhizofs is the client-side component and is used to mount the filesystem on the client.
@@ -300,6 +312,19 @@ The filesystem can easily be unmounted with
 systemctl --user stop rhizofs-nuc-oliver.service
 ```
 
+Instead of setting this up by hand, the script `rhizofs-setuptool.sh` automates it: it
+generates a client key pair (if one doesn't already exist) and creates and enables a
+systemd user unit to mount the given server.
+```
+rhizofs-setuptool.sh NAME URL MOUNT_POINT
+```
+- `NAME` identifies the server. The server's public key is expected to already be in
+  `.config/rhizofs/NAME` (see `rhizo-keygen` below), and the generated unit is named
+  `rhizofs-NAME.service` accordingly.
+- `URL` is the ZeroMQ socket URL of the server, e.g. `tcp://nuc-oliver.home:5555`.
+- `MOUNT_POINT` is the directory to mount the filesystem on, relative to the home
+  directory. It must already exist.
+
 Utilities
 ---------
 
@@ -336,7 +361,8 @@ in the project directory.
 
     make install
 
-installs the client and server components on the system.
+installs the client and server components on the system, along with the
+`rhizofs-setuptool.sh` and `rhizosrv-setuptool.sh` convenience scripts described above.
 
 There is also some rudimentary support for building a debian package by calling `make deb`,
 but be aware that the package building might not always be kept up to date with the current
