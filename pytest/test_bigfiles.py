@@ -37,7 +37,13 @@ def setup_test():
 
     client_dir = CLIENT_DIR
     os.makedirs(client_dir, exist_ok=True)
-    start_client(endpoint, client_dir, args = [f"--pubkeyfile={pubkey_file}"])
+    # these tests create their files directly in the served directory
+    # instead of going through the mount, so the client has no way of
+    # knowing its cached attributes went stale. without disabling the
+    # attribute cache a read can be silently truncated to a previously
+    # cached st_size.
+    start_client(endpoint, client_dir,
+                 args = [f"--pubkeyfile={pubkey_file}", "--attr-cache-timeout=0"])
 
     time.sleep(1)
 

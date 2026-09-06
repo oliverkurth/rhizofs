@@ -41,7 +41,9 @@ def setup_test(use_valgrind):
 
     client_dir = CLIENT_DIR
     os.makedirs(client_dir, exist_ok=True)
-    client_process = start_client_fg(endpoint, client_dir, use_valgrind=use_valgrind)
+    # some of these tests create files directly in the served directory
+    # rather than through the mount - see the comment in test_bigfiles.py
+    client_process = start_client_fg(endpoint, client_dir, args=["--attr-cache-timeout=0"], use_valgrind=use_valgrind)
 
     # wait for the actual mount rather than guessing a fixed delay: under
     # valgrind (and on slower/loaded CI runners) the client can take much

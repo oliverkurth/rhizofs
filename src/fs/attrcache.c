@@ -108,6 +108,14 @@ AttrCache_get(AttrCache * attrcache, const char * path)
     check(attrcache != NULL, "passed attrcache is null");
     check(path != NULL, "given path is null");
 
+    /* a max age of 0 disables the cache completely. this can not be left
+     * to AttrCache_entry_is_deprecated() alone: that compares whole
+     * seconds, so with a max age of 0 an entry stored and read back
+     * within the same second would still count as fresh */
+    if (attrcache->max_age_sec == 0) {
+        return NULL;
+    }
+
     debug("attrcache_get %s", path);
 
 	CacheEntry * cache_entry = NULL;
@@ -166,8 +174,18 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
 
     debug("attrcache_set %s", path);
 
+    /* a max age of 0 disables the cache completely. this function takes
+     * ownership of both arguments, so release them instead of storing */
+    if (attrcache->max_age_sec == 0) {
+        free(path);
+        CacheEntry_destroy(cache_entry);
+        return true;
+    }
+
     if (attrcache->hashtable->hash_maxcount == 0) {
         debug("Attrcache hastable allows 0 entries - nothing will be added");
+        free(path);
+        CacheEntry_destroy(cache_entry);
         return true;
     }
 
@@ -283,6 +301,14 @@ AttrCache_entry_is_deprecated(const AttrCache * attrcache, const CacheEntry * ca
     time_t current_time = time(NULL);
     check((current_time != -1), "could not fetch current time");
 
+    /* a max age of 0 disables the cache - treat everything as too old */
+    if (attrcache->max_age_sec == 0) {
+        return true;
+    }
+
+    /* note that this compares whole seconds, so an entry actually lives
+     * for between max_age_sec and max_age_sec+1 seconds, depending on
+     * where in the second it was stored */
     bool is_deprecated = (bool)((cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time);
 
     if (is_deprecated) {

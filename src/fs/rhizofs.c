@@ -57,6 +57,11 @@ typedef struct RhizoSettings {
      */
     uint32_t timeout;
 
+    /** how long (in seconds) attributes fetched from the server may be
+     * reused from the local cache. 0 disables the attribute cache - see
+     * the note on out-of-band changes in the README */
+    unsigned int attr_cache_timeout;
+
     /** check socket connection.
      * this is set to false if the program is only supposed to
      * print its help text and exit */
@@ -83,6 +88,7 @@ static struct fuse_opt rhizo_opts[] = {
     OPTION("-k=%s",           server_public_key),
     OPTION("--pubkey=%s",     server_public_key),
     OPTION("--clientpubkeyfile=%s", client_public_key_file),
+    OPTION("--attr-cache-timeout=%u", attr_cache_timeout),
     FUSE_OPT_END
 };
 
@@ -125,7 +131,7 @@ Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     if (settings.client_public_key != NULL && settings.client_secret_key != NULL)
         SocketPool_set_client_keypair(&socketpool, settings.client_public_key, settings.client_secret_key);
 
-    check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, ATTRCACHE_DEFAULT_MAXAGE_SEC) == true),
+    check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, settings.attr_cache_timeout) == true),
             "could not initialize the attrcache");
 
     return priv;
@@ -1010,6 +1016,8 @@ Rhizofs_settings_init()
     // set the default timeout
     settings.timeout = TIMEOUT_DEFAULT;
 
+    settings.attr_cache_timeout = ATTRCACHE_DEFAULT_MAXAGE_SEC;
+
     settings.check_socket_connection = true;
 }
 
@@ -1115,6 +1123,12 @@ Rhizofs_usage(const char * progname)
         "\n"
         "general options\n"
         "---------------\n"
+        "   --attr-cache-timeout=<seconds>\n"
+        "                             how long file attributes may be served from\n"
+        "                             the local cache [default=3]. 0 disables\n"
+        "                             attribute caching, which is needed to see\n"
+        "                             changes made to the shared directory without\n"
+        "                             going through this filesystem.\n"
         "   --clientpubkeyfile=<file> set client keypair file\n"
         "   -h --help                 print help\n"
         "   -k --pubkey=<key>         set the server public key\n"
@@ -1311,6 +1325,15 @@ Rhizofs_run(int argc, char * argv[])
         fuse_opt_insert_arg(&args, 1, tmpbuf);
     }
 #undef TMPBUF_SIZE
+
+    /* switching off our own attribute cache is only effective if the
+     * kernel is told to stop caching attributes and directory entries as
+     * well - otherwise it keeps answering stat() from its own copy, and a
+     * read of a file that changed on the server behind our back gets
+     * silently truncated to the stale size */
+    if (settings.attr_cache_timeout == 0) {
+        fuse_opt_insert_arg(&args, 1, "-oattr_timeout=0,entry_timeout=0");
+    }
 
     rc = Rhizofs_fuse_main(&args);
 

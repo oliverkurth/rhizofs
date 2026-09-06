@@ -33,6 +33,18 @@ Features
     `ls -la` by a great amount. This is especially true when the filesystem
     operates over a slow or/and high latency network connection.
 
+    Cached attributes are reused for a few seconds (see
+    `--attr-cache-timeout`), so a client can briefly report outdated
+    information for a file that was changed on the server *without* going
+    through rhizofs - by another process writing into the shared directory
+    directly, for example. Because the cached information includes the file
+    size, and the size is what determines where a file ends, a read issued
+    in that window can come back **silently truncated** rather than failing.
+    If something other than rhizofs modifies the shared directory, mount
+    with `--attr-cache-timeout=0` to always ask the server. Like the
+    attribute timeouts of other network filesystems (compare NFS' `acregmin`
+    / `acregmax`), this trades throughput for immediate consistency.
+
 -   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
     encryption and authentication (ZAP).
 
@@ -207,6 +219,12 @@ Mountpoint
 
 general options
 ---------------
+   --attr-cache-timeout=<seconds>
+                             how long file attributes may be served from
+                             the local cache [default=3]. 0 disables
+                             attribute caching, which is needed to see
+                             changes made to the shared directory without
+                             going through this filesystem.
    --clientpubkeyfile=<file> set client keypair file
    -h --help                 print help
    -k --pubkey=<key>         set the server public key
