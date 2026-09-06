@@ -9,6 +9,8 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@master
+              with:
+                  fetch-depth: 0
             - name: build container
               working-directory: ${{ github.workspace }}
               run: |

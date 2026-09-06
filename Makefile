@@ -88,7 +88,7 @@ valgrind-srv: dev ${BINDIR}/rhizosrv
 	valgrind   --leak-check=full --track-origins=yes ${BINDIR}/rhizosrv tcp://0.0.0.0:11555 /tmp/
 
 deb:
-	dpkg-buildpackage -uc -us
+	./scripts/build-deb.sh
 
 install: release
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
