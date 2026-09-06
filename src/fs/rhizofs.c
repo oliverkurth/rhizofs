@@ -1062,7 +1062,7 @@ RhizoPriv_create()
 {
     RhizoPriv * priv = NULL;
 
-    priv = calloc(sizeof(RhizoPriv), 1);
+    priv = calloc(1, sizeof(RhizoPriv));
     check_mem(priv);
     priv->context = NULL;
 

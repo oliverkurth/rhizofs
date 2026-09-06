@@ -13,7 +13,7 @@ posix_current_user_in_group(gid_t gid)
     n_groups = getgroups(0, NULL);
     check((n_groups != -1), "Could not get group list");
 
-    group_ids = calloc(sizeof(gid_t),n_groups);
+    group_ids = calloc(n_groups, sizeof(gid_t));
     check_mem(group_ids);
     check((getgroups(n_groups, group_ids) != -1), "Could not fetch groups");
 

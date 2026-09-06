@@ -56,7 +56,7 @@ PermissionSet_create()
 {
     Rhizofs__PermissionSet * permset = NULL;
 
-    permset = calloc(sizeof(Rhizofs__PermissionSet), 1);
+    permset = calloc(1, sizeof(Rhizofs__PermissionSet));
     check_mem(permset);
     rhizofs__permission_set__init(permset);
 
@@ -110,7 +110,7 @@ Permissions_create(const mode_t mode)
 {
     Rhizofs__Permissions * permissions = NULL;
 
-    permissions = calloc(sizeof(Rhizofs__Permissions), 1);
+    permissions = calloc(1, sizeof(Rhizofs__Permissions));
     check_mem(permissions);
 
     rhizofs__permissions__init(permissions);
@@ -310,7 +310,7 @@ OpenFlags_from_bitmask(const int flags)
 {
     Rhizofs__OpenFlags * openflags = NULL;
 
-    openflags = calloc(sizeof(Rhizofs__OpenFlags), 1);
+    openflags = calloc(1, sizeof(Rhizofs__OpenFlags));
     check_mem(openflags);
 
     rhizofs__open_flags__init(openflags);
@@ -369,7 +369,7 @@ Attrs_create(const struct stat * stat_result, const char * name)
 {
     Rhizofs__Attrs * attrs = NULL;
 
-    attrs = calloc(sizeof(Rhizofs__Attrs), 1);
+    attrs = calloc(1, sizeof(Rhizofs__Attrs));
     check_mem(attrs);
     rhizofs__attrs__init(attrs);
 
@@ -493,7 +493,7 @@ TimeSet_create()
 {
     Rhizofs__TimeSet * timeset = NULL;
 
-    timeset = calloc(sizeof(Rhizofs__TimeSet), 1);
+    timeset = calloc(1, sizeof(Rhizofs__TimeSet));
     check_mem(timeset);
     rhizofs__time_set__init(timeset);
 
@@ -516,7 +516,7 @@ StatFs_create(const struct statvfs * statvfs_result)
 {
     Rhizofs__StatFs * stfs = NULL;
 
-    stfs = calloc(sizeof(Rhizofs__StatFs), 1);
+    stfs = calloc(1, sizeof(Rhizofs__StatFs));
     check_mem(stfs);
     rhizofs__stat_fs__init(stfs);
 
