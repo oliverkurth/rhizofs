@@ -1,6 +1,11 @@
 Name:       rhizofs
 Version:    0.2.7
-Release:    1%{?dist}
+# distinguishes a local/dev build (an untagged commit or a dirty working
+# tree) from an official release with the same Version, without disturbing
+# Release for a clean checkout of the release tag. Assumes rpmbuild is
+# invoked from the repository root (as ci/photon/build-rpms.sh does).
+%define _snapshot %(s=$(scripts/get-version.sh 2>/dev/null); [ -n "$s" ] && printf '.%s' "$s")
+Release:    1%{_snapshot}%{?dist}
 URL:        https://github.com/oliverkurth/rhizofs
 Source0:    %{name}-%{version}.tar.gz
 %define sha512 %{name}=4fb07af2aa21631c1b9ebe2416ff749b61b7f8723bade6230f90596d7305797c35fc959d7899fdc31b0c9f83e7850a526f0e083a9dd32a93c05cdabd9331d5a8
