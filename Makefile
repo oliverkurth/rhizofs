@@ -113,4 +113,6 @@ install: release
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
 	install ${BINDIR}/rhizofs $(PREFIX)/bin/
 	install ${BINDIR}/rhizo-keygen $(PREFIX)/bin/
+	install ${BINDIR}/rhizofs-setuptool.sh $(PREFIX)/bin/
+	install ${BINDIR}/rhizosrv-setuptool.sh $(PREFIX)/bin/
 

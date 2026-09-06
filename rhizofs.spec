@@ -41,10 +41,12 @@ export PREFIX=%{buildroot}/%{_prefix}
 
 %files
 %{_bindir}/rhizofs
+%{_bindir}/rhizofs-setuptool.sh
 %{_bindir}/rhizo-keygen
 
 %files server
 %{_bindir}/rhizosrv
+%{_bindir}/rhizosrv-setuptool.sh
 %{_bindir}/rhizo-keygen
 
 %changelog
