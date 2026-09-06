@@ -37,15 +37,20 @@ This package contains the server.
 %install
 mkdir -p %{buildroot}/%{_bindir}
 export PREFIX=%{buildroot}/%{_prefix}
+export USERUNITDIR=%{buildroot}%{_userunitdir}
 %make_install
 
 %files
 %{_bindir}/rhizofs
+%{_bindir}/rhizofs-setuptool.sh
 %{_bindir}/rhizo-keygen
+%{_userunitdir}/rhizofs@.service
 
 %files server
 %{_bindir}/rhizosrv
+%{_bindir}/rhizosrv-setuptool.sh
 %{_bindir}/rhizo-keygen
+%{_userunitdir}/rhizosrv@.service
 
 %changelog
 * Sat Apr 27 2024 <okurth@gmail.com> 0.2.7-1
