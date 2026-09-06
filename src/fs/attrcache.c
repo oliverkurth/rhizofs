@@ -19,7 +19,7 @@ inline CacheEntry *
 CacheEntry_create()
 {
     CacheEntry * cache_entry = NULL;
-    cache_entry = calloc(sizeof(CacheEntry), 1);
+    cache_entry = calloc(1, sizeof(CacheEntry));
     check_mem(cache_entry);
 
     cache_entry->cache_creation_ts = 0; // default - way back in the past
@@ -40,7 +40,7 @@ static hnode_t *
 CacheEntry_hash_create(void * context)
 {
     (void) context;
-    return (hnode_t *)calloc(sizeof(hnode_t), 1);
+    return (hnode_t *)calloc(1, sizeof(hnode_t));
 }
 
 

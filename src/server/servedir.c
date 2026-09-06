@@ -77,7 +77,7 @@ ServeDir *
 ServeDir_create(void *context, char *socket_name, char *directory)
 {
     ServeDir * sd = NULL;
-    sd = (ServeDir *)calloc(sizeof(ServeDir), 1);
+    sd = (ServeDir *)calloc(1, sizeof(ServeDir));
     check_mem(sd);
 
     sd->socket = NULL;
@@ -85,7 +85,7 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     struct stat sr;
 
     /* get the absolute path to the directory */
-    sd->directory = calloc(sizeof(char), PATH_MAX);
+    sd->directory = calloc(PATH_MAX, sizeof(char));
     check_mem(sd->directory);
     check((realpath(directory, sd->directory) != NULL),
             "Could not resolve directory path");
@@ -335,7 +335,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         ++entry_count;
     }
 
-    response->directory_entries = (Rhizofs__Attrs**)calloc(sizeof(Rhizofs__Attrs *), entry_count);
+    response->directory_entries = (Rhizofs__Attrs**)calloc(entry_count, sizeof(Rhizofs__Attrs *));
     check_mem_response(response->directory_entries);
 
     rewinddir(dir);
@@ -731,7 +731,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
          * from the client, truncating it here for the allocation while
          * using the full value for the read would allow a heap buffer
          * overflow */
-        databuf = calloc(sizeof(uint8_t), (size_t)request->size);
+        databuf = calloc((size_t)request->size, sizeof(uint8_t));
         check_mem(databuf);
 
         if (request->offset == 0) {

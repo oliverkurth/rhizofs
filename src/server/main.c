@@ -328,7 +328,7 @@ startup(const char *secret_key)
             "could not bind to socket %s", WORKER_SOCKET);
 
     /* startup the worker threads */
-    workers = calloc(sizeof(pthread_t), settings.n_worker_threads);
+    workers = calloc(settings.n_worker_threads, sizeof(pthread_t));
     check_mem(workers);
     int t = 0;
     while (t < settings.n_worker_threads) {

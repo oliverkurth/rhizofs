@@ -10,11 +10,11 @@ Response_create()
     Rhizofs__Response * response = NULL;
     Rhizofs__Version * version = NULL;
 
-    response = calloc(sizeof(Rhizofs__Response), 1);
+    response = calloc(1, sizeof(Rhizofs__Response));
     check_mem(response);
     rhizofs__response__init(response);
 
-    version = calloc(sizeof(Rhizofs__Version), 1);
+    version = calloc(1, sizeof(Rhizofs__Version));
     check_mem(version);
     rhizofs__version__init(version);
 

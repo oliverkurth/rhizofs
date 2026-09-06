@@ -33,7 +33,7 @@ path_join(const char * path1, const char * path2, char ** pathjoined)
         }
     }
 
-    *pathjoined = calloc(sizeof(char), lenpathjoined+1);
+    *pathjoined = calloc(lenpathjoined+1, sizeof(char));
     check_mem(*pathjoined);
 
     strcpy(*pathjoined, path1);

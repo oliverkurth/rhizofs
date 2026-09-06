@@ -15,7 +15,7 @@ DataBlock_create()
 {
     Rhizofs__DataBlock * datablock = NULL;
 
-    datablock = calloc(sizeof(Rhizofs__DataBlock), 1);
+    datablock = calloc(1, sizeof(Rhizofs__DataBlock));
     check_mem(datablock);
     rhizofs__data_block__init(datablock);
     datablock->data.data = NULL;
@@ -219,7 +219,7 @@ get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
     check((data != NULL), "passed data pointer is null");
 
     if (do_alloc) {
-        (*data) = calloc(sizeof(uint8_t), len);
+        (*data) = calloc(len, sizeof(uint8_t));
         free_data = true;
     }
     check(((*data) != NULL), "data buffer is null");
@@ -305,7 +305,7 @@ get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc
     check((data != NULL), "passed data pointer is null");
 
     if (do_alloc) {
-        (*data) = calloc(sizeof(uint8_t), len);
+        (*data) = calloc(len, sizeof(uint8_t));
         free_data = true;
     }
     check(((*data) != NULL), "data buffer is null");

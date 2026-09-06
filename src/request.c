@@ -33,7 +33,7 @@ Request_create()
 {
     Rhizofs__Request * request = NULL;
 
-    request = calloc(sizeof(Rhizofs__Request), 1);
+    request = calloc(1, sizeof(Rhizofs__Request));
     check_mem(request);
 
     check(Request_init(request) == true, "could not initialize request struct");
@@ -66,7 +66,7 @@ bool Request_init(Rhizofs__Request * request)
     rhizofs__request__init(request);
     request->openflags = NULL;
 
-    version = calloc(sizeof(Rhizofs__Version), 1);
+    version = calloc(1, sizeof(Rhizofs__Version));
     check_mem(version);
     rhizofs__version__init(version);
 
