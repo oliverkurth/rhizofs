@@ -5,10 +5,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
 #include "../mapping.h"
 #include "../request.h"
@@ -112,6 +115,141 @@ static SocketPool socketpool;
 static AttrCache attrcache;
 
 
+#ifdef __APPLE__
+#define RHIZOFS_DAEMONIZE_FD_ENV "RHIZOFS_DAEMONIZE_FD"
+
+/* fd of the pipe used to tell the still-attached original process that
+   the mount actually succeeded (or failed); either inherited across
+   Rhizofs_daemonize()'s re-exec (see RHIZOFS_DAEMONIZE_FD_ENV below), or
+   left at -1 when we're not daemonizing at all. Consumed exactly once,
+   either from Rhizofs_init() on success or from Rhizofs_fuse_main() if
+   the mount failed before getting that far. */
+static int daemonize_notify_fd = -1;
+
+static void
+Rhizofs_daemonize_notify(bool success)
+{
+    if (daemonize_notify_fd >= 0) {
+        char status = success ? 0 : 1;
+        if (write(daemonize_notify_fd, &status, 1) < 0) {
+            /* nothing useful to do here; the parent will see EOF and
+               treat it as a failure anyway */
+        }
+        close(daemonize_notify_fd);
+        daemonize_notify_fd = -1;
+    }
+}
+
+/**
+ * fork into the background, then immediately re-exec ourselves.
+ *
+ * This process links macFUSE's FSKit backend (MFMount), which pulls in
+ * Objective-C/Swift/XPC frameworks. Those are simply not safe to carry
+ * across fork() unless followed immediately by exec(): some other thread
+ * can be in the middle of the Objective-C runtime's lazy +initialize
+ * locking at the moment fork() is called (this can already be true very
+ * early in the process's life, not just once a mount is established), and
+ * the forked child deliberately crashes rather than risk deadlocking on
+ * a lock whose owning thread doesn't exist anymore post-fork:
+ *
+ *   +[NSString initialize] may have been in progress in another thread
+ *   when fork() was called. We cannot safely call it or ignore it in the
+ *   fork() child process. Crashing instead.
+ *
+ * libfuse's own daemonize-after-mount hits exactly this. Re-exec'ing
+ * ourselves sidesteps it entirely: exec() gives the child a completely
+ * fresh process image, so there's no half-initialized runtime state left
+ * over from the parent to race with.
+ *
+ * The original process blocks until the daemon (the re-exec'd process)
+ * calls Rhizofs_daemonize_notify() and then exits with a matching status,
+ * so callers see the same synchronous success/failure reporting they
+ * would from a normal (non-daemonizing) run.
+ *
+ * Only returns (in the original process) if daemonizing itself failed;
+ * the caller should then just continue running attached/in the
+ * foreground rather than losing the mount attempt entirely.
+ */
+static void
+Rhizofs_daemonize(int argc, char * argv[])
+{
+    int pipefd[2];
+    pid_t pid;
+
+    if (pipe(pipefd) != 0) {
+        fprintf(stderr, "Warning: could not create daemonize pipe (%s), "
+                "continuing in the foreground\n", strerror(errno));
+        return;
+    }
+
+    pid = fork();
+    if (pid < 0) {
+        fprintf(stderr, "Warning: fork failed (%s), continuing in the "
+                "foreground\n", strerror(errno));
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return;
+    }
+
+    if (pid > 0) {
+        /* original process: wait for the daemon to report whether the
+           mount actually succeeded, then exit with a matching status */
+        char status = 1;
+        close(pipefd[1]);
+        if (read(pipefd[0], &status, 1) <= 0) {
+            status = 1;
+        }
+        close(pipefd[0]);
+        exit(status);
+    }
+
+    /* child: detach from the controlling terminal, then re-exec so we
+       start from a completely fresh (fork-safe) process image. We are no
+       longer attached to the user's terminal from here on, so on failure
+       just bail out instead of falling back to the foreground. */
+    if (setsid() < 0) {
+        close(pipefd[0]);
+        close(pipefd[1]);
+        _exit(1);
+    }
+    close(pipefd[0]);
+
+    /* the notify pipe's write end must survive exec() */
+    int flags = fcntl(pipefd[1], F_GETFD);
+    if (flags >= 0) {
+        fcntl(pipefd[1], F_SETFD, flags & ~FD_CLOEXEC);
+    }
+
+    char fd_env_value[32];
+    snprintf(fd_env_value, sizeof(fd_env_value), "%d", pipefd[1]);
+    setenv(RHIZOFS_DAEMONIZE_FD_ENV, fd_env_value, 1);
+
+    /* re-exec with the same arguments plus "-f", so the new process
+       image runs attached-equivalent (no further libfuse-internal
+       daemonization) and, seeing RHIZOFS_DAEMONIZE_FD_ENV set, treats
+       itself as the already-daemonized process instead of trying to
+       daemonize again */
+    char ** new_argv = (char **)malloc(sizeof(char *) * (size_t)(argc + 2));
+    if (new_argv == NULL) {
+        close(pipefd[1]);
+        _exit(1);
+    }
+    for (int i = 0; i < argc; i++) {
+        new_argv[i] = argv[i];
+    }
+    new_argv[argc] = (char *)"-f";
+    new_argv[argc + 1] = NULL;
+
+    execvp(argv[0], new_argv);
+
+    /* only reached if execvp() itself failed */
+    fprintf(stderr, "Warning: could not re-exec self (%s)\n", strerror(errno));
+    close(pipefd[1]);
+    _exit(1);
+}
+#endif /* __APPLE__ */
+
+
 /**
  * filesystem initialization
  *
@@ -140,6 +278,10 @@ Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     check((AttrCache_init(&attrcache, ATTRCACHE_MAXSIZE, settings.attr_cache_timeout) == true),
             "could not initialize the attrcache");
 
+#ifdef __APPLE__
+    Rhizofs_daemonize_notify(true);
+#endif
+
     return priv;
 
 error:
@@ -147,6 +289,10 @@ error:
     SocketPool_deinit(&socketpool);
     AttrCache_deinit(&attrcache);
     RhizoPriv_destroy(priv);
+
+#ifdef __APPLE__
+    Rhizofs_daemonize_notify(false);
+#endif
 
     /* exiting here is the last fallback when
        setting up the socket fails. see the NOTES
@@ -1269,6 +1415,14 @@ Rhizofs_fuse_main(struct fuse_args *args)
     }
 
     int rc = fuse_main(args->argc, args->argv, &rhizofs_operations, NULL );
+
+#ifdef __APPLE__
+    /* if Rhizofs_init() never ran (e.g. the mount itself failed) the
+       waiting original process is still blocked reading the pipe; let it
+       know so it can exit with a matching status instead of hanging */
+    Rhizofs_daemonize_notify(rc == 0);
+#endif
+
     RhizoPriv_destroy(priv);
 
     return rc;
@@ -1324,6 +1478,38 @@ Rhizofs_run(int argc, char * argv[])
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     char tmpbuf[TMPBUF_SIZE];
     int rc;
+
+#ifdef __APPLE__
+    {
+        const char * inherited_fd = getenv(RHIZOFS_DAEMONIZE_FD_ENV);
+        if (inherited_fd != NULL) {
+            /* we are the re-exec'd daemon process; see Rhizofs_daemonize() */
+            daemonize_notify_fd = atoi(inherited_fd);
+            unsetenv(RHIZOFS_DAEMONIZE_FD_ENV);
+        } else {
+            bool skip_daemonize = false;
+            for (int i = 1; i < argc; i++) {
+                if (strcmp(argv[i], "-f") == 0 ||
+                    strcmp(argv[i], "--foreground") == 0 ||
+                    strcmp(argv[i], "-d") == 0 ||
+                    strcmp(argv[i], "--debug") == 0 ||
+                    strcmp(argv[i], "-h") == 0 ||
+                    strcmp(argv[i], "--help") == 0 ||
+                    strcmp(argv[i], "-V") == 0 ||
+                    strcmp(argv[i], "--version") == 0) {
+                    skip_daemonize = true;
+                    break;
+                }
+            }
+            if (!skip_daemonize) {
+                /* forks + re-execs (or warns and stays attached on
+                   failure); only returns in the process that should
+                   continue running normally */
+                Rhizofs_daemonize(argc, argv);
+            }
+        }
+    }
+#endif
 
     Rhizofs_settings_init();
 
