@@ -63,6 +63,12 @@ based on public and private key pairs.
 
 Authentication is based on the client key, using [ZMQ's ZAP](https://rfc.zeromq.org/spec/27/) protocol.
 
+Authentication requires encryption: the client key only exists when the connection uses
+CurveZMQ, so `--authorized-keys-file` has to be combined with `--encrypt` and the server
+refuses to start without it. Note that `--encrypt` on its own encrypts the connection but
+accepts *any* client key - listing the keys you want to allow in an authorized keys file is
+what restricts who may connect.
+
 
 File ownership and user mapping
 -------------------------------
@@ -121,7 +127,9 @@ Directory
 
 Options
 -------
-  -a --authorized-keys-file authorized keys file.
+  -a --authorized-keys-file authorized keys file. Requires --encrypt,
+                           as clients are only authenticated when the
+                           connection is encrypted.
   -e --encrypt
   -f --foreground          foreground operation - do not daemonize.
   -h --help

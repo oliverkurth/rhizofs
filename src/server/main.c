@@ -41,7 +41,9 @@ static const char *opts_short = "a:ehk:vn:Vl:fp:P:";
 
 
 static const char *opts_desc =
-    "  -a --authorized-keys-file authorized keys file.\n"
+    "  -a --authorized-keys-file authorized keys file. Requires --encrypt,\n"
+    "                            as clients are only authenticated when the\n"
+    "                            connection is encrypted.\n"
     "  -e --encrypt\n"
     "  -f --foreground           foreground operation - do not daemonize.\n"
     "  -h --help\n"
@@ -578,6 +580,29 @@ main(int argc, char *argv[])
     if (settings.verbose) {
         fprintf(stdout, "Serving directory %s on socket %s\n",
                 settings.directory, settings.socketname);
+    }
+
+    /* the ZAP handler started for --authorized-keys-file is only ever
+     * consulted for CURVE connections. without --encrypt the clients
+     * connect using the NULL security mechanism, for which no ZAP
+     * domain is set, so libzmq accepts every one of them without ever
+     * asking the handler - the keys file would silently authorize the
+     * whole world instead of the keys listed in it. refuse to start
+     * rather than pretend to enforce it. */
+    if ((settings.authorized_keys_file != NULL) && (!settings.encrypt)) {
+        fprintf(stderr,
+            "Error: --authorized-keys-file requires --encrypt.\n"
+            "Without encryption clients are not authenticated at all and\n"
+            "the keys file would have no effect.\n"
+            "\nUse --help for help.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* CURVE without a ZAP handler encrypts the connection but accepts
+     * any client key, which is easy to mistake for authentication */
+    if (settings.encrypt && (settings.authorized_keys_file == NULL)) {
+        log_warn("no --authorized-keys-file given: connections are encrypted, "
+                "but any client key is accepted");
     }
 
     if (settings.encrypt) {
