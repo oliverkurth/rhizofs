@@ -37,6 +37,18 @@
 }
 
 /**
+ * upper limit for the amount of data a single READ request may ask the
+ * server to buffer.
+ *
+ * the size of a read is chosen by the client, and the FUSE client asks
+ * for at most a few hundred kilobytes at a time, so this is only here
+ * to keep a client from making the server allocate arbitrary amounts of
+ * memory. reads are allowed to return less than was asked for, so a
+ * request above the limit is served up to it rather than refused.
+ */
+#define MAX_READ_SIZE ((size_t)64 * 1024 * 1024)
+
+/**
  * default permissions for file creation. the same permission set is used
  * by the GNU coreutils touch command
  */
@@ -785,20 +797,27 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
         check((request->size >= 0), "requested size is negative: %d", (int)request->size);
 
+        size_t read_size = (size_t)request->size;
+        if (read_size > MAX_READ_SIZE) {
+            debug("serving a read of %lld bytes up to the limit of %lld bytes",
+                    (long long)read_size, (long long)MAX_READ_SIZE);
+            read_size = MAX_READ_SIZE;
+        }
+
         /* allocate using the same (non-truncated) size that is passed to
          * read()/pread() below - request->size is a 64bit value coming
          * from the client, truncating it here for the allocation while
          * using the full value for the read would allow a heap buffer
          * overflow */
-        databuf = calloc((size_t)request->size, sizeof(uint8_t));
+        databuf = calloc(read_size, sizeof(uint8_t));
         check_mem(databuf);
 
         if (request->offset == 0) {
             /* use read to enable reading from non-seekable files */
-            bytes_read = read(fd, databuf, (size_t)request->size);
+            bytes_read = read(fd, databuf, read_size);
         }
         else {
-            bytes_read = pread(fd, databuf, (size_t)request->size, (off_t)request->offset);
+            bytes_read = pread(fd, databuf, read_size, (off_t)request->offset);
         }
         /*
         check((request->size == bytes_read),
