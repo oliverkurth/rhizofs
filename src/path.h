@@ -30,6 +30,42 @@ int path_join_real(const char *, const char *, char **);
 bool path_has_parent_reference(const char * path);
 
 /**
+ * check if "path" is lexically located inside "directory" - both are
+ * expected to be absolute and free of any "." or ".." components, as
+ * returned by realpath()
+ *
+ * returns true if path is the directory itself or below it
+ */
+bool path_is_within(const char * directory, const char * path);
+
+/**
+ * check if the directory "path" lives in stays inside "directory" once
+ * all symlinks are resolved.
+ *
+ * use this for operations acting on the entry itself rather than on
+ * whatever it may point to (lstat(), readlink(), unlink(), rename(),
+ * ...): the final component is not resolved, so a symlink pointing out
+ * of "directory" is still reported as contained.
+ *
+ * returns false if it escapes or cannot be resolved
+ */
+bool path_parent_resolves_within(const char * directory, const char * path);
+
+/**
+ * check if "path" stays inside "directory" once all symlinks are
+ * resolved, including one in the final component.
+ *
+ * use this for operations following the final component (open(),
+ * opendir(), truncate(), chmod(), ...). a path that does not exist yet
+ * is accepted if the directory it would be created in is contained,
+ * but a dangling symlink is refused - an operation creating its target
+ * would follow it out of "directory".
+ *
+ * returns false if it escapes or cannot be resolved
+ */
+bool path_resolves_within(const char * directory, const char * path);
+
+/**
  * return the basename of the path
  *
  * this function, in contrary to the libc functions,

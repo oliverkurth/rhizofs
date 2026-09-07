@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <sys/stat.h>
 
 #include "../src/path.h"
 #include "../src/datablock.h"
@@ -63,6 +66,114 @@ test_path_join(void)
     check_join("", "/file", "/file");
     check_join("", "file", "file");
 }
+
+static void
+check_bool(bool got, bool expected, const char * what)
+{
+    if (got != expected) {
+        fprintf(stderr, "FAIL %s: got %s, expected %s\n", what,
+                got ? "true" : "false", expected ? "true" : "false");
+        ++failures;
+    }
+}
+
+static void
+test_path_containment(void)
+{
+    /* purely lexical containment */
+    check_bool(path_is_within("/srv/share", "/srv/share"), true,
+            "path_is_within(share, share)");
+    check_bool(path_is_within("/srv/share", "/srv/share/sub/file"), true,
+            "path_is_within(share, share/sub/file)");
+    check_bool(path_is_within("/srv/share", "/srv/shareother"), false,
+            "path_is_within(share, a sibling with the same prefix)");
+    check_bool(path_is_within("/srv/share", "/srv"), false,
+            "path_is_within(share, its parent)");
+    check_bool(path_is_within("/srv/share", "/etc/passwd"), false,
+            "path_is_within(share, an unrelated path)");
+    /* a served root directory, as realpath() reports it */
+    check_bool(path_is_within("/", "/etc/passwd"), true,
+            "path_is_within(/, /etc/passwd)");
+
+    /* containment of paths that have to be resolved on the filesystem */
+    char tmpl[] = "/tmp/rhizo-security-unit-XXXXXX";
+    char * base = mkdtemp(tmpl);
+    if (base == NULL) {
+        fprintf(stderr, "FAIL could not create a temporary directory\n");
+        ++failures;
+        return;
+    }
+
+    /* the destination buffers are twice the size of the directory ones,
+     * so that appending a name can never truncate */
+    char share[256], outside[256];
+    char path[512];
+    snprintf(share, sizeof(share), "%s/share", base);
+    snprintf(outside, sizeof(outside), "%s/outside", base);
+    mkdir(share, 0755);
+    mkdir(outside, 0755);
+
+    snprintf(path, sizeof(path), "%s/inside.txt", share);
+    fclose(fopen(path, "w"));
+
+    snprintf(path, sizeof(path), "%s/secret.txt", outside);
+    fclose(fopen(path, "w"));
+
+    /* the root of the served directory is contained in itself - its
+     * parent is not, so this needs handling of its own */
+    check_bool(path_resolves_within(share, share), true,
+            "path_resolves_within(share, share)");
+    check_bool(path_parent_resolves_within(share, share), true,
+            "path_parent_resolves_within(share, share)");
+    snprintf(path, sizeof(path), "%s/", share);
+    check_bool(path_parent_resolves_within(share, path), true,
+            "path_parent_resolves_within(share, share with a trailing sep)");
+
+    /* an ordinary file in the share */
+    snprintf(path, sizeof(path), "%s/inside.txt", share);
+    check_bool(path_resolves_within(share, path), true,
+            "path_resolves_within(share, a file in it)");
+    check_bool(path_parent_resolves_within(share, path), true,
+            "path_parent_resolves_within(share, a file in it)");
+
+    /* a path that does not exist yet: creating it is legitimate */
+    snprintf(path, sizeof(path), "%s/tobecreated.txt", share);
+    check_bool(path_resolves_within(share, path), true,
+            "path_resolves_within(share, a path to be created in it)");
+
+    /* a symlink in the share pointing out of it must not be followed,
+     * but operations acting on the link itself (lstat, readlink) are
+     * fine and have to keep working */
+    char target[512];
+    snprintf(target, sizeof(target), "%s/secret.txt", outside);
+    snprintf(path, sizeof(path), "%s/escape", share);
+    symlink(target, path);
+    check_bool(path_resolves_within(share, path), false,
+            "path_resolves_within(share, a symlink pointing out of it)");
+    check_bool(path_parent_resolves_within(share, path), true,
+            "path_parent_resolves_within(share, a symlink pointing out of it)");
+
+    /* below such a symlink nothing is reachable at all */
+    snprintf(path, sizeof(path), "%s/escape/secret.txt", share);
+    check_bool(path_parent_resolves_within(share, path), false,
+            "path_parent_resolves_within(share, below an escaping symlink)");
+
+    /* a dangling symlink pointing out of the share: creating its target
+     * would follow it out, so it must not be accepted as "not there
+     * yet" either */
+    snprintf(target, sizeof(target), "%s/notyet.txt", outside);
+    snprintf(path, sizeof(path), "%s/dangling", share);
+    symlink(target, path);
+    check_bool(path_resolves_within(share, path), false,
+            "path_resolves_within(share, a dangling symlink pointing out of it)");
+
+    /* a symlink staying inside the share is followed as usual */
+    snprintf(path, sizeof(path), "%s/inside-link", share);
+    symlink("inside.txt", path);
+    check_bool(path_resolves_within(share, path), true,
+            "path_resolves_within(share, a symlink staying inside it)");
+}
+
 
 static void
 test_datablock_bounds(void)
@@ -119,6 +230,7 @@ int
 main(void)
 {
     test_path_join();
+    test_path_containment();
     test_datablock_bounds();
 
     if (failures != 0) {
