@@ -11,6 +11,7 @@ RHIZOSRV=os.path.join(BINDIR, "rhizosrv")
 RHIZOFS=os.path.join(BINDIR, "rhizofs")
 RHIZOKEYGEN=os.path.join(BINDIR, "rhizo-keygen")
 RHIZORAWCLIENT=os.path.join(BINDIR, "rhizo-rawclient")
+RHIZOSECURITYUNIT=os.path.join(BINDIR, "rhizo-security-unit")
 
 
 class CmdReturn:

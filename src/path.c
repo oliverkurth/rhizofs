@@ -13,34 +13,39 @@ path_join(const char * path1, const char * path2, char ** pathjoined)
     check((path2 != NULL), "path_join: path2 argument is NULL");
     debug("Joining paths %s and %s", path1, path2);
 
-    int lenpath1 = strlen(path1);
-    int lenpath2 = strlen(path2);
-    int lenpathjoined = 0;
-    int add_seperator = 0;
+    size_t lenpath1 = strlen(path1);
+    const char * tail = path2;
+    size_t add_seperator = 0;
 
-    if ((lenpath1 != 0)) {
-        lenpathjoined = lenpath1;
-        if (path1[lenpath1-1] != PATH_SEP) {
-            ++lenpathjoined;
+    if (lenpath1 != 0) {
+        if (path1[lenpath1-1] == PATH_SEP) {
+            /* path1 already ends in a separator, so skip the leading
+             * separators of path2 instead of keeping both of them.
+             * the previous version sized the buffer as if one of the two
+             * separators was dropped, but then still copied path2 in
+             * full - writing one byte past the allocation. realpath()
+             * returns "/" for the root directory, so a server sharing
+             * "/" hit this on every single request. */
+            while (*tail == PATH_SEP) {
+                ++tail;
+            }
+        }
+        else if (*tail != PATH_SEP) {
             add_seperator = 1;
         }
     }
-    if ((lenpath2 != 0)) {
-        lenpathjoined += lenpath2;
-        if (path2[0] == PATH_SEP) {
-            --lenpathjoined;
-            add_seperator = 0;
-        }
-    }
+
+    size_t lentail = strlen(tail);
+    size_t lenpathjoined = lenpath1 + add_seperator + lentail;
 
     *pathjoined = calloc(lenpathjoined+1, sizeof(char));
     check_mem(*pathjoined);
 
-    strcpy(*pathjoined, path1);
-    if (add_seperator==1) {
+    memcpy(*pathjoined, path1, lenpath1);
+    if (add_seperator == 1) {
         (*pathjoined)[lenpath1] = PATH_SEP;
     }
-    strcpy((*pathjoined)+(sizeof(char)*(lenpath1+add_seperator)), path2);
+    memcpy((*pathjoined) + lenpath1 + add_seperator, tail, lentail);
 
     return 0;
 
