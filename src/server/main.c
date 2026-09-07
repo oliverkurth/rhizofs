@@ -156,8 +156,18 @@ char *receive_string(void* socket)
 
     if (poll_items[0].revents & ZMQ_POLLIN) {
         char buf[1024];
-        int rc = zmq_recv(socket, buf, 1024, 0);
+        int rc = zmq_recv(socket, buf, sizeof(buf) - 1, 0);
         check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
+
+        /* zmq_recv() reports the size of the whole message, which is
+         * larger than the return value's worth of bytes it wrote here
+         * whenever the message did not fit and was truncated. using it
+         * to place the terminator wrote past the end of the buffer. */
+        if ((size_t)rc > sizeof(buf) - 1) {
+            log_warn("truncating an oversized ZAP field of %d bytes", rc);
+            rc = (int)(sizeof(buf) - 1);
+        }
+
         buf[rc] = 0;
         return strdup(buf);
     }
@@ -178,6 +188,7 @@ char *receive_message(void* socket, size_t size)
         check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
         check((rc == (int)size), "unexpected size %d from zmq_recv(), expected %d", rc, (int)size)
         char *ptr = (char *)malloc(size);
+        check_mem(ptr);
         memcpy(ptr, buf, size);
         return ptr;
     }
