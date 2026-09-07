@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "../src/path.h"
+#include "../src/datablock.h"
 
 static int failures = 0;
 
@@ -63,10 +64,62 @@ test_path_join(void)
     check_join("", "file", "file");
 }
 
+static void
+test_datablock_bounds(void)
+{
+    const size_t dest_len = 64;
+    const size_t payload_len = 4096;
+
+    /* what Rhizofs_read() does: hand DataBlock_get_data_noalloc() the
+     * buffer FUSE asked it to fill together with its real size, and
+     * trust the callee to bound the copy */
+    uint8_t * dest = calloc(dest_len, sizeof(uint8_t));
+    uint8_t * payload = malloc(payload_len);
+    memset(payload, 'X', payload_len);
+
+    Rhizofs__DataBlock * dblk = DataBlock_create();
+    dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+    /* a malicious server declares a tiny uncompressed size - which is
+     * what the bounds check used to look at - while attaching a data
+     * blob far larger than the destination buffer, which is what is
+     * actually copied */
+    dblk->size = 1;
+    dblk->data.len = payload_len;
+    dblk->data.data = payload;
+
+    if (DataBlock_get_data_noalloc(dblk, dest, dest_len) != -1) {
+        fprintf(stderr, "FAIL DataBlock_get_data_noalloc() accepted a "
+                "datablock holding %d bytes of data for a %d byte buffer\n",
+                (int)payload_len, (int)dest_len);
+        ++failures;
+    }
+
+    /* a well formed datablock still has to be copied out */
+    dblk->size = 4;
+    dblk->data.len = 4;
+    memcpy(dblk->data.data, "abcd", 4);
+
+    if (DataBlock_get_data_noalloc(dblk, dest, dest_len) != 4) {
+        fprintf(stderr, "FAIL DataBlock_get_data_noalloc() rejected a well "
+                "formed datablock\n");
+        ++failures;
+    }
+    else if (memcmp(dest, "abcd", 4) != 0) {
+        fprintf(stderr, "FAIL DataBlock_get_data_noalloc() did not copy the "
+                "data of a well formed datablock\n");
+        ++failures;
+    }
+
+    DataBlock_destroy(dblk);
+    free(dest);
+}
+
+
 int
 main(void)
 {
     test_path_join();
+    test_datablock_bounds();
 
     if (failures != 0) {
         fprintf(stderr, "%d check(s) failed\n", failures);

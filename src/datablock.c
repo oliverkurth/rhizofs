@@ -1,10 +1,12 @@
 #include "datablock.h"
 
+#include <stdint.h>
+
 #include "dbg.h"
 #include "lz4.h"
 
 // prototypes
-static int get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc);
+static int get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc, size_t max_len);
 static int get_lz4_compressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc);
 static int set_lz4_compressed_data(Rhizofs__DataBlock * dblk, const uint8_t * data, const size_t len);
 
@@ -130,7 +132,7 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
             {
-                len = get_uncompressed_data(dblk, data, 1);
+                len = get_uncompressed_data(dblk, data, 1, SIZE_MAX);
             }
             break;
 
@@ -174,7 +176,7 @@ DataBlock_get_data_noalloc(Rhizofs__DataBlock * dblk, uint8_t * data, size_t dat
     switch (dblk->compression) {
         case RHIZOFS__COMPRESSION_TYPE__COMPR_NONE:
             {
-                len = get_uncompressed_data(dblk, &data, 0);
+                len = get_uncompressed_data(dblk, &data, 0, data_len);
             }
             break;
 
@@ -204,19 +206,31 @@ error:
  * get data from a datablock
  *
  * do_alloc indicates if the buffer "data" should be allocated by this function
- * or already comes preallocated. if it is preallocated a size of at least dblk->size
- * is asumed.
+ * or already comes preallocated. if it is preallocated, max_len has to be its
+ * real size - pass SIZE_MAX when this function allocates the buffer itself.
  *
  * returns length of data or -1 on failure
  */
 static int
-get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc)
+get_uncompressed_data(Rhizofs__DataBlock * dblk, uint8_t ** data, int do_alloc, size_t max_len)
 {
-    size_t len = dblk->data.len;
+    size_t len = 0;
     bool free_data = false;
 
     check((dblk != NULL), "passed datablock is null");
     check((data != NULL), "passed data pointer is null");
+
+    len = dblk->data.len;
+
+    /* the number of bytes copied below is dblk->data.len, while the
+     * caller sized its buffer from the separate dblk->size field. both
+     * of them come from the peer and a malicious one can make them
+     * disagree - declaring a tiny "size" to pass the caller's bounds
+     * check while attaching a large "data" blob - so bound the copy by
+     * the real size of the destination buffer rather than trusting
+     * dblk->size. */
+    check((len <= max_len), "datablock holds more data (%d bytes) than fits "
+            "into the destination buffer (%d bytes)", (int)len, (int)max_len);
 
     if (do_alloc) {
         (*data) = calloc(len, sizeof(uint8_t));
