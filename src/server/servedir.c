@@ -311,6 +311,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     char * dirpath = NULL;
     struct dirent *de = NULL;
     size_t entry_count = 0;
+    size_t entries_capacity = 0;
     char * entry_fullpath = NULL;
     struct stat sb;
 
@@ -335,12 +336,36 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         ++entry_count;
     }
 
-    response->directory_entries = (Rhizofs__Attrs**)calloc(entry_count, sizeof(Rhizofs__Attrs *));
+    /* the count above is only an estimate: the directory may well have
+     * grown by the time the second pass below runs - another worker
+     * thread serving a CREATE/WRITE request for this directory, or any
+     * other process writing to the shared directory, is enough. the
+     * second pass used to write past the end of this array whenever
+     * that happened, so grow the array instead of trusting the count.
+     * always keep room for at least one entry, as calloc(0, ..) may
+     * return NULL. */
+    entries_capacity = entry_count + 1;
+    response->directory_entries = (Rhizofs__Attrs**)calloc(entries_capacity, sizeof(Rhizofs__Attrs *));
     check_mem_response(response->directory_entries);
 
     rewinddir(dir);
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
+
+        if (response->n_directory_entries == entries_capacity) {
+            size_t new_capacity = entries_capacity * 2;
+            Rhizofs__Attrs ** grown = realloc(response->directory_entries,
+                    new_capacity * sizeof(Rhizofs__Attrs *));
+
+            /* on failure the old array is still valid and is freed by
+             * the error handler below */
+            check_mem_response(grown);
+
+            memset(grown + entries_capacity, 0,
+                    (new_capacity - entries_capacity) * sizeof(Rhizofs__Attrs *));
+            response->directory_entries = grown;
+            entries_capacity = new_capacity;
+        }
 
         check((path_join(dirpath, de->d_name, &entry_fullpath)==0),
             "error processing path for directory entry");

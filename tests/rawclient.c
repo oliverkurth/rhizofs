@@ -7,6 +7,7 @@
  * usage:
  *   rhizo-rawclient <endpoint> ping
  *   rhizo-rawclient <endpoint> getattr <path>
+ *   rhizo-rawclient <endpoint> readdir <path>
  *   rhizo-rawclient <endpoint> read <path> <size> <offset>
  *   rhizo-rawclient <endpoint> rename <path> <path_to>
  *   rhizo-rawclient <endpoint> writeraw <path> <declared_size> <hex_bytes>
@@ -152,6 +153,23 @@ cmd_getattr(void *sock, const char *path)
 }
 
 static int
+cmd_readdir(void *sock, const char *path)
+{
+    Rhizofs__Request *request = Request_create();
+    request->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
+    request->path = strdup(path);
+
+    Rhizofs__Response *response = send_request(sock, request);
+
+    printf("ERRNO=%d\n", response->errnotype);
+    printf("ENTRIES=%zu\n", response->n_directory_entries);
+
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return 0;
+}
+
+static int
 cmd_read(void *sock, const char *path, int64_t size, int64_t offset)
 {
     Rhizofs__Request *request = Request_create();
@@ -236,7 +254,7 @@ int
 main(int argc, char **argv)
 {
     if (argc < 3) {
-        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|read|rename|writeraw> [args...]\n", argv[0]);
+        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|readdir|read|rename|writeraw> [args...]\n", argv[0]);
         return 1;
     }
 
@@ -252,6 +270,9 @@ main(int argc, char **argv)
     }
     else if (strcmp(cmd, "getattr") == 0 && argc == 4) {
         rc = cmd_getattr(sock, argv[3]);
+    }
+    else if (strcmp(cmd, "readdir") == 0 && argc == 4) {
+        rc = cmd_readdir(sock, argv[3]);
     }
     else if (strcmp(cmd, "read") == 0 && argc == 6) {
         rc = cmd_read(sock, argv[3], strtoll(argv[4], NULL, 10), strtoll(argv[5], NULL, 10));
