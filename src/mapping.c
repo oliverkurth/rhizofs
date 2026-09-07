@@ -385,7 +385,15 @@ Attrs_create(const struct stat * stat_result, const char * name)
 
     attrs->timestamps = TimeSet_create();
     check((attrs->timestamps != NULL), "Could not create timeset struct");
-#ifndef __USE_XOPEN2K8
+#if defined(__APPLE__)
+    attrs->timestamps->access_sec       = stat_result->st_atimespec.tv_sec;
+    attrs->timestamps->modify_sec       = stat_result->st_mtimespec.tv_sec;
+    attrs->timestamps->creation_sec     = stat_result->st_ctimespec.tv_sec;
+
+    attrs->timestamps->access_usec       = stat_result->st_atimespec.tv_nsec/1000;
+    attrs->timestamps->modify_usec       = stat_result->st_mtimespec.tv_nsec/1000;
+    attrs->timestamps->creation_usec     = stat_result->st_ctimespec.tv_nsec/1000;
+#elif !defined(__USE_XOPEN2K8)
     attrs->timestamps->access_sec       = stat_result->st_atime;
     attrs->timestamps->modify_sec       = stat_result->st_mtime;
     attrs->timestamps->creation_sec     = stat_result->st_ctime;
@@ -471,7 +479,11 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
                 "missing the creation time")
     stat_result->st_ctime  = attrs->timestamps->creation_sec;
 
-#ifndef __USE_XOPEN2K8
+#if defined(__APPLE__)
+	stat_result->st_atimespec.tv_nsec = attrs->timestamps->access_usec * 1000;
+	stat_result->st_mtimespec.tv_nsec = attrs->timestamps->modify_usec * 1000;
+	stat_result->st_ctimespec.tv_nsec = attrs->timestamps->creation_usec * 1000;
+#elif !defined(__USE_XOPEN2K8)
 	stat_result->st_atimensec = attrs->timestamps->access_usec * 1000;
 	stat_result->st_mtimensec = attrs->timestamps->modify_usec * 1000;
 	stat_result->st_ctimensec = attrs->timestamps->creation_usec * 1000;

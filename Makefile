@@ -1,3 +1,5 @@
+UNAME_S := $(shell uname -s)
+
 CFLAGS= -Wall \
 	-Wextra \
 	-Wno-format-extra-args \
@@ -10,6 +12,13 @@ CFLAGS= -Wall \
 	-I. $(shell pkg-config fuse3 --cflags) \
 	-I. $(shell pkg-config libprotobuf-c --cflags) \
 	-I. $(shell pkg-config libzmq --cflags)
+
+# on macOS, _XOPEN_SOURCE hides the BSD u_int/u_short/u_long/u_char
+# typedefs (needed by system headers pulled in via fuse3) unless
+# _DARWIN_C_SOURCE is also defined
+ifeq (${UNAME_S},Darwin)
+CFLAGS+=-D_DARWIN_C_SOURCE
+endif
 
 # clang emits a warning if the -std flag is passed to it when linking
 # objects

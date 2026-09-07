@@ -25,6 +25,12 @@
 #ifndef FUSE_USE_VERSION
 #define FUSE_USE_VERSION 31
 #endif
+// macFUSE's fuse3 headers default to a Darwin-specific fuse_operations
+// layout (struct fuse_darwin_attr, struct statfs, ...); stick to the
+// vanilla/Linux-compatible signatures this file is written against.
+#ifndef FUSE_DARWIN_ENABLE_EXTENSIONS
+#define FUSE_DARWIN_ENABLE_EXTENSIONS 0
+#endif
 #include <fuse.h>
 #include <fuse_lowlevel.h>
 
