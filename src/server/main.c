@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -327,8 +328,16 @@ startup(const char *secret_key)
 
     if (secret_key != NULL) {
         const int curve_server_enable = 1;
-        zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable, sizeof(curve_server_enable));
-        zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+        check((zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable,
+                        sizeof(curve_server_enable)) == 0),
+                "could not enable CURVE security on the socket");
+
+        /* an unusable key would otherwise leave the socket with CURVE
+         * enabled but no secret key set: the server comes up and binds
+         * as if nothing was wrong, and every client then fails its
+         * handshake with nothing logged to explain why */
+        check((zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0),
+                "could not set the secret key on the socket");
     }
 
     check((zmq_bind(in_socket, settings.socketname) == 0),
@@ -627,6 +636,7 @@ main(int argc, char *argv[])
             check((fread(public_key, 1, 40, fptr) == 40),
                 "could not read %s", key_file);
             fclose(fptr);
+            public_key[40] = '\0';
 
             snprintf(secret_key_file, sizeof(secret_key_file),
                      "%s.secret", key_file);
@@ -636,6 +646,15 @@ main(int argc, char *argv[])
             check((fread(secret_key, 1, 40, fptr) == 40),
                 "could not read %s", secret_key_file);
             fclose(fptr);
+            secret_key[40] = '\0';
+
+            /* the key is handed to libzmq as the Z85 text just read.
+             * checking it here means an unusable key file is reported
+             * while its name is still at hand, instead of surfacing as
+             * clients that cannot connect for no visible reason. */
+            uint8_t decoded_secret_key[32];
+            check((zmq_z85_decode(decoded_secret_key, secret_key) != NULL),
+                "%s does not contain a valid key", secret_key_file);
         } else {
             check(zmq_curve_keypair(public_key, secret_key) == 0,
                   "could not create key pair");
