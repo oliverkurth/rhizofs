@@ -274,20 +274,33 @@ Rhizofs_communicate(Rhizofs__Request * req, int * err, void * socket_to_use, boo
             if (response == NULL) {
                 (*err) = EIO;
                 log_and_error("Could not unpack response");
-            } else
-                *err = errno;
+            }
         } else {
             (*err) = EIO;
-            log_and_error("Failed to receive response from server");
+            log_and_error("Failed to receive response from server [zmq errno: %d - %s]",
+                    zmq_errno(), zmq_strerror(zmq_errno()));
         }
+    } else if (rc == 0) {
+        /* zmq_poll timed out: no response arrived in time. this is not an
+         * error reported by zmq/errno, so report a distinct, meaningful
+         * error instead of reusing whatever errno happens to be left over
+         * from an earlier call (e.g. EAGAIN from the send retry loop above) */
+        *err = ETIMEDOUT;
+        log_info("Timed out waiting for a response from the server");
+        if (check_fuse_interrupts) {
+            if ((fuse_interrupted() != 0) || fuse_session_exited(fuse_get_session(fcontext->fuse))) {
+                log_info("The request has been interrupted");
+                *err = EINTR;
+            }
+        }
+        goto error;
     } else {
-        *err = errno;
+        /* rc == -1: zmq_poll itself failed */
+        *err = zmq_errno();
         if (*err == 0)
             *err = EIO;
-        /* no response available at this time
-         * check if fuse has received an interrupt
-         * while waiting for a response
-         */
+        log_warn("zmq_poll failed while waiting for a response [zmq errno: %d - %s]",
+                zmq_errno(), zmq_strerror(zmq_errno()));
         if (check_fuse_interrupts) {
             if ((fuse_interrupted() != 0) || fuse_session_exited(fuse_get_session(fcontext->fuse))) {
                 log_info("The request has been interrupted");
