@@ -37,6 +37,8 @@ TOOLS_SOURCES=$(wildcard src/tools/*.c)
 TOOLS_OBJECTS=$(patsubst %.c,%.o,${TOOLS_SOURCES})
 RAWCLIENT_SOURCES=tests/rawclient.c
 RAWCLIENT_OBJECTS=$(patsubst %.c,%.o,${RAWCLIENT_SOURCES})
+SECURITYUNIT_SOURCES=tests/security_unit.c
+SECURITYUNIT_OBJECTS=$(patsubst %.c,%.o,${SECURITYUNIT_SOURCES})
 RAWCLIENT_COMMON_OBJECTS=src/kazlib/hash.o src/datablock.o src/dbg.o src/hashfunc.o \
 	src/lz4.o src/mapping.o src/path.o src/posix.o src/request.o src/response.o \
 	src/proto/rhizofs.pb-c.o
@@ -62,14 +64,22 @@ ${BINDIR}/rhizofs: ${FS_OBJECTS} ${BINDIR}
 ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizo-keygen ${TOOLS_OBJECTS} $(shell pkg-config libzmq --libs)
 
-# test-only tool used by the pytest regression tests to talk to the wire
-# protocol directly. not part of "all"/"install".
-testclient: ${BINDIR}/rhizo-rawclient
+# test-only tools used by the pytest regression tests: rhizo-rawclient
+# talks to the wire protocol directly, rhizo-security-unit exercises the
+# checks that are not reachable from the outside. not part of
+# "all"/"install".
+testtools: ${BINDIR}/rhizo-rawclient ${BINDIR}/rhizo-security-unit
+
+# kept as an alias for the previous name of this target
+testclient: testtools
 
 ${BINDIR}/rhizo-rawclient: ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizo-rawclient ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
 
-${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES}: ${PROTO_H_COMPILED}
+${BINDIR}/rhizo-security-unit: ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
+	$(CC) -o ${BINDIR}/rhizo-security-unit ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
+
+${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${PROTO_H_COMPILED}
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -c $< -o $@
@@ -81,7 +91,7 @@ ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES}: ${PROTO_H_COMPILED}
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv

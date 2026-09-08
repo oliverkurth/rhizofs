@@ -48,6 +48,13 @@ Features
 -   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
     encryption and authentication (ZAP).
 
+-   **the shared directory is a boundary**: the server refuses requests for paths that
+    leave the directory it was told to share, whether through a `..` component or by
+    following a symlink out of it. Symlinks *inside* the shared directory are followed
+    as usual, and a client can still create and read back a symlink pointing anywhere -
+    it is resolved on the client, like on any other network filesystem - but the server
+    will not follow one out of the share on the client's behalf.
+
 Authentication
 --------------
 
@@ -55,6 +62,12 @@ Authentication
 based on public and private key pairs.
 
 Authentication is based on the client key, using [ZMQ's ZAP](https://rfc.zeromq.org/spec/27/) protocol.
+
+Authentication requires encryption: the client key only exists when the connection uses
+CurveZMQ, so `--authorized-keys-file` has to be combined with `--encrypt` and the server
+refuses to start without it. Note that `--encrypt` on its own encrypts the connection but
+accepts *any* client key - listing the keys you want to allow in an authorized keys file is
+what restricts who may connect.
 
 
 File ownership and user mapping
@@ -114,7 +127,9 @@ Directory
 
 Options
 -------
-  -a --authorized-keys-file authorized keys file.
+  -a --authorized-keys-file authorized keys file. Requires --encrypt,
+                           as clients are only authenticated when the
+                           connection is encrypted.
   -e --encrypt
   -f --foreground          foreground operation - do not daemonize.
   -h --help

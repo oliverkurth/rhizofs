@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -41,7 +42,9 @@ static const char *opts_short = "a:ehk:vn:Vl:fp:P:";
 
 
 static const char *opts_desc =
-    "  -a --authorized-keys-file authorized keys file.\n"
+    "  -a --authorized-keys-file authorized keys file. Requires --encrypt,\n"
+    "                            as clients are only authenticated when the\n"
+    "                            connection is encrypted.\n"
     "  -e --encrypt\n"
     "  -f --foreground           foreground operation - do not daemonize.\n"
     "  -h --help\n"
@@ -154,8 +157,18 @@ char *receive_string(void* socket)
 
     if (poll_items[0].revents & ZMQ_POLLIN) {
         char buf[1024];
-        int rc = zmq_recv(socket, buf, 1024, 0);
+        int rc = zmq_recv(socket, buf, sizeof(buf) - 1, 0);
         check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
+
+        /* zmq_recv() reports the size of the whole message, which is
+         * larger than the return value's worth of bytes it wrote here
+         * whenever the message did not fit and was truncated. using it
+         * to place the terminator wrote past the end of the buffer. */
+        if ((size_t)rc > sizeof(buf) - 1) {
+            log_warn("truncating an oversized ZAP field of %d bytes", rc);
+            rc = (int)(sizeof(buf) - 1);
+        }
+
         buf[rc] = 0;
         return strdup(buf);
     }
@@ -176,6 +189,7 @@ char *receive_message(void* socket, size_t size)
         check((rc >= 0), "zmq_recv() failed: %s (%d)", strerror(errno), errno);
         check((rc == (int)size), "unexpected size %d from zmq_recv(), expected %d", rc, (int)size)
         char *ptr = (char *)malloc(size);
+        check_mem(ptr);
         memcpy(ptr, buf, size);
         return ptr;
     }
@@ -314,8 +328,16 @@ startup(const char *secret_key)
 
     if (secret_key != NULL) {
         const int curve_server_enable = 1;
-        zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable, sizeof(curve_server_enable));
-        zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40);
+        check((zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable,
+                        sizeof(curve_server_enable)) == 0),
+                "could not enable CURVE security on the socket");
+
+        /* an unusable key would otherwise leave the socket with CURVE
+         * enabled but no secret key set: the server comes up and binds
+         * as if nothing was wrong, and every client then fails its
+         * handshake with nothing logged to explain why */
+        check((zmq_setsockopt(in_socket, ZMQ_CURVE_SECRETKEY, secret_key, 40) == 0),
+                "could not set the secret key on the socket");
     }
 
     check((zmq_bind(in_socket, settings.socketname) == 0),
@@ -580,6 +602,29 @@ main(int argc, char *argv[])
                 settings.directory, settings.socketname);
     }
 
+    /* the ZAP handler started for --authorized-keys-file is only ever
+     * consulted for CURVE connections. without --encrypt the clients
+     * connect using the NULL security mechanism, for which no ZAP
+     * domain is set, so libzmq accepts every one of them without ever
+     * asking the handler - the keys file would silently authorize the
+     * whole world instead of the keys listed in it. refuse to start
+     * rather than pretend to enforce it. */
+    if ((settings.authorized_keys_file != NULL) && (!settings.encrypt)) {
+        fprintf(stderr,
+            "Error: --authorized-keys-file requires --encrypt.\n"
+            "Without encryption clients are not authenticated at all and\n"
+            "the keys file would have no effect.\n"
+            "\nUse --help for help.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* CURVE without a ZAP handler encrypts the connection but accepts
+     * any client key, which is easy to mistake for authentication */
+    if (settings.encrypt && (settings.authorized_keys_file == NULL)) {
+        log_warn("no --authorized-keys-file given: connections are encrypted, "
+                "but any client key is accepted");
+    }
+
     if (settings.encrypt) {
         /* if a keyfile is set, use that. Otherwise generate keypair on the fly */
         if (key_file) {
@@ -591,6 +636,7 @@ main(int argc, char *argv[])
             check((fread(public_key, 1, 40, fptr) == 40),
                 "could not read %s", key_file);
             fclose(fptr);
+            public_key[40] = '\0';
 
             snprintf(secret_key_file, sizeof(secret_key_file),
                      "%s.secret", key_file);
@@ -600,6 +646,15 @@ main(int argc, char *argv[])
             check((fread(secret_key, 1, 40, fptr) == 40),
                 "could not read %s", secret_key_file);
             fclose(fptr);
+            secret_key[40] = '\0';
+
+            /* the key is handed to libzmq as the Z85 text just read.
+             * checking it here means an unusable key file is reported
+             * while its name is still at hand, instead of surfacing as
+             * clients that cannot connect for no visible reason. */
+            uint8_t decoded_secret_key[32];
+            check((zmq_z85_decode(decoded_secret_key, secret_key) != NULL),
+                "%s does not contain a valid key", secret_key_file);
         } else {
             check(zmq_curve_keypair(public_key, secret_key) == 0,
                   "could not create key pair");

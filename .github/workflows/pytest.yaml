@@ -20,7 +20,7 @@ jobs:
 
             - name: build test tools
               working-directory: ${{ github.workspace }}
-              run: make testclient
+              run: make testtools
 
             - name: set up python 3
               uses: actions/setup-python@v4

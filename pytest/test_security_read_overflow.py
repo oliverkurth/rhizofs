@@ -48,3 +48,40 @@ def test_read_with_size_beyond_32bit_does_not_corrupt_heap():
     finally:
         stop_server()
         shutil.rmtree(srv_dir)
+
+
+def test_read_with_an_enormous_size_is_served_up_to_a_limit():
+    """
+    the size of a READ is picked by the client, and the server used to
+    hand it to calloc() unchanged. a client could ask any worker thread
+    to buffer an arbitrary amount of memory, and a size large enough to
+    fail the allocation outright turned into a failed read rather than
+    the short read a filesystem is allowed to return.
+    """
+    pwd = os.getcwd()
+    endpoint = f"ipc://{pwd}/.rhizo.sock"
+
+    srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
+
+    filename = "readtarget.bin"
+    content = b"A" * 4096
+    with open(os.path.join(srv_dir, filename), "wb") as f:
+        f.write(content)
+
+    try:
+        start_server(endpoint, srv_dir)
+
+        # far more than any allocation could satisfy
+        result = run_rawclient(endpoint, "read", filename, str(1 << 62), "0")
+
+        assert "TIMEOUT" not in result, (
+            f"server did not respond to a huge READ request: {result}"
+        )
+        assert result["SIZE"] == str(len(content)), (
+            "READ with a size beyond any possible allocation did not "
+            f"return the file's data: {result}"
+        )
+        assert server_is_alive(), "server process died handling a huge READ"
+    finally:
+        stop_server()
+        shutil.rmtree(srv_dir)

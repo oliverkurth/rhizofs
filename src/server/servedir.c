@@ -37,6 +37,18 @@
 }
 
 /**
+ * upper limit for the amount of data a single READ request may ask the
+ * server to buffer.
+ *
+ * the size of a read is chosen by the client, and the FUSE client asks
+ * for at most a few hundred kilobytes at a time, so this is only here
+ * to keep a client from making the server allocate arbitrary amounts of
+ * memory. reads are allowed to return less than was asked for, so a
+ * request above the limit is served up to it rather than refused.
+ */
+#define MAX_READ_SIZE ((size_t)64 * 1024 * 1024)
+
+/**
  * default permissions for file creation. the same permission set is used
  * by the GNU coreutils touch command
  */
@@ -44,8 +56,19 @@ static const int default_file_creation_permissions =
         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 
+/**
+ * whether an operation resolves the final component of the path it is
+ * given, following a symlink there, or whether it acts on that entry
+ * itself
+ */
+typedef enum {
+    PATH_FOLLOW_LEAF,
+    PATH_KEEP_LEAF
+} PathLeafMode;
+
 // prototypes
-static int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath);
+static int ServeDir_resolve(const ServeDir * sd, const char * reqpath, char ** fullpath, PathLeafMode leafmode);
+static int ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath, PathLeafMode leafmode);
 static int ServeDir_op_ping(Rhizofs__Response * response);
 static int ServeDir_op_invalid(Rhizofs__Response * response);
 #define SERVEDIR_OP(NAME)   \
@@ -243,17 +266,44 @@ error:
 
 
 static int
-ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath)
+ServeDir_resolve(const ServeDir * sd, const char * reqpath, char ** fullpath, PathLeafMode leafmode)
 {
-    check((request->path != NULL), "request path is null");
-    check_debug(!path_has_parent_reference(request->path),
-            "rejecting path escaping the served directory: %s", request->path);
-    check((path_join(sd->directory, request->path, fullpath)==0), "error processing path");
-    check_debug((fullpath != NULL), "fullpath is null");
+    check((reqpath != NULL), "request path is null");
+    check_debug(!path_has_parent_reference(reqpath),
+            "rejecting path escaping the served directory: %s", reqpath);
+    check((path_join(sd->directory, reqpath, fullpath)==0), "error processing path");
+    check_debug((*fullpath != NULL), "fullpath is null");
+
+    /* rejecting ".." is not enough: a symlink in the shared directory -
+     * planted by a client through SYMLINK, or simply unpacked there
+     * from an archive - otherwise hands out everything the server
+     * process can reach. a client resolves symlinks in its own kernel
+     * before it sends a path, so refusing to follow them here costs it
+     * nothing; only a client speaking the protocol directly ever sends
+     * a path that has to be resolved on this side. */
+    if (leafmode == PATH_FOLLOW_LEAF) {
+        check_debug(path_resolves_within(sd->directory, *fullpath),
+                "rejecting path resolving outside of the served directory: %s",
+                reqpath);
+    }
+    else {
+        check_debug(path_parent_resolves_within(sd->directory, *fullpath),
+                "rejecting path below a directory resolving outside of the "
+                "served directory: %s", reqpath);
+    }
 
     return 0;
 error:
+    free(*fullpath);
+    *fullpath = NULL;
     return -1;
+}
+
+
+static int
+ServeDir_fullpath(const ServeDir * sd, const Rhizofs__Request * request, char ** fullpath, PathLeafMode leafmode)
+{
+    return ServeDir_resolve(sd, request->path, fullpath, leafmode);
 }
 
 // ########## filesystem operations ############################
@@ -311,6 +361,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     char * dirpath = NULL;
     struct dirent *de = NULL;
     size_t entry_count = 0;
+    size_t entries_capacity = 0;
     char * entry_fullpath = NULL;
     struct stat sb;
 
@@ -318,7 +369,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
     response->n_directory_entries = 0;
 
-    check_debug((ServeDir_fullpath(sd, request, &dirpath) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &dirpath, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble directory path.");
     debug("requested directory path: %s", dirpath);
     dir = opendir(dirpath);
@@ -335,12 +386,36 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         ++entry_count;
     }
 
-    response->directory_entries = (Rhizofs__Attrs**)calloc(entry_count, sizeof(Rhizofs__Attrs *));
+    /* the count above is only an estimate: the directory may well have
+     * grown by the time the second pass below runs - another worker
+     * thread serving a CREATE/WRITE request for this directory, or any
+     * other process writing to the shared directory, is enough. the
+     * second pass used to write past the end of this array whenever
+     * that happened, so grow the array instead of trusting the count.
+     * always keep room for at least one entry, as calloc(0, ..) may
+     * return NULL. */
+    entries_capacity = entry_count + 1;
+    response->directory_entries = (Rhizofs__Attrs**)calloc(entries_capacity, sizeof(Rhizofs__Attrs *));
     check_mem_response(response->directory_entries);
 
     rewinddir(dir);
     while ((de = readdir(dir)) != NULL) {
         debug("found directory entry %s",  de->d_name);
+
+        if (response->n_directory_entries == entries_capacity) {
+            size_t new_capacity = entries_capacity * 2;
+            Rhizofs__Attrs ** grown = realloc(response->directory_entries,
+                    new_capacity * sizeof(Rhizofs__Attrs *));
+
+            /* on failure the old array is still valid and is freed by
+             * the error handler below */
+            check_mem_response(grown);
+
+            memset(grown + entries_capacity, 0,
+                    (new_capacity - entries_capacity) * sizeof(Rhizofs__Attrs *));
+            response->directory_entries = grown;
+            entries_capacity = new_capacity;
+        }
 
         check((path_join(dirpath, de->d_name, &entry_fullpath)==0),
             "error processing path for directory entry");
@@ -389,7 +464,7 @@ ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     debug("RMDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
             "Could not assemble directory path.");
     debug("requested directory path: %s", path);
     if (rmdir(path) == -1) {
@@ -414,7 +489,7 @@ ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("UNLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
             "Could not assemble file path.");
     debug("requested path: %s", path);
     if (unlink(path) == -1) {
@@ -446,7 +521,7 @@ ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s; accesmode: %o", path, localmode);
     if (access(path, localmode) == -1) {
@@ -474,14 +549,12 @@ ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug(!path_has_parent_reference(request->path_to),
-            "rejecting path_to escaping the served directory: %s", request->path_to);
-    check((path_join(sd->directory, request->path_to, &path_to)==0),
-            "error processing path_to");
-    check_debug((path_to != NULL), "path_to is null");
+    check_debug((ServeDir_resolve(sd, request->path_to, &path_to,
+                    PATH_KEEP_LEAF) == 0),
+            "Could not assemble path_to.");
 
 
-    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path_from, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s -> %s", path_from, path_to);
     if (rename(path_from, path_to) == -1) {
@@ -511,14 +584,12 @@ ServeDir_op_link(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug(!path_has_parent_reference(request->path_to),
-            "rejecting path_to escaping the served directory: %s", request->path_to);
-    check((path_join(sd->directory, request->path_to, &path_to)==0),
-            "error processing path_to");
-    check_debug((path_to != NULL), "path_to is null");
+    check_debug((ServeDir_resolve(sd, request->path_to, &path_to,
+                    PATH_KEEP_LEAF) == 0),
+            "Could not assemble path_to.");
 
 
-    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path_from, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s -> %s", path_from, path_to);
     if (link(path_from, path_to) == -1) {
@@ -543,11 +614,11 @@ ServeDir_op_symlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     char *path_from = NULL;
 
     debug("SYMLINK");
-    response->requesttype = RHIZOFS__REQUEST_TYPE__LINK;
+    response->requesttype = RHIZOFS__REQUEST_TYPE__SYMLINK;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug((ServeDir_fullpath(sd, request, &path_from) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path_from, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
 
     debug("requested path: %s -> %s", path_from, request->path_to);
@@ -575,7 +646,7 @@ ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
     debug("READLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READLINK;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
     debug("requested directory path: %s", path);
 
@@ -617,7 +688,7 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
     debug("mkdir requested path: %s, mode: %d", path, (int)localmode);
     if (mkdir(path, localmode) == -1) {
@@ -643,7 +714,7 @@ ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     debug("GETATTR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
 
@@ -683,7 +754,7 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     openflags = OpenFlags_to_bitmask(request->openflags, &success);
     check((success == true), "could not convert openflags to bitmask");
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s, openflags: %o", path, openflags);
     fd = open(path, openflags, default_file_creation_permissions);
@@ -718,7 +789,7 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     REQ_HAS_OPTIONAL(request, response, size);
     REQ_HAS_OPTIONAL(request, response, offset);
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
     fd = open(path, O_RDONLY);
@@ -726,20 +797,27 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
 
         check((request->size >= 0), "requested size is negative: %d", (int)request->size);
 
+        size_t read_size = (size_t)request->size;
+        if (read_size > MAX_READ_SIZE) {
+            debug("serving a read of %lld bytes up to the limit of %lld bytes",
+                    (long long)read_size, (long long)MAX_READ_SIZE);
+            read_size = MAX_READ_SIZE;
+        }
+
         /* allocate using the same (non-truncated) size that is passed to
          * read()/pread() below - request->size is a 64bit value coming
          * from the client, truncating it here for the allocation while
          * using the full value for the read would allow a heap buffer
          * overflow */
-        databuf = calloc((size_t)request->size, sizeof(uint8_t));
+        databuf = calloc(read_size, sizeof(uint8_t));
         check_mem(databuf);
 
         if (request->offset == 0) {
             /* use read to enable reading from non-seekable files */
-            bytes_read = read(fd, databuf, (size_t)request->size);
+            bytes_read = read(fd, databuf, read_size);
         }
         else {
-            bytes_read = pread(fd, databuf, (size_t)request->size, (off_t)request->offset);
+            bytes_read = pread(fd, databuf, read_size, (off_t)request->offset);
         }
         /*
         check((request->size == bytes_read),
@@ -794,7 +872,7 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         return -1;
     }
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
     fd = open(path, O_CREAT | O_WRONLY, default_file_creation_permissions );
@@ -864,7 +942,7 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     create_mode = Permissions_to_bitmask(request->permissions, &success);
     check((success == true), "could not convert permissions to bitmask");
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
 
     // always add S_IWUSR as creat allows creating files
@@ -905,7 +983,7 @@ ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
 
     REQ_HAS_OPTIONAL(request, response, offset);
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
     if (truncate(path, request->offset) != 0) {
@@ -937,7 +1015,7 @@ ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from chmod permissions");
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
     if (chmod(path, localmode) != 0) {
@@ -970,7 +1048,7 @@ ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     times[1].tv_sec  = request->timestamps->modify_sec;
     times[1].tv_usec  = request->timestamps->modify_usec;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
     if (utimes(path, times) != 0) {
@@ -1007,7 +1085,7 @@ ServeDir_op_mknod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
 
     if (S_ISREG(mode)) {
 
-        check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+        check_debug((ServeDir_fullpath(sd, request, &path, PATH_KEEP_LEAF) == 0),
                 "Could not assemble path.");
         debug("requested path: %s", path);
 
@@ -1038,7 +1116,7 @@ ServeDir_op_statfs(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     debug("STATFS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__STATFS;
 
-    check_debug((ServeDir_fullpath(sd, request, &path) == 0),
+    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
             "Could not assemble path.");
     debug("requested path: %s", path);
 
