@@ -1348,6 +1348,14 @@ Rhizofs_run(int argc, char * argv[])
         fuse_opt_insert_arg(&args, 1, "-oattr_timeout=0,entry_timeout=0");
     }
 
+    /* libfuse defaults max_idle_threads to UINT_MAX when not set
+     * explicitly, then warns and clamps it down to its own hard cap of
+     * 100000 - set it explicitly to that cap to avoid the pointless
+     * warning. ("max_threads" is the newer name for this option, but it
+     * was only added in libfuse 3.12 and is silently ignored under the
+     * FUSE_USE_VERSION targeted here.) */
+    fuse_opt_insert_arg(&args, 1, "-omax_idle_threads=100000");
+
     rc = Rhizofs_fuse_main(&args);
 
     Rhizofs_settings_deinit();
