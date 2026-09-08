@@ -214,6 +214,24 @@ Rhizofs_daemonize(int argc, char * argv[])
     }
     close(pipefd[0]);
 
+    /* detach stdio from whatever the original process had them
+       connected to (a terminal, or - as with the pytest harness - a
+       pipe whose reader blocks until every holder of the write end has
+       closed it). Otherwise this process, which keeps running for as
+       long as the filesystem stays mounted, would keep those file
+       descriptors open indefinitely. */
+    {
+        int devnull = open("/dev/null", O_RDWR);
+        if (devnull >= 0) {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if (devnull > STDERR_FILENO) {
+                close(devnull);
+            }
+        }
+    }
+
     /* the notify pipe's write end must survive exec() */
     int flags = fcntl(pipefd[1], F_GETFD);
     if (flags >= 0) {
