@@ -614,7 +614,7 @@ ServeDir_op_symlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     char *path_from = NULL;
 
     debug("SYMLINK");
-    response->requesttype = RHIZOFS__REQUEST_TYPE__LINK;
+    response->requesttype = RHIZOFS__REQUEST_TYPE__SYMLINK;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
