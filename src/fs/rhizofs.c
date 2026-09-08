@@ -933,6 +933,7 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2], struct fuse_file
 {
 	(void) fi;
     OP_INIT(request, response, returned_err);
+    struct stat current;
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
     request.path = (char *)path;
@@ -941,10 +942,58 @@ Rhizofs_utimens(const char * path, const struct timespec tv[2], struct fuse_file
     check((request.timestamps != NULL), "Could not create utimens timestamps struct");
 
     if (tv != NULL) {
-        request.timestamps->access_sec  = tv[0].tv_sec;
-        request.timestamps->access_usec = tv[0].tv_nsec / 1000;
-        request.timestamps->modify_sec  = tv[1].tv_sec;
-        request.timestamps->modify_usec = tv[1].tv_nsec / 1000;
+        /* utimensat()'s UTIME_OMIT/UTIME_NOW sentinels arrive here as-is:
+         * the kernel may (and, on macOS's FSKit backend, reliably does)
+         * send a UTIME_OMIT for one of the two timestamps in a separate
+         * call from the one that actually sets the other - so tv_sec is
+         * meaningless (usually 0) for that entry and must not be sent to
+         * the server as-is, or it clobbers the timestamp that was meant
+         * to be left untouched with the Unix epoch. Fetch the timestamp
+         * that is being left alone from the server so we can still send
+         * both fields together, since the wire protocol (like utimes())
+         * only supports setting both at once. */
+        if (tv[0].tv_nsec == UTIME_OMIT || tv[1].tv_nsec == UTIME_OMIT) {
+            check((Rhizofs_getattr_remote(path, &current) == 0),
+                    "Could not fetch current attributes to preserve an omitted timestamp");
+        }
+
+        if (tv[0].tv_nsec == UTIME_OMIT) {
+            request.timestamps->access_sec  = current.st_atime;
+#if defined(__APPLE__)
+            request.timestamps->access_usec = current.st_atimespec.tv_nsec / 1000;
+#elif !defined(__USE_XOPEN2K8)
+            request.timestamps->access_usec = current.st_atimensec / 1000;
+#else
+            request.timestamps->access_usec = current.st_atim.tv_nsec / 1000;
+#endif
+        } else if (tv[0].tv_nsec == UTIME_NOW) {
+            struct timeval now;
+            gettimeofday(&now, NULL);
+            request.timestamps->access_sec  = now.tv_sec;
+            request.timestamps->access_usec = now.tv_usec;
+        } else {
+            request.timestamps->access_sec  = tv[0].tv_sec;
+            request.timestamps->access_usec = tv[0].tv_nsec / 1000;
+        }
+
+        if (tv[1].tv_nsec == UTIME_OMIT) {
+            request.timestamps->modify_sec  = current.st_mtime;
+#if defined(__APPLE__)
+            request.timestamps->modify_usec = current.st_mtimespec.tv_nsec / 1000;
+#elif !defined(__USE_XOPEN2K8)
+            request.timestamps->modify_usec = current.st_mtimensec / 1000;
+#else
+            request.timestamps->modify_usec = current.st_mtim.tv_nsec / 1000;
+#endif
+        } else if (tv[1].tv_nsec == UTIME_NOW) {
+            struct timeval now;
+            gettimeofday(&now, NULL);
+            request.timestamps->modify_sec  = now.tv_sec;
+            request.timestamps->modify_usec = now.tv_usec;
+        } else {
+            request.timestamps->modify_sec  = tv[1].tv_sec;
+            request.timestamps->modify_usec = tv[1].tv_nsec / 1000;
+        }
     } else {
         struct timeval now;
         gettimeofday(&now, NULL);
