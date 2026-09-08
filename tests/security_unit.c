@@ -113,6 +113,24 @@ test_path_containment(void)
     mkdir(share, 0755);
     mkdir(outside, 0755);
 
+    /* path_resolves_within()/path_parent_resolves_within() compare a
+     * realpath()-resolved path against "directory" as given, on the
+     * assumption that the caller already resolved it too (which
+     * ServeDir_init() does for the real served directory - see
+     * servedir.c). base/share here are still whatever mkdtemp() made
+     * them, e.g. "/tmp/..." on macOS, where /tmp is itself a symlink to
+     * /private/tmp; resolve share the same way before using it, or
+     * every check below would spuriously fail on the /tmp vs
+     * /private/tmp mismatch alone. */
+    char * resolved_share = realpath(share, NULL);
+    if (resolved_share == NULL) {
+        fprintf(stderr, "FAIL could not resolve the share directory\n");
+        ++failures;
+        return;
+    }
+    snprintf(share, sizeof(share), "%s", resolved_share);
+    free(resolved_share);
+
     snprintf(path, sizeof(path), "%s/inside.txt", share);
     fclose(fopen(path, "w"));
 
