@@ -1092,12 +1092,35 @@ static int
 Rhizofs_chown(const char * path, uid_t user, gid_t group, struct fuse_file_info *fi)
 {
     (void) path;
-    (void) user;
-    (void) group;
-	(void) fi;
+    (void) fi;
 
-    log_warn("CHOWN is not (yet) supported");
-    return -ENOTSUP;
+    /* rhizofs does not carry real per-file ownership over the wire -
+     * Attrs only ever encodes "is_owner"/"is_in_group" booleans against
+     * the calling context's own uid/gid (see Rhizofs_convert_attrs_stat),
+     * there is no persisted numeric owner to change in the first place.
+     * macOS's FSKit backend issues a chown-to-caller SETATTR right after
+     * every create()/mkdir() to normalize ownership; rejecting it (as
+     * this used to do, unconditionally) breaks basic file creation. The
+     * only chown() that can be honored is one that "changes" ownership
+     * to what it already effectively is: the user this filesystem is
+     * mounted as.
+     *
+     * fuse_get_context()->uid/gid would be the usual way to check that,
+     * but it is not reliably populated by this backend - it has been
+     * observed reporting 0:0 for a chown request that was demonstrably
+     * from uid 501. Use getuid()/getgid() of this process instead: a
+     * FUSE mount is only reachable by the mounting user unless -o
+     * allow_other is given, so "the caller" and "the process this
+     * filesystem is running as" are the same uid/gid in the normal
+     * case anyway. */
+    if ((user == (uid_t)-1 || user == getuid()) &&
+            (group == (gid_t)-1 || group == getgid())) {
+        return 0;
+    }
+
+    log_warn("CHOWN to a different user/group is not supported (requested %d:%d, mounted as %d:%d)",
+            (int)user, (int)group, (int)getuid(), (int)getgid());
+    return -EPERM;
 }
 
 
