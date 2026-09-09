@@ -1,11 +1,15 @@
 Name:       rhizofs
-Version:    0.2.7
-# distinguishes a local/dev build (an untagged commit or a dirty working
-# tree) from an official release with the same Version, without disturbing
-# Release for a clean checkout of the release tag. Assumes rpmbuild is
-# invoked from the repository root (as ci/photon/build-rpms.sh does).
-%define _snapshot %(s=$(scripts/get-version.sh 2>/dev/null); [ -n "$s" ] && printf '.%s' "$s")
-Release:    1%{_snapshot}%{?dist}
+# a "^" in Version marks a post-release snapshot: RPM's version comparison
+# treats it as newer than the plain release it follows (0.2.7^git30.b8a4ec6
+# > 0.2.7), per Fedora's snapshot-versioning convention. It has to live in
+# Version rather than Release, since %%{?dist} trails Release and the caret
+# only outranks a competing string that ends right at that point -- with
+# %%{?dist} appended after it on both sides, it would sort the wrong way.
+# Assumes rpmbuild is invoked from the repository root (as
+# ci/photon/build-rpms.sh does).
+%define _snapshot %(s=$(scripts/get-version.sh 2>/dev/null); [ -n "$s" ] && printf '^%s' "$s")
+Version:    0.2.7%{_snapshot}
+Release:    1%{?dist}
 URL:        https://github.com/oliverkurth/rhizofs
 Source0:    %{name}-%{version}.tar.gz
 Summary:    A simple remote filesystem based on FUSE, ZeroMQ and protobuf-c
