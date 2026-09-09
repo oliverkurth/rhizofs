@@ -13,10 +13,11 @@ MNT_POINT=$3
 
 CLIENT_KEYFILE="${HOME}/.config/rhizofs/key"
 SERVER_KEYFILE="${HOME}/.config/rhizofs/${NAME}"
-UNIT_FILE="${HOME}/.config/systemd/user/rhizofs-${NAME}.service"
+MOUNT_POINT="${HOME}/${MNT_POINT}"
+ENV_FILE="${HOME}/.config/rhizofs/${NAME}.env"
 
-if [ ! -d "${HOME}/${MNT_POINT}" ] ; then
-    echo "mount point ${HOME}/${MNT_POINT} does not exist"
+if [ ! -d "${MOUNT_POINT}" ] ; then
+    echo "mount point ${MOUNT_POINT} does not exist"
     exit 1
 fi
 
@@ -33,33 +34,20 @@ else
     rhizo-keygen "${CLIENT_KEYFILE}"
 fi
 
-if [ -f "${UNIT_FILE}" ] ; then
-    echo "${UNIT_FILE} exists - not creating service file"
+if [ -f "${ENV_FILE}" ] ; then
+    echo "${ENV_FILE} exists - not overwriting"
     exit 3
 fi
 
-echo "creating systemd unit file ${UNIT_FILE}"
-mkdir -p "$(dirname "${UNIT_FILE}")"
-cat <<EOF > "${UNIT_FILE}"
-[Unit]
-Description=RhizoFS client for ${NAME}
-After=network-online.target
-Wants=network-online.target
-StartLimitIntervalSec=300
-StartLimitBurst=10
-
-[Install]
-WantedBy=default.target
-
-[Service]
-Type=exec
-ExecStart=/usr/bin/rhizofs -f --clientpubkeyfile=${CLIENT_KEYFILE} --pubkeyfile=${SERVER_KEYFILE} ${URL} %h/${MNT_POINT}
-ExecStop=/usr/bin/umount %h/${MNT_POINT}
-Restart=on-failure
-RestartSec=20
+echo "creating ${ENV_FILE}"
+mkdir -p "$(dirname "${ENV_FILE}")"
+cat <<EOF > "${ENV_FILE}"
+CLIENT_KEYFILE=${CLIENT_KEYFILE}
+SERVER_KEYFILE=${SERVER_KEYFILE}
+SERVER_URL=${URL}
+MOUNT_POINT=${MOUNT_POINT}
 EOF
 
-echo "enabling and starting rhizosrv"
+echo "enabling and starting rhizofs@${NAME}"
 systemctl --user daemon-reload
-systemctl --user enable --now "$(basename "${UNIT_FILE}")"
-
+systemctl --user enable --now "rhizofs@${NAME}.service"

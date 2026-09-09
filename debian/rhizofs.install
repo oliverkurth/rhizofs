@@ -1,2 +1,3 @@
 usr/bin/rhizofs
 usr/bin/rhizofs-setuptool.sh
+usr/lib/systemd/user/rhizofs@.service

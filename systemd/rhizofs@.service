@@ -1,0 +1,17 @@
+[Unit]
+Description=RhizoFS client (%i)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Install]
+WantedBy=default.target
+
+[Service]
+Type=exec
+EnvironmentFile=%h/.config/rhizofs/%i.env
+ExecStart=/usr/bin/rhizofs -f --clientpubkeyfile=${CLIENT_KEYFILE} --pubkeyfile=${SERVER_KEYFILE} ${SERVER_URL} ${MOUNT_POINT}
+ExecStop=/usr/bin/umount ${MOUNT_POINT}
+Restart=on-failure
+RestartSec=20
