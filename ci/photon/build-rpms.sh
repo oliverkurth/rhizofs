@@ -2,6 +2,14 @@
 
 PACKAGE=rhizofs
 
+# Must come before the rpmspec queries below: the spec computes %{version}
+# from scripts/get-version.sh, which silently yields no snapshot suffix while
+# git still refuses to touch this repo. That would name the tarball after a
+# snapshot-less version while rpmbuild's own %{version} expansion, run after
+# this point, expects one -- and %prep then fails to find the tarball.
+# https://github.com/actions/checkout/issues/760
+git config --global --add safe.directory $(pwd)
+
 SPEC=${PACKAGE}.spec
 VERSION=$(rpmspec -q --srpm --queryformat "[%{VERSION}\n]" ${SPEC})
 FULLNAME=${PACKAGE}-${VERSION}
@@ -10,9 +18,6 @@ TARBALL=$(rpmspec -q --srpm --queryformat "[%{SOURCE}\n]" ${SPEC})
 ARCH=$(uname -m)
 RPM_BUILD_DIR="$(pwd)/rpmbuild"
 DIST=.ph5
-
-# https://github.com/actions/checkout/issues/760
-git config --global --add safe.directory $(pwd)
 
 tar zcf ${TARBALL} --transform "s,^,${FULLNAME}/," $(git ls-files)
 
