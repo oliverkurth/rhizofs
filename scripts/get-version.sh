@@ -13,7 +13,12 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ ! -e .git ]; then
+    exit 0
+fi
+
+if ! GIT_ERR=$(git rev-parse --is-inside-work-tree 2>&1 >/dev/null); then
+    echo "get-version.sh: warning: .git exists but git failed (${GIT_ERR}); building without a snapshot suffix" >&2
     exit 0
 fi
 
