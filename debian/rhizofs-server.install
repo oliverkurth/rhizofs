@@ -1,1 +1,3 @@
 usr/bin/rhizosrv
+usr/bin/rhizosrv-setuptool.sh
+usr/lib/systemd/user/rhizosrv@.service

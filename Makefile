@@ -32,6 +32,7 @@ PROTOCC=protoc-c
 #CC=clang
 
 PREFIX?=/usr/local
+USERUNITDIR?=$(PREFIX)/lib/systemd/user
 BINDIR=./bin
 
 # input files
@@ -109,8 +110,17 @@ valgrind-srv: dev ${BINDIR}/rhizosrv
 deb:
 	./scripts/build-deb.sh
 
+deb-clean:
+	fakeroot debian/rules clean
+	rm -f ../rhizofs_*.deb ../rhizofs-*_*.deb ../rhizofs_*.changes ../rhizofs_*.buildinfo ../rhizofs_*.dsc ../rhizofs_*.tar.* ../rhizofs_*.build
+
 install: release
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
 	install ${BINDIR}/rhizofs $(PREFIX)/bin/
 	install ${BINDIR}/rhizo-keygen $(PREFIX)/bin/
+	install src/tools/rhizofs-setuptool.sh $(PREFIX)/bin/
+	install src/tools/rhizosrv-setuptool.sh $(PREFIX)/bin/
+	install -d $(USERUNITDIR)
+	install -m 644 systemd/rhizofs@.service $(USERUNITDIR)/
+	install -m 644 systemd/rhizosrv@.service $(USERUNITDIR)/
 
