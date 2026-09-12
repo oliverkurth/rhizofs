@@ -235,6 +235,35 @@ Access is restricted to clients whose public key is listed in
 `.config/rhizosrv/NAME.authorized_keys`, which is not managed by the script and needs to
 be populated separately (see `rhizo-keygen` below to generate client keys).
 
+**use with launchd (macOS)**
+
+On macOS there is no systemd, so `rhizosrv` uses `launchd` instead, via a per-user
+LaunchAgent. Unlike systemd, launchd has no notion of template units or an
+`EnvironmentFile` include, so each instance gets its own fully rendered `plist`. The
+template it is rendered from (see
+[launchd/rhizosrv.plist.template](launchd/rhizosrv.plist.template)) ships with the
+package and is installed to `$PREFIX/share/rhizofs/launchd/`.
+
+Instead of setting this up by hand, the script `rhizosrv-setuptool-macos.sh` automates
+it: it generates the server key pair for the instance (if one doesn't already exist) and
+renders `~/Library/LaunchAgents/com.rhizofs.server.NAME.plist` from the template.
+```
+rhizosrv-setuptool-macos.sh [--start] [--enable] NAME [DIRECTORY] [PORT]
+```
+The positional arguments are the same as for `rhizosrv-setuptool.sh` above. Logs are
+written to `~/Library/Logs/rhizosrv/NAME.log`.
+
+By default the script neither enables nor loads the service; it just prints the
+`launchctl` commands needed to do so. Pass `--enable` to enable it (clearing any prior
+`launchctl disable`, so it loads on future logins - LaunchAgents load automatically once
+enabled) and/or `--start` to load and start it now, or restart it if it's already
+running - useful to apply a config change to an already-running instance. Re-running the
+script with `--start`/`--enable` and the same `NAME` is safe: it will not touch an
+existing key or plist.
+
+You can check the status with `launchctl print gui/$(id -u)/com.rhizofs.server.NAME`,
+and stop it with `launchctl bootout gui/$(id -u)/com.rhizofs.server.NAME`.
+
 **rhizofs**
 
 rhizofs is the client-side component and is used to mount the filesystem on the client.
@@ -372,6 +401,32 @@ By default the script neither enables nor starts `rhizofs@NAME.service`; it just
 the `systemctl` commands needed to do so. Pass `--enable` to enable the service (so it
 mounts on login) and/or `--start` to (re)mount it now.
 
+**use with launchd (macOS)**
+
+Just like the server, the client uses `launchd` instead of systemd on macOS. Since
+launchd has no template-unit mechanism, each mount gets its own fully rendered `plist`,
+generated from [launchd/rhizofs.plist.template](launchd/rhizofs.plist.template) (which
+ships with the package and is installed to `$PREFIX/share/rhizofs/launchd/`). The
+template passes `-o backend=fskit`, so the mount goes through macFUSE's FSKit backend
+rather than the older kext/system-extension one.
+
+The script `rhizofs-setuptool-macos.sh` automates this: it generates a client key pair
+(if one doesn't already exist) and renders
+`~/Library/LaunchAgents/com.rhizofs.client.NAME.plist` to mount the given server.
+```
+rhizofs-setuptool-macos.sh [--start] [--enable] NAME URL MOUNT_POINT
+```
+The positional arguments are the same as for `rhizofs-setuptool.sh` above. Logs are
+written to `~/Library/Logs/rhizofs/NAME.log`.
+
+By default the script neither enables nor loads the service; it just prints the
+`launchctl` commands needed to do so. Pass `--enable` to enable it (so it mounts on
+future logins) and/or `--start` to mount it now, or remount it if it's already mounted.
+
+You can check the status with `launchctl print gui/$(id -u)/com.rhizofs.client.NAME`. The
+filesystem can be unmounted with
+`launchctl bootout gui/$(id -u)/com.rhizofs.client.NAME`.
+
 Utilities
 ---------
 
@@ -408,9 +463,11 @@ in the project directory.
 
     make install
 
-installs the client and server components on the system, along with the
-`rhizofs-setuptool.sh` and `rhizosrv-setuptool.sh` convenience scripts and the
-`rhizofs@.service`/`rhizosrv@.service` systemd user units described above.
+installs the client and server components on the system, along with the setup scripts
+and service definitions described above: on Linux, `rhizofs-setuptool.sh` and
+`rhizosrv-setuptool.sh` plus the `rhizofs@.service`/`rhizosrv@.service` systemd user
+units; on macOS, `rhizofs-setuptool-macos.sh` and `rhizosrv-setuptool-macos.sh` plus the
+`launchd` plist templates.
 
 There is also some rudimentary support for building a debian package by calling `make deb`,
 but be aware that the package building might not always be kept up to date with the current

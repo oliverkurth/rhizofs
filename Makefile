@@ -33,6 +33,7 @@ PROTOCC=protoc-c
 
 PREFIX?=/usr/local
 USERUNITDIR?=$(PREFIX)/lib/systemd/user
+SHAREDIR?=$(PREFIX)/share/rhizofs
 BINDIR=./bin
 
 # input files
@@ -115,12 +116,21 @@ deb-clean:
 	rm -f ../rhizofs_*.deb ../rhizofs-*_*.deb ../rhizofs_*.changes ../rhizofs_*.buildinfo ../rhizofs_*.dsc ../rhizofs_*.tar.* ../rhizofs_*.build
 
 install: release
+	install -d $(PREFIX)/bin
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
 	install ${BINDIR}/rhizofs $(PREFIX)/bin/
 	install ${BINDIR}/rhizo-keygen $(PREFIX)/bin/
+ifeq (${UNAME_S},Darwin)
+	install src/scripts/rhizofs-setuptool-macos.sh $(PREFIX)/bin/
+	install src/scripts/rhizosrv-setuptool-macos.sh $(PREFIX)/bin/
+	install -d $(SHAREDIR)/launchd
+	install -m 644 launchd/rhizofs.plist.template $(SHAREDIR)/launchd/
+	install -m 644 launchd/rhizosrv.plist.template $(SHAREDIR)/launchd/
+else
 	install src/scripts/rhizofs-setuptool.sh $(PREFIX)/bin/
 	install src/scripts/rhizosrv-setuptool.sh $(PREFIX)/bin/
 	install -d $(USERUNITDIR)
 	install -m 644 systemd/rhizofs@.service $(USERUNITDIR)/
 	install -m 644 systemd/rhizosrv@.service $(USERUNITDIR)/
+endif
 
