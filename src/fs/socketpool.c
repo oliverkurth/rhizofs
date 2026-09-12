@@ -3,13 +3,60 @@
 #include "../dbg.h"
 
 
-/** destroy a single 0mq socket */
-void
-SocketPool_socket_destroy(void * sock)
+/* the value stored via pthread_setspecific(): the socket handed to this
+   thread, plus a back-pointer so the pthread-key destructor can remove it
+   from the pool's tracking list again */
+typedef struct ThreadSocket {
+    SocketPool * pool;
+    void * socket;
+} ThreadSocket;
+
+
+static void
+SocketPool_untrack(SocketPool * sp, void * sock)
 {
-    if (sock != NULL) {
-        zmq_close(sock);
-        sock = NULL;
+    pthread_mutex_lock(&sp->sockets_lock);
+    SocketPoolNode ** link = &sp->sockets;
+    while (*link) {
+        if ((*link)->socket == sock) {
+            SocketPoolNode * found = *link;
+            *link = found->next;
+            free(found);
+            break;
+        }
+        link = &(*link)->next;
+    }
+    pthread_mutex_unlock(&sp->sockets_lock);
+}
+
+
+static void
+SocketPool_track(SocketPool * sp, void * sock)
+{
+    SocketPoolNode * node = (SocketPoolNode *)malloc(sizeof(SocketPoolNode));
+    check_mem(node);
+    node->socket = sock;
+
+    pthread_mutex_lock(&sp->sockets_lock);
+    node->next = sp->sockets;
+    sp->sockets = node;
+    pthread_mutex_unlock(&sp->sockets_lock);
+    return;
+error:
+    return;
+}
+
+
+/** pthread-key destructor: runs when a thread that owns a pooled socket
+ *  exits while the pool itself is still alive */
+static void
+SocketPool_thread_destructor(void * value)
+{
+    ThreadSocket * ts = (ThreadSocket *)value;
+    if (ts != NULL) {
+        SocketPool_untrack(ts->pool, ts->socket);
+        zmq_close(ts->socket);
+        free(ts);
     }
 }
 
@@ -27,8 +74,12 @@ SocketPool_init(SocketPool * socketpool, void * context, const char * socket_nam
 
     socketpool->socket_type = socket_type;
     socketpool->context = context;
+    socketpool->sockets = NULL;
 
-    rc = pthread_key_create(&(socketpool->key), SocketPool_socket_destroy);
+    check((pthread_mutex_init(&(socketpool->sockets_lock), NULL) == 0),
+        "pthread_mutex_init failed.");
+
+    rc = pthread_key_create(&(socketpool->key), SocketPool_thread_destructor);
     check((rc==0), "pthread_key_create failed.");
 
     return true;
@@ -45,18 +96,40 @@ error:
 }
 
 
+/**
+ * pthread_key_delete() does not run the key's destructor for values that
+ * are still set on live threads, so without explicitly closing them here,
+ * sockets handed out to (still-running) worker threads stay open. That
+ * then makes zmq_ctx_term()/zmq_ctx_destroy() on the pool's context block
+ * forever, since it waits for every socket created in that context to be
+ * closed.
+ */
 void
 SocketPool_deinit(SocketPool * sp)
 {
-    if (sp) {
-        if (sp->socket_name != NULL) {
-            free(sp->socket_name);
-            sp->socket_name = NULL;
-        }
-        if (sp->key) {
-            pthread_key_delete(sp->key);
-            sp->key = 0;
-        }
+    if (!sp) {
+        return;
+    }
+
+    pthread_mutex_lock(&sp->sockets_lock);
+    SocketPoolNode * node = sp->sockets;
+    sp->sockets = NULL;
+    pthread_mutex_unlock(&sp->sockets_lock);
+
+    while (node) {
+        SocketPoolNode * next = node->next;
+        zmq_close(node->socket);
+        free(node);
+        node = next;
+    }
+
+    if (sp->socket_name != NULL) {
+        free(sp->socket_name);
+        sp->socket_name = NULL;
+    }
+    if (sp->key) {
+        pthread_key_delete(sp->key);
+        sp->key = 0;
     }
 }
 
@@ -66,9 +139,11 @@ SocketPool_renew_socket(SocketPool * sp)
 {
     check(sp != NULL, "passed socketpool is NULL");
 
-    void * sock = pthread_getspecific(sp->key);
-    if (sock != NULL) {
-        zmq_close(sock);
+    ThreadSocket * ts = (ThreadSocket *)pthread_getspecific(sp->key);
+    if (ts != NULL) {
+        SocketPool_untrack(sp, ts->socket);
+        zmq_close(ts->socket);
+        free(ts);
         if (pthread_setspecific(sp->key, NULL) != 0) {
             debug("could not clear socket in thread");
         }
@@ -126,26 +201,41 @@ void *
 SocketPool_get_socket(SocketPool * sp)
 {
     void * sock = NULL;
+    ThreadSocket * ts = NULL;
 
     check(sp != NULL, "passed socketpool is NULL");
 
-    sock = pthread_getspecific(sp->key);
-    if (sock == NULL) {
-
-        /* create a new socket */
-        sock = create_socket(sp->context, sp->socket_type,
-                             sp->server_public_key,
-                             sp->client_public_key, sp->client_secret_key);
-        check((sock != NULL), "Could not create 0mq socket");
-
-        check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
-        check((pthread_setspecific(sp->key, sock) == 0), "could not set socket in thread");
+    ts = (ThreadSocket *)pthread_getspecific(sp->key);
+    if (ts != NULL) {
+        return ts->socket;
     }
+
+    /* create a new socket */
+    sock = create_socket(sp->context, sp->socket_type,
+                         sp->server_public_key,
+                         sp->client_public_key, sp->client_secret_key);
+    check((sock != NULL), "Could not create 0mq socket");
+
+    check((zmq_connect(sock, sp->socket_name) == 0), "could not connect to socket");
+
+    ts = (ThreadSocket *)malloc(sizeof(ThreadSocket));
+    check_mem(ts);
+    ts->pool = sp;
+    ts->socket = sock;
+
+    check((pthread_setspecific(sp->key, ts) == 0), "could not set socket in thread");
+
+    SocketPool_track(sp, sock);
 
     return sock;
 
 error:
-    SocketPool_socket_destroy(sock);
+    if (sock != NULL) {
+        zmq_close(sock);
+    }
+    if (ts != NULL) {
+        free(ts);
+    }
     return NULL;
 }
 

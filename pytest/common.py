@@ -1,4 +1,5 @@
 import os
+import platform
 import signal
 import shutil
 import stat
@@ -12,6 +13,14 @@ RHIZOFS=os.path.join(BINDIR, "rhizofs")
 RHIZOKEYGEN=os.path.join(BINDIR, "rhizo-keygen")
 RHIZORAWCLIENT=os.path.join(BINDIR, "rhizo-rawclient")
 RHIZOSECURITYUNIT=os.path.join(BINDIR, "rhizo-security-unit")
+
+
+def _rhizofs_backend_args():
+    # on macOS, mount through macFUSE's FSKit backend rather than the
+    # default kext/system-extension one
+    if platform.system() == "Darwin":
+        return ["-o", "backend=fskit"]
+    return []
 
 
 class CmdReturn:
@@ -80,7 +89,7 @@ def stop_server_fg(process):
 
 
 def start_client(endpoint, directory, args=[], ignore_fail=False):
-    ret = run([RHIZOFS] + args + [endpoint, directory])
+    ret = run([RHIZOFS] + _rhizofs_backend_args() + args + [endpoint, directory])
     print(ret.stderr)
     print(ret.stdout)
     print(ret.retval)
@@ -111,7 +120,7 @@ def start_client_fg(endpoint, directory, args=[], ignore_fail=False, use_valgrin
     if use_valgrind:
         valgrind = ["valgrind", "--leak-check=full", "--track-origins=yes"]
 
-    cmd = valgrind + [RHIZOFS, "-f"] + args + [endpoint, directory]
+    cmd = valgrind + [RHIZOFS, "-f"] + _rhizofs_backend_args() + args + [endpoint, directory]
     print("starting client in foreground:", " ".join(cmd))
     return subprocess.Popen(cmd, text=True)
 

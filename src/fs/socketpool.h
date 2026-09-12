@@ -14,6 +14,11 @@ void *create_socket(void *ctx, int type,
                     const char *client_public_key,
                     const char *client_secret_key);
 
+typedef struct SocketPoolNode {
+    void * socket;
+    struct SocketPoolNode * next;
+} SocketPoolNode;
+
 typedef struct SocketPool {
     pthread_key_t   key;
     void * context;  /* 0mq context */
@@ -22,6 +27,11 @@ typedef struct SocketPool {
     const char *client_public_key;
     const char *client_secret_key;
     const char *server_public_key;
+
+    /* sockets handed out to worker threads via "key", tracked here so
+       SocketPool_deinit() can close them explicitly */
+    SocketPoolNode * sockets;
+    pthread_mutex_t sockets_lock;
 } SocketPool;
 
 

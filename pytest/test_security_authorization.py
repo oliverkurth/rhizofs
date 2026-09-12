@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import time
 
 from common import run, start_server, stop_server, \
                    start_client, stop_client, \
@@ -71,6 +72,12 @@ def test_client_key_not_in_the_authorized_keys_file_is_rejected():
                      args=[f"--pubkeyfile={server_key}",
                            f"--clientpubkeyfile={authorized_key}",
                            "--attr-cache-timeout=0"])
+
+        # start_client() only waits for the daemon to report that its
+        # own setup succeeded; the mount can still take a bit longer
+        # than that to actually become reachable (matches the same
+        # settling wait used elsewhere, e.g. test_mount.py/test_mount_zap)
+        time.sleep(1)
 
         with open(os.path.join(client_dir, "inside.txt")) as f:
             assert f.read() == "only for authorized clients"
