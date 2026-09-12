@@ -33,3 +33,28 @@ jobs:
             - name: run tests
               working-directory: ${{ github.workspace }}
               run: pytest -s pytest/
+
+    build-macos:
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: install build deps
+              run: brew install pkg-config zeromq protobuf-c
+
+            # only needed for fuse3's headers and pkg-config file, so that
+            # the build step below has something to compile against - the
+            # macFUSE kernel/FSKit extension itself needs a one-time,
+            # interactive approval in System Settings that a CI runner can't
+            # give it, so this job only verifies that rhizofs builds on
+            # macOS, not that it can mount anything
+            - name: install macfuse
+              run: brew install --cask macfuse
+
+            - name: build
+              working-directory: ${{ github.workspace }}
+              run: make
+
+            - name: build test tools
+              working-directory: ${{ github.workspace }}
+              run: make testtools
