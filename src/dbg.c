@@ -86,6 +86,20 @@ dbg_print(const DBG_LEVEL level, const char * fmtstr, ...)
             // the moment something is logged
             fflush(log_file);
         }
+
+        // warnings and errors are always surfaced on stderr as well, even
+        // when logging is configured to go only to a file or syslog (as
+        // the daemon does) - otherwise a client run interactively (e.g.
+        // "-f") can fail during startup with no visible output at all,
+        // because syslog isn't watched by whoever is looking at the
+        // terminal.
+        if ((level >= DBG_WARN) && (log_file != stderr)) {
+            va_start(args, fmtstr);
+            vfprintf(stderr, fmtstr, args);
+            va_end(args);
+            fflush(stderr);
+        }
+
         if (use_syslog && (level < (sizeof(dbg_level_syslog)/sizeof(const int)))) {
 #ifndef __APPLE__
             va_start(args, fmtstr);
