@@ -110,6 +110,10 @@ valgrind-srv: dev ${BINDIR}/rhizosrv
 deb:
 	./scripts/build-deb.sh
 
+deb-clean:
+	fakeroot debian/rules clean
+	rm -f ../rhizofs_*.deb ../rhizofs-*_*.deb ../rhizofs_*.changes ../rhizofs_*.buildinfo ../rhizofs_*.dsc ../rhizofs_*.tar.* ../rhizofs_*.build
+
 install: release
 	install ${BINDIR}/rhizosrv $(PREFIX)/bin/
 	install ${BINDIR}/rhizofs $(PREFIX)/bin/
