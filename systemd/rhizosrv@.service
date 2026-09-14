@@ -1,0 +1,9 @@
+[Unit]
+Description=RhizoFS server (%i)
+
+[Service]
+EnvironmentFile=%h/.config/rhizosrv/%i.env
+ExecStart=/usr/bin/rhizosrv -f -e --keyfile=${KEYFILE} --authorized-keys-file=${AUTHORIZED_KEYS_FILE} ${LISTEN_URL} ${SHARE_DIR}
+
+[Install]
+WantedBy=default.target
