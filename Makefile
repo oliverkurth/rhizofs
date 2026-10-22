@@ -75,9 +75,10 @@ ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
 
 # test-only tools used by the pytest regression tests: rhizo-rawclient
 # talks to the wire protocol directly, rhizo-security-unit exercises the
-# checks that are not reachable from the outside. not part of
+# checks that are not reachable from the outside, rhizo-attrcache-unit
+# stresses concurrent cache operations. not part of
 # "all"/"install".
-testtools: ${BINDIR}/rhizo-rawclient ${BINDIR}/rhizo-security-unit
+testtools: ${BINDIR}/rhizo-rawclient ${BINDIR}/rhizo-security-unit ${BINDIR}/rhizo-attrcache-unit
 
 # kept as an alias for the previous name of this target
 testclient: testtools
@@ -87,6 +88,9 @@ ${BINDIR}/rhizo-rawclient: ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BI
 
 ${BINDIR}/rhizo-security-unit: ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizo-security-unit ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
+
+${BINDIR}/rhizo-attrcache-unit: tests/attrcache_unit.o src/fs/attrcache.o src/kazlib/hash.o src/hashfunc.o src/dbg.o ${BINDIR}
+	$(CC) -o $@ tests/attrcache_unit.o src/fs/attrcache.o src/kazlib/hash.o src/hashfunc.o src/dbg.o -lpthread
 
 ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${PROTO_H_COMPILED}
 
@@ -100,7 +104,7 @@ ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} tests/attrcache_unit.o ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv

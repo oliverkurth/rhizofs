@@ -56,7 +56,8 @@ void AttrCache_deinit(AttrCache * attrcache);
  * return a pointer to the CacheEntry structure of the entry.
  * the allocated memory of the pointer still belongs to the cache
  *
- * does not perform any locking
+ * does not perform any locking; caller must hold mutex_modify while using
+ * this function and the returned pointer
  *
  * returns NULL if the entry is not found.
  */
