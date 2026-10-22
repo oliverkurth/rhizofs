@@ -83,6 +83,13 @@ refuses to start without it. Note that `--encrypt` on its own encrypts the conne
 accepts *any* client key - listing the keys you want to allow in an authorized keys file is
 what restricts who may connect.
 
+Network listeners require both `--encrypt` and `--authorized-keys-file`.
+Only `ipc://` and `inproc://` endpoints may start without them by default.
+This includes TCP, WebSocket, TIPC and VMCI listeners, even when the address
+is loopback. Existing network deployments must add these options or explicitly
+use `-I` / `--insecure` to accept unauthenticated or unencrypted connections
+on an independently trusted network. See [release notes](CHANGELOG.md).
+
 
 File ownership and user mapping
 -------------------------------
@@ -147,6 +154,7 @@ Options
   -e --encrypt
   -f --foreground          foreground operation - do not daemonize.
   -h --help
+  -I --insecure            allow unauthenticated or unencrypted network listeners.
   -k --keyfile=FILE        File to read for the public key. The secret key
                            will be read from the file with the same name but
                            with '.secret' appended.

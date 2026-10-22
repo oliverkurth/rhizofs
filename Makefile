@@ -126,7 +126,7 @@ clean:
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv
-	valgrind   --leak-check=full --track-origins=yes ${BINDIR}/rhizosrv tcp://0.0.0.0:11555 /tmp/
+	valgrind --leak-check=full --track-origins=yes ${BINDIR}/rhizosrv -f ipc:///tmp/rhizofs-valgrind.sock /tmp/
 
 deb:
 	./scripts/build-deb.sh
