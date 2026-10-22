@@ -20,6 +20,10 @@
 #define DEFAULT_N_WORKER_THREADS 5
 #define MAX_N_WORKER_THREADS 200
 #define WORKER_SOCKET "inproc://workers"
+/* Allow a full 64 MiB data block plus up to 1 MiB of protobuf metadata.
+ * This admission limit bounds the complete frame before parsing; the write
+ * handler independently enforces its 64 MiB encoded and decoded data caps. */
+#define MAX_WIRE_MESSAGE_SIZE ((int64_t)65 * 1024 * 1024)
 
 
 struct option opts_long[] = {
@@ -328,6 +332,14 @@ startup(const char *secret_key)
     /* create the sockets */
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
+
+    /* libzmq otherwise accepts messages of unlimited size and allocates
+     * their complete frame before ServeDir can reject malformed protobuf or
+     * an oversized data block. */
+    const int64_t max_message_size = MAX_WIRE_MESSAGE_SIZE;
+    check((zmq_setsockopt(in_socket, ZMQ_MAXMSGSIZE, &max_message_size,
+                    sizeof(max_message_size)) == 0),
+            "could not set maximum inbound message size");
 
     if (secret_key != NULL) {
         const int curve_server_enable = 1;

@@ -12,6 +12,7 @@
  *   rhizo-rawclient <endpoint> rename <path> <path_to>
  *   rhizo-rawclient <endpoint> create <path> <excl|keep|trunc|legacy>
  *   rhizo-rawclient <endpoint> writeraw <path> <declared_size> <hex_bytes>
+ *   rhizo-rawclient <endpoint> writeplain <path> <size>
  *
  * all subcommands print a single line of "KEY=VALUE" pairs to stdout
  * and exit with 0 if a reply was received (regardless of the
@@ -278,11 +279,44 @@ cmd_writeraw(void *sock, const char *path, int64_t declared_size, const char *he
     return 0;
 }
 
+/* Build a large uncompressed request without passing its data in argv or
+ * letting the ordinary client compress it below the transport limit. */
+static int
+cmd_writeplain(void *sock, const char *path, int64_t size)
+{
+    if (size < 0 || size > 66 * 1024 * 1024) {
+        fprintf(stderr, "test payload size must be between 0 and 66 MiB\n");
+        return 1;
+    }
+    Rhizofs__Request *request = Request_create();
+    request->requesttype = RHIZOFS__REQUEST_TYPE__WRITE;
+    request->path = strdup(path);
+    request->has_size = request->has_offset = 1;
+    request->size = size;
+    request->offset = 0;
+    request->datablock = DataBlock_create();
+    request->datablock->size = size;
+    request->datablock->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_NONE;
+    request->datablock->data.len = (size_t)size;
+    request->datablock->data.data = malloc(size > 0 ? (size_t)size : 1);
+    if (request->datablock->data.data == NULL) {
+        Request_destroy(request);
+        return 1;
+    }
+    memset(request->datablock->data.data, 'x', (size_t)size);
+    Rhizofs__Response *response = send_request(sock, request);
+    printf("ERRNO=%d\nHASSIZE=%d\n", response->errnotype, response->has_size);
+    if (response->has_size) printf("SIZE=%lld\n", (long long)response->size);
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
     if (argc < 3) {
-        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|readdir|read|rename|create|writeraw> [args...]\n", argv[0]);
+        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|readdir|read|rename|create|writeraw|writeplain> [args...]\n", argv[0]);
         return 1;
     }
 
@@ -313,6 +347,9 @@ main(int argc, char **argv)
     }
     else if (strcmp(cmd, "writeraw") == 0 && argc == 6) {
         rc = cmd_writeraw(sock, argv[3], strtoll(argv[4], NULL, 10), argv[5]);
+    }
+    else if (strcmp(cmd, "writeplain") == 0 && argc == 5) {
+        rc = cmd_writeplain(sock, argv[3], strtoll(argv[4], NULL, 10));
     }
     else {
         fprintf(stderr, "unknown command or wrong number of arguments: %s\n", cmd);
