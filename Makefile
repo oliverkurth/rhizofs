@@ -24,6 +24,11 @@ endif
 # objects
 CFLAGS_EXTRA = -std=c99
 
+# O_PATH opens a Linux directory for traversal without requiring read access.
+ifeq (${UNAME_S},Linux)
+CFLAGS+=-D_GNU_SOURCE
+endif
+
 LIBS=$(shell pkg-config libzmq --libs) $(shell pkg-config libprotobuf-c --libs) -lpthread
 FUSE_LIBS=$(shell pkg-config fuse3 --libs)
 

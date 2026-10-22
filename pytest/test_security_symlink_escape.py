@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+import threading
 
 from common import start_server, stop_server, run_rawclient
 
@@ -105,6 +106,59 @@ def test_dangling_symlink_out_of_served_directory_is_not_written_through():
         shutil.rmtree(outside_dir)
 
 
+def test_symlink_swap_cannot_escape_share():
+    """A containment check followed by open() is vulnerable to a swap race.
+
+    Keep replacing an in-share file with a link to an outside file while raw
+    READ requests are handled.  A descriptor-anchored server may return a
+    transient error while the name is absent, but it must never return the
+    22-byte outside file.
+    """
+    pwd, srv_dir, outside_dir = _make_dirs()
+    victim = os.path.join(srv_dir, "victim")
+    secret = os.path.join(outside_dir, "secret")
+    with open(victim, "w") as f:
+        f.write("x")
+    with open(secret, "w") as f:
+        f.write("outside-secret-content")
+
+    stop = threading.Event()
+
+    def swapper():
+        while not stop.is_set():
+            try:
+                os.unlink(victim)
+            except FileNotFoundError:
+                pass
+            os.symlink(secret, victim)
+            try:
+                os.unlink(victim)
+            except FileNotFoundError:
+                pass
+            with open(victim, "w") as f:
+                f.write("x")
+
+    try:
+        endpoint = f"ipc://{pwd}/.rhizo.sock"
+        start_server(endpoint, srv_dir)
+        thread = threading.Thread(target=swapper)
+        thread.start()
+        try:
+            for _ in range(1000):
+                result = run_rawclient(endpoint, "read", "/victim", "128", "0")
+                assert result.get("SIZE") != "22", (
+                    "READ escaped the share through a symlink swap: "
+                    f"{result}"
+                )
+        finally:
+            stop.set()
+            thread.join()
+    finally:
+        stop_server()
+        shutil.rmtree(srv_dir)
+        shutil.rmtree(outside_dir)
+
+
 def test_files_in_the_served_directory_are_still_reachable():
     """
     the containment check must not get in the way of ordinary requests.
@@ -114,7 +168,9 @@ def test_files_in_the_served_directory_are_still_reachable():
     with open(os.path.join(srv_dir, "inside.txt"), "w") as f:
         f.write("reachable")
 
-    # a symlink that stays inside the share keeps working
+    # A normal FUSE client resolves this link locally after READLINK.  A raw
+    # protocol client must not make the server follow it, because that would
+    # reintroduce a symlink race at the share boundary.
     os.symlink("inside.txt", os.path.join(srv_dir, "inside-link"))
 
     try:
@@ -125,8 +181,8 @@ def test_files_in_the_served_directory_are_still_reachable():
         assert result["ATTRS"] == "1", f"a file in the share was refused: {result}"
 
         result = run_rawclient(endpoint, "read", "/inside-link", "128", "0")
-        assert result["SIZE"] == "9", (
-            f"a symlink staying inside the share was refused: {result}"
+        assert result["SIZE"] == "-1", (
+            f"server followed a raw protocol symlink: {result}"
         )
 
         result = run_rawclient(endpoint, "readdir", "/")

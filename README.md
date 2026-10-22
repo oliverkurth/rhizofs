@@ -62,12 +62,19 @@ Features
 -   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
     encryption and authentication (ZAP).
 
--   **the shared directory is a boundary**: the server refuses requests for paths that
-    leave the directory it was told to share, whether through a `..` component or by
-    following a symlink out of it. Symlinks *inside* the shared directory are followed
-    as usual, and a client can still create and read back a symlink pointing anywhere -
-    it is resolved on the client, like on any other network filesystem - but the server
-    will not follow one out of the share on the client's behalf.
+-   **the shared directory is a boundary**: the server resolves every request from an
+    open descriptor for the shared directory, and refuses `..` components and symlinks
+    in a protocol path. A client can still create and read back a symlink pointing
+    anywhere: FUSE resolves it on the client and sends the resulting in-share path, but
+    the server never follows a client-supplied symlink on its behalf.
+
+    Linux `chmod` compatibility: if the C library cannot perform
+    no-follow chmod, the server opens and checks the leaf without following
+    symlinks, then changes the opened inode through `/proc/self/fd`. When
+    `/proc` is unavailable too, chmod fails rather than retrying by name,
+    since another client could replace the checked leaf with a symlink.
+    Older glibc therefore needs `/proc` available for chmod; systems with
+    native no-follow chmod support do not need this fallback.
 
 Authentication
 --------------

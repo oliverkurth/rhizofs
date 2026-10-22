@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <dirent.h>
+#include <fcntl.h>
 
 #include <zmq.h>
 
@@ -53,6 +54,15 @@
  * compressed payload request an arbitrarily large allocation. */
 #define MAX_WRITE_SIZE ((size_t)64 * 1024 * 1024)
 
+/* Walking a path only requires search permission on its directories. */
+#if defined(O_PATH)
+#define DIRECTORY_ACCESS O_PATH
+#elif defined(O_SEARCH)
+#define DIRECTORY_ACCESS O_SEARCH
+#else
+#define DIRECTORY_ACCESS O_RDONLY
+#endif
+
 /**
  * default permissions for file creation. the same permission set is used
  * by the GNU coreutils touch command
@@ -61,21 +71,9 @@ static const int default_file_creation_permissions =
         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
 
 
-/**
- * whether an operation resolves the final component of the path it is
- * given, following a symlink there, or whether it acts on that entry
- * itself
- */
-typedef enum {
-    PATH_FOLLOW_LEAF,
-    PATH_KEEP_LEAF
-} PathLeafMode;
-
 // prototypes
-static int ServeDir_resolve(const ServeDir * sd, Rhizofs__Response * response,
-        const char * reqpath, char ** fullpath, PathLeafMode leafmode);
-static int ServeDir_fullpath(const ServeDir * sd, Rhizofs__Response * response,
-        const Rhizofs__Request * request, char ** fullpath, PathLeafMode leafmode);
+static int ServeDir_parent(const ServeDir * sd, Rhizofs__Response * response,
+        const char * reqpath, int * parentfd, char ** leaf);
 static int ServeDir_op_ping(Rhizofs__Response * response);
 static int ServeDir_op_invalid(Rhizofs__Response * response);
 #define SERVEDIR_OP(NAME)   \
@@ -112,6 +110,7 @@ ServeDir_create(void *context, char *socket_name, char *directory)
 
     sd->socket = NULL;
     sd->directory = NULL;
+    sd->directory_fd = -1;
     struct stat sr;
 
     /* get the absolute path to the directory */
@@ -123,6 +122,8 @@ ServeDir_create(void *context, char *socket_name, char *directory)
     /* validate the directory */
     check((stat((const char*)directory, &sr) == 0), "could not stat %s", directory);
     check(S_ISDIR(sr.st_mode), "%s is not a directory.", directory);
+    sd->directory_fd = open(sd->directory, DIRECTORY_ACCESS | O_DIRECTORY | O_CLOEXEC);
+    check((sd->directory_fd != -1), "could not open served directory");
 
     sd->socket = zmq_socket(context, ZMQ_REP);
     sd->socket_name = socket_name;
@@ -141,6 +142,9 @@ error:
         if (sd->socket) {
             zmq_close(sd->socket);
         }
+        if (sd->directory_fd != -1) {
+            close(sd->directory_fd);
+        }
         free(sd);
     }
     return NULL;
@@ -156,6 +160,10 @@ ServeDir_destroy(ServeDir * sd)
         if (sd->socket != NULL) {
             zmq_close(sd->socket);
             sd->socket = NULL;
+        }
+        if (sd->directory_fd != -1) {
+            close(sd->directory_fd);
+            sd->directory_fd = -1;
         }
     }
     free(sd);
@@ -277,57 +285,83 @@ error:
 }
 
 
+/* Return a descriptor for the directory containing reqpath and an allocated
+ * final component.  Each intermediate component is opened relative to the
+ * already verified directory descriptor with O_NOFOLLOW.  Consequently a
+ * rename or symlink swap after this function returns cannot redirect an *at
+ * operation outside the served directory. */
 static int
-ServeDir_resolve(const ServeDir * sd, Rhizofs__Response * response,
-        const char * reqpath, char ** fullpath, PathLeafMode leafmode)
+ServeDir_parent(const ServeDir * sd, Rhizofs__Response * response,
+        const char * reqpath, int * parentfd, char ** leaf)
 {
-    int returned_err = EACCES;
-    if (reqpath == NULL) {
-        returned_err = EINVAL;
-        goto error;
+    char * pathcopy = NULL;
+    char * component = NULL;
+    char * saveptr = NULL;
+    int currentfd = -1;
+    int returned_err = EINVAL;
+
+    if (sd == NULL || reqpath == NULL || parentfd == NULL || leaf == NULL) {
+        Response_set_errno(response, EINVAL);
+        return -1;
     }
-    check_debug(!path_has_parent_reference(reqpath),
-            "rejecting path escaping the served directory: %s", reqpath);
-    /* With valid inputs, joining paths fails only on allocation. Its
-     * check() macros clear errno, so select ENOMEM explicitly here. */
-    if (path_join(sd->directory, reqpath, fullpath) != 0 || *fullpath == NULL) {
-        returned_err = ENOMEM;
+
+    *parentfd = -1;
+    *leaf = NULL;
+    returned_err = EACCES;
+    if (path_has_parent_reference(reqpath)) goto error;
+    currentfd = dup(sd->directory_fd);
+    if (currentfd == -1) {
+        returned_err = errno;
         goto error;
     }
 
-    /* rejecting ".." is not enough: a symlink in the shared directory -
-     * planted by a client through SYMLINK, or simply unpacked there
-     * from an archive - otherwise hands out everything the server
-     * process can reach. a client resolves symlinks in its own kernel
-     * before it sends a path, so refusing to follow them here costs it
-     * nothing; only a client speaking the protocol directly ever sends
-     * a path that has to be resolved on this side. */
-    errno = 0;
-    bool contained = leafmode == PATH_FOLLOW_LEAF
-            ? path_resolves_within(sd->directory, *fullpath)
-            : path_parent_resolves_within(sd->directory, *fullpath);
-    if (!contained) {
-        if (errno == ENOMEM) {
-            returned_err = ENOMEM;
+    returned_err = ENOMEM;
+    pathcopy = strdup(reqpath);
+    if (pathcopy == NULL) goto error;
+    component = strtok_r(pathcopy, "/", &saveptr);
+    if (component == NULL) {
+        *leaf = strdup(".");
+        if (*leaf == NULL) goto error;
+        *parentfd = currentfd;
+        free(pathcopy);
+        return 0;
+    }
+
+    while (component != NULL) {
+        char * next = strtok_r(NULL, "/", &saveptr);
+        if (next == NULL) {
+            *leaf = strdup(component);
+            if (*leaf == NULL) goto error;
+            *parentfd = currentfd;
+            free(pathcopy);
+            return 0;
         }
-        goto error;
+
+        if (strcmp(component, ".") != 0) {
+            int nextfd = openat(currentfd, component,
+                    DIRECTORY_ACCESS | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+            if (nextfd == -1) {
+                /* O_NOFOLLOW on a symlink directory may report ENOTDIR
+                 * or ELOOP. Preserve the resolver's access-denied policy
+                 * while keeping allocation failures distinguishable. */
+                returned_err = errno == ENOMEM ? ENOMEM : EACCES;
+                goto error;
+            }
+            close(currentfd);
+            currentfd = nextfd;
+        }
+        component = next;
     }
 
-    return 0;
 error:
-    /* A rejected path must never produce a successful wire response. */
+    /* Preserve master's explicit resolver errors: a refused path must
+     * never result in a successful wire response or hide ENOMEM. */
     Response_set_errno(response, returned_err);
-    free(*fullpath);
-    *fullpath = NULL;
+    free(pathcopy);
+    free(*leaf);
+    *leaf = NULL;
+    if (currentfd != -1) close(currentfd);
     return -1;
-}
-
-
-static int
-ServeDir_fullpath(const ServeDir * sd, Rhizofs__Response * response,
-        const Rhizofs__Request * request, char ** fullpath, PathLeafMode leafmode)
-{
-    return ServeDir_resolve(sd, response, request->path, fullpath, leafmode);
 }
 
 // ########## filesystem operations ############################
@@ -382,28 +416,30 @@ static int
 ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
     DIR *dir = NULL;
-    char * dirpath = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
+    int openedfd = -1;
     struct dirent *de = NULL;
     size_t entry_count = 0;
     size_t entries_capacity = 0;
-    char * entry_fullpath = NULL;
     struct stat sb;
 
     debug("READDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READDIR;
     response->n_directory_entries = 0;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &dirpath, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble directory path.");
-    debug("requested directory path: %s", dirpath);
-    dir = opendir(dirpath);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble directory path.");
+    openedfd = openat(parentfd, leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (openedfd != -1) dir = fdopendir(openedfd);
     if (dir == NULL) {
         Response_set_errno(response, errno);
-        debug("Could not open directory %s", dirpath);
-
-        free(dirpath);
+        if (openedfd != -1) close(openedfd);
+        free(leaf);
+        close(parentfd);
         return 0;
     }
+    openedfd = -1; /* owned by dir */
 
     // count the entries in the directory
     while (readdir(dir) != NULL) {
@@ -441,10 +477,7 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
             entries_capacity = new_capacity;
         }
 
-        check((path_join(dirpath, de->d_name, &entry_fullpath)==0),
-            "error processing path for directory entry");
-
-        if (lstat(entry_fullpath, &sb) == 0)  {
+        if (fstatat(dirfd(dir), de->d_name, &sb, AT_SYMLINK_NOFOLLOW) == 0)  {
             response->directory_entries[response->n_directory_entries] = Attrs_create(&sb, de->d_name);
             check((response->directory_entries[response->n_directory_entries] != NULL),
                         "could not create attrs from stat");
@@ -452,13 +485,13 @@ ServeDir_op_readdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
         }
         else {
             Response_set_errno(response, errno);
-            log_warn("Could not stat %s", entry_fullpath);
+            log_warn("Could not stat directory entry %s", de->d_name);
         }
-        free(entry_fullpath); entry_fullpath = NULL;
     }
 
     closedir(dir);
-    free(dirpath);
+    free(leaf);
+    close(parentfd);
     return 0;
 
 error:
@@ -470,12 +503,12 @@ error:
     }
     free(response->directory_entries);
 
-    if (entry_fullpath != NULL) free(entry_fullpath);
-
     if (dir != NULL) {
         closedir(dir);
     }
-    free(dirpath);
+    else if (openedfd != -1) close(openedfd);
+    free(leaf);
+    if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -483,24 +516,23 @@ error:
 static int
 ServeDir_op_rmdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
 
     debug("RMDIR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RMDIR;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-            "Could not assemble directory path.");
-    debug("requested directory path: %s", path);
-    if (rmdir(path) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble directory path.");
+    if (unlinkat(parentfd, leaf, AT_REMOVEDIR) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not remove directory %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -508,24 +540,23 @@ error:
 static int
 ServeDir_op_unlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
 
     debug("UNLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__UNLINK;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-            "Could not assemble file path.");
-    debug("requested path: %s", path);
-    if (unlink(path) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble file path.");
+    if (unlinkat(parentfd, leaf, 0) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not unlink %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -533,7 +564,8 @@ error:
 static int
 ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     mode_t localmode;
 
     debug("ACCESS");
@@ -545,19 +577,17 @@ ServeDir_op_access(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s; accesmode: %o", path, localmode);
-    if (access(path, localmode) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    if (faccessat(parentfd, leaf, localmode, AT_SYMLINK_NOFOLLOW) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not call access on %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -565,34 +595,31 @@ error:
 static int
 ServeDir_op_rename(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path_from = NULL;
-    char * path_to = NULL;
+    char * leaf_from = NULL;
+    char * leaf_to = NULL;
+    int parent_from = -1;
+    int parent_to = -1;
 
     debug("RENAME");
     response->requesttype = RHIZOFS__REQUEST_TYPE__RENAME;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug((ServeDir_resolve(sd, response, request->path_to, &path_to,
-                    PATH_KEEP_LEAF) == 0),
-            "Could not assemble path_to.");
-
-
-    check_debug((ServeDir_fullpath(sd, response, request, &path_from, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s -> %s", path_from, path_to);
-    if (rename(path_from, path_to) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path_to, &parent_to, &leaf_to) == 0),
+            "Could not securely assemble destination path.");
+    check_debug((ServeDir_parent(sd, response, request->path, &parent_from, &leaf_from) == 0),
+            "Could not securely assemble source path.");
+    if (renameat(parent_from, leaf_from, parent_to, leaf_to) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not rename %s to %s", path_from, path_to);
     }
 
-    free(path_to);
-    free(path_from);
+    free(leaf_to); free(leaf_from); close(parent_to); close(parent_from);
     return 0;
 
 error:
-    free(path_to);
-    free(path_from);
+    free(leaf_to); free(leaf_from);
+    if (parent_to != -1) close(parent_to);
+    if (parent_from != -1) close(parent_from);
     return -1;
 }
 
@@ -600,34 +627,31 @@ error:
 static int
 ServeDir_op_link(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path_from = NULL;
-    char * path_to = NULL;
+    char * leaf_from = NULL;
+    char * leaf_to = NULL;
+    int parent_from = -1;
+    int parent_to = -1;
 
     debug("LINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__LINK;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug((ServeDir_resolve(sd, response, request->path_to, &path_to,
-                    PATH_KEEP_LEAF) == 0),
-            "Could not assemble path_to.");
-
-
-    check_debug((ServeDir_fullpath(sd, response, request, &path_from, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s -> %s", path_from, path_to);
-    if (link(path_from, path_to) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path_to, &parent_to, &leaf_to) == 0),
+            "Could not securely assemble destination path.");
+    check_debug((ServeDir_parent(sd, response, request->path, &parent_from, &leaf_from) == 0),
+            "Could not securely assemble source path.");
+    if (linkat(parent_from, leaf_from, parent_to, leaf_to, 0) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not link %s to %s", path_from, path_to);
     }
 
-    free(path_to);
-    free(path_from);
+    free(leaf_to); free(leaf_from); close(parent_to); close(parent_from);
     return 0;
 
 error:
-    free(path_to);
-    free(path_from);
+    free(leaf_to); free(leaf_from);
+    if (parent_to != -1) close(parent_to);
+    if (parent_from != -1) close(parent_from);
     return -1;
 }
 
@@ -635,28 +659,26 @@ error:
 static int
 ServeDir_op_symlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char *path_from = NULL;
+    char *leaf = NULL;
+    int parentfd = -1;
 
     debug("SYMLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__SYMLINK;
 
     REQ_HAS_OPTIONAL_PTR(request, response, path_to);
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path_from, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
 
-    debug("requested path: %s -> %s", path_from, request->path_to);
-
-    if (symlink(request->path_to, path_from) == -1) {
+    if (symlinkat(request->path_to, parentfd, leaf) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not link %s to %s", path_from, request->path_to);
     }
 
-    free(path_from);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path_from);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -664,22 +686,21 @@ error:
 static int
 ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char *path = NULL;
+    char *leaf = NULL;
+    int parentfd = -1;
     char link_target[PATH_MAX];
 
     debug("READLINK");
     response->requesttype = RHIZOFS__REQUEST_TYPE__READLINK;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested directory path: %s", path);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
 
     /* readlink does not null terminate. (!!!) Use size of buffer minus 1 to have room
      * for termininating NUL */
-    ssize_t target_len = readlink(path, link_target, sizeof(link_target) - 1);
+    ssize_t target_len = readlinkat(parentfd, leaf, link_target, sizeof(link_target) - 1);
     if (target_len == -1) {
         Response_set_errno(response, errno);
-        debug("Could not read link %s", path);
     }
     else {
         link_target[target_len] = '\0';
@@ -687,12 +708,12 @@ ServeDir_op_readlink(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__R
         check((response->link_target != NULL), "Could not allocate link_target");
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    if (path)
-        free(path);
+    free(leaf);
+    if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -700,7 +721,8 @@ error:
 static int
 ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     mode_t localmode;
 
     debug("MKDIR");
@@ -712,19 +734,17 @@ ServeDir_op_mkdir(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from access permissions");
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
-    debug("mkdir requested path: %s, mode: %d", path, (int)localmode);
-    if (mkdir(path, localmode) == -1) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    if (mkdirat(parentfd, leaf, localmode) == -1) {
         Response_set_errno(response, errno);
-        debug("Could not call mkdir on %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -732,32 +752,31 @@ error:
 static int
 ServeDir_op_getattr(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     struct stat sb;
 
     debug("GETATTR");
     response->requesttype = RHIZOFS__REQUEST_TYPE__GETATTR;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
 
-    if (lstat(path, &sb) == 0)  {
+    if (fstatat(parentfd, leaf, &sb, AT_SYMLINK_NOFOLLOW) == 0)  {
         response->attrs = Attrs_create(&sb, NULL);
         check((response->attrs != NULL), "could not create attrs from stat");
     }
     else {
         Response_set_errno(response, errno);
-        debug("Could not stat %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
 
     Attrs_destroy(response->attrs);
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -765,7 +784,8 @@ error:
 static int
 ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     int openflags = 0;;
     bool success;
     int fd;
@@ -778,23 +798,22 @@ ServeDir_op_open(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     openflags = OpenFlags_to_bitmask(request->openflags, &success);
     check((success == true), "could not convert openflags to bitmask");
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s, openflags: %o", path, openflags);
-    fd = open(path, openflags, default_file_creation_permissions);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    fd = openat(parentfd, leaf, openflags | O_NOFOLLOW,
+            default_file_creation_permissions);
     if (fd < 0) {
         Response_set_errno(response, errno);
-        debug("Could not call open on %s: %s", path, strerror(errno));
         errno = 0;
         goto error;
     }
 
     close(fd);
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -802,7 +821,8 @@ error:
 static int
 ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     int fd = -1;
     ssize_t bytes_read;
     uint8_t * databuf = NULL;
@@ -813,10 +833,9 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     REQ_HAS_OPTIONAL(request, response, size);
     REQ_HAS_OPTIONAL(request, response, offset);
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
-    fd = open(path, O_RDONLY);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    fd = openat(parentfd, leaf, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (fd != -1) {
 
         check((request->size >= 0), "requested size is negative: %d", (int)request->size);
@@ -855,7 +874,6 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
         }
         else {
             Response_set_errno(response, errno);
-            debug("Could not read from on %s", path);
             free(databuf);
             databuf = NULL;
         }
@@ -863,24 +881,24 @@ ServeDir_op_read(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Respo
     }
     else {
         Response_set_errno(response, errno);
-        debug("Could not call open on %s", path);
     }
 
     free(databuf);
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
     free(databuf);
     if (fd >= 0) close(fd);
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
 static int
 ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     int fd = -1;
     uint8_t * data = NULL;
 
@@ -906,10 +924,10 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         return 0;
     }
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
-    fd = open(path, O_CREAT | O_WRONLY, default_file_creation_permissions );
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    fd = openat(parentfd, leaf, O_CREAT | O_WRONLY | O_NOFOLLOW | O_CLOEXEC,
+            default_file_creation_permissions);
     if (fd != -1) {
         int bytes_in_block = DataBlock_get_data(request->datablock, &data);
         check((bytes_in_block != -1), "Could not extract data from datablock")
@@ -920,14 +938,12 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         ssize_t bytes_written = pwrite(fd, data, (size_t)request->size, (off_t)request->offset);
         if (bytes_written == -1) {
             Response_set_errno(response, errno);
-            debug("Could not write %ld bytes to %s", (int64_t)request->size, path);
+            debug("Could not write %ld bytes", (int64_t)request->size);
             errno = 0;
         }
 
         response->has_size = 1;
         response->size = (int)bytes_written;
-
-        check((close(fd) != -1), "Could not close file opened for writing.");
 
         struct timeval now;
         struct timeval times[2];
@@ -938,24 +954,27 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         times[1].tv_sec  = now.tv_sec;
         times[1].tv_usec = now.tv_usec;
 
-        utimes(path, times);
+        if (futimes(fd, times) != 0) {
+            log_warn("could not update timestamps after write");
+        }
+        check((close(fd) != -1), "Could not close file opened for writing.");
+        fd = -1;
     }
     else {
         Response_set_errno(response, errno);
-        debug("Could not call open on %s", path);
         errno = 0;
     }
 
 
     free(data);
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
 
     if (fd >= 0) close(fd);
     free(data);
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -963,7 +982,8 @@ error:
 static int
 ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     bool success;
     mode_t create_mode = 0;
     int fd;
@@ -983,11 +1003,8 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
         check(success, "could not convert create openflags to bitmask");
     }
 
-    /* O_CREAT|O_EXCL acts on the directory entry itself, including a
-     * dangling symlink. Checking its target also races with other creates. */
-    PathLeafMode leafmode = (openflags & O_EXCL) ? PATH_KEEP_LEAF : PATH_FOLLOW_LEAF;
-    check_debug((ServeDir_fullpath(sd, response, request, &path, leafmode) == 0),
-            "Could not assemble path.");
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
 
     // always add S_IWUSR as creat allows creating files
     // and opening them without write permissions for the owner
@@ -997,23 +1014,21 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     // So we will simply add write permissions for the owner here.
     create_mode |= S_IWUSR;
 
-    debug("requested path: %s, create_mode: %o", path, create_mode);
-    /* Enforce O_EXCL at the server, atomically with file creation. */
-    fd = open(path, openflags, create_mode);
+    fd = openat(parentfd, leaf, openflags | O_NOFOLLOW | O_CLOEXEC,
+            create_mode);
     if (fd == -1) {
         Response_set_errno(response, errno);
-        debug("Could not create/open %s: %s", path, strerror(errno));
         errno = 0;
         goto error;
     }
 
     close(fd);
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -1021,34 +1036,78 @@ error:
 static int
 ServeDir_op_truncate(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
+    int fd = -1;
 
     debug("TRUNCATE");
     response->requesttype = RHIZOFS__REQUEST_TYPE__TRUNCATE;
 
     REQ_HAS_OPTIONAL(request, response, offset);
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
-    if (truncate(path, request->offset) != 0) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    fd = openat(parentfd, leaf, O_WRONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd == -1 || ftruncate(fd, request->offset) != 0) {
         Response_set_errno(response, errno);
-        debug("Could not call truncate on %s", path);
     }
 
-    free(path);
+    if (fd != -1) close(fd);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    if (fd != -1) close(fd);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
 
+/* Older glibc rejects AT_SYMLINK_NOFOLLOW, and its later emulation needs
+ * /proc. Prefer an inode-anchored fallback whenever /proc is available. */
+static int
+ServeDir_chmodat(int parentfd, const char * leaf, mode_t mode)
+{
+    int rc = fchmodat(parentfd, leaf, mode, AT_SYMLINK_NOFOLLOW);
+    if (rc == 0 || (errno != ENOTSUP && errno != EOPNOTSUPP)) return rc;
+
+#if defined(__linux__) && defined(O_PATH)
+    int fd = openat(parentfd, leaf, O_PATH | O_NOFOLLOW | O_CLOEXEC);
+    if (fd == -1) return -1;
+
+    struct stat sb;
+    if (fstat(fd, &sb) != 0) {
+        int saved_errno = errno;
+        close(fd);
+        errno = saved_errno;
+        return -1;
+    }
+    if (S_ISLNK(sb.st_mode)) {
+        close(fd);
+        errno = EOPNOTSUPP;
+        return -1;
+    }
+
+    char procpath[64];
+    snprintf(procpath, sizeof(procpath), "/proc/self/fd/%d", fd);
+    rc = chmod(procpath, mode);
+    if (rc != 0 && (errno == ENOENT || errno == ENOTDIR)) {
+        /* Without /proc, old kernels cannot chmod an O_PATH fd. Never
+         * retry by name: a swapped leaf could now point outside the share. */
+        errno = EOPNOTSUPP;
+    }
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+#endif
+    return rc;
+}
+
 static int
 ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     mode_t localmode = 0;
 
     debug("CHMOD");
@@ -1060,19 +1119,17 @@ ServeDir_op_chmod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
     localmode = (mode_t)Permissions_to_bitmask(request->permissions, &success);
     check(success, "Could not create bitmask from chmod permissions");
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
-    if (chmod(path, localmode) != 0) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    if (ServeDir_chmodat(parentfd, leaf, localmode) != 0) {
         Response_set_errno(response, errno);
-        debug("Could not call chmod on %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -1080,8 +1137,9 @@ error:
 static int
 ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
-    struct timeval times[2];
+    char * leaf = NULL;
+    int parentfd = -1;
+    struct timespec times[2];
 
     debug("UTIMENS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__UTIMENS;
@@ -1089,23 +1147,21 @@ ServeDir_op_utimens(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Re
     REQ_HAS_OPTIONAL_PTR(request, response, timestamps);
 
     times[0].tv_sec  = request->timestamps->access_sec;
-    times[0].tv_usec  = request->timestamps->access_usec;
+    times[0].tv_nsec = (long)request->timestamps->access_usec * 1000;
     times[1].tv_sec  = request->timestamps->modify_sec;
-    times[1].tv_usec  = request->timestamps->modify_usec;
+    times[1].tv_nsec = (long)request->timestamps->modify_usec * 1000;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
-    if (utimes(path, times) != 0) {
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+    if (utimensat(parentfd, leaf, times, AT_SYMLINK_NOFOLLOW) != 0) {
         Response_set_errno(response, errno);
-        debug("Could not call utimes on %s", path);
     }
 
-    free(path);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
@@ -1113,7 +1169,8 @@ error:
 static int
 ServeDir_op_mknod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
     mode_t mode;
 
     debug("MKNOD");
@@ -1130,13 +1187,11 @@ ServeDir_op_mknod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
 
     if (S_ISREG(mode)) {
 
-        check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_KEEP_LEAF) == 0),
-                "Could not assemble path.");
-        debug("requested path: %s", path);
+        check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+                "Could not securely assemble path.");
 
-        if (mknod(path, mode, 0) != 0) {
+        if (mknodat(parentfd, leaf, mode, 0) != 0) {
             Response_set_errno(response, errno);
-            debug("Could not mknod %s", path);
         }
     }
     else {
@@ -1144,43 +1199,55 @@ ServeDir_op_mknod(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         debug("No permission to call mknod with other filetypes than regular files");
     }
 
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return 0;
 
 error:
-    free(path);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
 static int
 ServeDir_op_statfs(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Response *response)
 {
-    char * path = NULL;
+    char * leaf = NULL;
+    int parentfd = -1;
+    int fd = -1;
     struct statvfs stfs;
 
     debug("STATFS");
     response->requesttype = RHIZOFS__REQUEST_TYPE__STATFS;
 
-    check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
-    debug("requested path: %s", path);
+    check_debug((ServeDir_parent(sd, response, request->path, &parentfd, &leaf) == 0),
+            "Could not securely assemble path.");
+#if defined(O_PATH)
+    fd = openat(parentfd, leaf, O_PATH | O_NOFOLLOW | O_CLOEXEC);
+#else
+    /* Filesystem statistics do not require opening the file for reading.
+     * Use its anchored parent on platforms without O_PATH. */
+    struct stat sb;
+    if (fstatat(parentfd, leaf, &sb, AT_SYMLINK_NOFOLLOW) == 0) {
+        fd = dup(parentfd);
+    }
+#endif
 
-    if (statvfs(path, &stfs) == 0)  {
+    if (fd != -1 && fstatvfs(fd, &stfs) == 0)  {
         response->statfs = StatFs_create(&stfs);
         check((response->statfs != NULL), "could not create attrs from stat");
     }
     else {
         Response_set_errno(response, errno);
-        debug("Could not statvfs %s", path);
     }
 
-    free(path);
+    if (fd != -1) close(fd);
+    free(leaf); close(parentfd);
     return 0;
 
 error:
 
     StatFs_destroy(response->statfs);
-    free(path);
+    if (fd != -1) close(fd);
+    free(leaf); if (parentfd != -1) close(parentfd);
     return -1;
 }
 
