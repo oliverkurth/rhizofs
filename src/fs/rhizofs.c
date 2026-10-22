@@ -794,12 +794,12 @@ error:
 static int
 Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
 {
-    (void) fi;
-
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
     request.path = (char *)path;
+    request.openflags = OpenFlags_from_bitmask(fi->flags);
+    check(request.openflags != NULL, "could not create openflags for request");
 
     request.permissions = Permissions_create(create_mode);
     check((request.permissions != NULL), "Could not create create permissions struct");

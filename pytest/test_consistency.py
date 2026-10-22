@@ -1,14 +1,16 @@
 """Filesystem consistency through real mounts, including the default caches."""
 
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 import tempfile
+import threading
 import time
 
 import pytest
 
 from common import (start_server_fg, stop_server_fg,
-                    start_client_fg, stop_client_fg)
+                    start_client_fg, stop_client_fg, run_rawclient)
 
 
 def wait_for(predicate, process, description):
@@ -46,7 +48,7 @@ def mounted_share(request):
                 wait_for(lambda: os.path.ismount(directory), client, "mount")
                 return directory
 
-            yield served, mount
+            yield served, mount, endpoint
         finally:
             try:
                 for client in reversed(clients):
@@ -57,7 +59,7 @@ def mounted_share(request):
 
 @pytest.mark.parametrize("old_size,new_size", [(100, 300), (300, 100)])
 def test_rename_over_cached_file(mounted_share, old_size, new_size):
-    served, mount = mounted_share
+    served, mount, _ = mounted_share
     directory = mount("client")
     target = directory / "target"
     replacement = directory / "replacement"
@@ -71,3 +73,71 @@ def test_rename_over_cached_file(mounted_share, old_size, new_size):
     assert target.stat().st_size == new_size
     assert target.read_bytes() == b"B" * new_size
     assert (served / "target").read_bytes() == b"B" * new_size
+
+
+@pytest.mark.parametrize("mode,expected_errno,expected_data", [
+    ("excl", "7", b"original"),  # wire ERRNO_EXIST
+    ("keep", "0", b"original"),
+    ("trunc", "0", b""),
+    ("legacy", "0", b""),
+])
+def test_create_flags_on_server(mounted_share, mode, expected_errno, expected_data):
+    # Drive CREATE directly: one client's kernel usually rejects O_EXCL for
+    # an existing path before it reaches the server. Other clients can race
+    # with that check, so the server must enforce it atomically too.
+    served, _, endpoint = mounted_share
+    target = served / "target"
+    target.write_bytes(b"original")
+    result = run_rawclient(endpoint, "create", "/target", mode)
+    assert result["_retval"] == 0
+    assert result["ERRNO"] == expected_errno
+    assert target.read_bytes() == expected_data
+
+    result = run_rawclient(endpoint, "create", "/new", mode)
+    assert result["_retval"] == 0
+    assert result["ERRNO"] == "0"
+    assert (served / "new").is_file()
+
+
+def test_exclusive_create_across_clients(mounted_share):
+    served, mount, _ = mounted_share
+    directories = [mount("client-a"), mount("client-b")]
+    barrier = threading.Barrier(2)
+
+    def create(directory, name):
+        barrier.wait(timeout=5)
+        try:
+            fd = os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return False
+        try:
+            os.write(fd, b"winner")
+        finally:
+            os.close(fd)
+        return True
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        for i in range(100):
+            name = f"exclusive-{i}"
+            attempts = [pool.submit(create, directory, name) for directory in directories]
+            assert sum(attempt.result() for attempt in attempts) == 1
+            assert (served / name).read_bytes() == b"winner"
+
+
+@pytest.mark.parametrize("dangling", [False, True])
+def test_exclusive_create_does_not_follow_symlink(mounted_share, tmp_path, dangling):
+    served, _, endpoint = mounted_share
+    outside = tmp_path / "outside"
+    if not dangling:
+        outside.write_bytes(b"untouched")
+    (served / "link").symlink_to(outside)
+
+    result = run_rawclient(endpoint, "create", "/link", "excl")
+
+    assert result["_retval"] == 0
+    assert result["ERRNO"] == "7"  # EEXIST, even for a dangling symlink
+    assert (served / "link").is_symlink()
+    if dangling:
+        assert not outside.exists()
+    else:
+        assert outside.read_bytes() == b"untouched"

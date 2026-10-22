@@ -933,6 +933,8 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     bool success;
     mode_t create_mode = 0;
     int fd;
+    /* Older clients omitted openflags and expected creat() semantics. */
+    int openflags = O_WRONLY | O_CREAT | O_TRUNC;
 
     debug("CREATE");
     response->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
@@ -942,8 +944,18 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     create_mode = Permissions_to_bitmask(request->permissions, &success);
     check((success == true), "could not convert permissions to bitmask");
 
-    check_debug((ServeDir_fullpath(sd, request, &path, PATH_FOLLOW_LEAF) == 0),
-            "Could not assemble path.");
+    if (request->openflags != NULL) {
+        openflags = OpenFlags_to_bitmask(request->openflags, &success) | O_CREAT;
+        check(success, "could not convert create openflags to bitmask");
+    }
+
+    /* O_CREAT|O_EXCL acts on the directory entry itself, including a
+     * dangling symlink. Checking its target also races with other creates. */
+    PathLeafMode leafmode = (openflags & O_EXCL) ? PATH_KEEP_LEAF : PATH_FOLLOW_LEAF;
+    if (ServeDir_fullpath(sd, request, &path, leafmode) != 0) {
+        Response_set_errno(response, EACCES);
+        goto error;
+    }
 
     // always add S_IWUSR as creat allows creating files
     // and opening them without write permissions for the owner
@@ -954,10 +966,11 @@ ServeDir_op_create(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Res
     create_mode |= S_IWUSR;
 
     debug("requested path: %s, create_mode: %o", path, create_mode);
-    fd = creat(path, create_mode);
+    /* Enforce O_EXCL at the server, atomically with file creation. */
+    fd = open(path, openflags, create_mode);
     if (fd == -1) {
         Response_set_errno(response, errno);
-        debug("Could not call creat on %s: %s", path, strerror(errno));
+        debug("Could not create/open %s: %s", path, strerror(errno));
         errno = 0;
         goto error;
     }
