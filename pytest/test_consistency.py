@@ -166,3 +166,25 @@ def test_exclusive_create_does_not_follow_symlink(mounted_share, tmp_path, dangl
         assert not outside.exists()
     else:
         assert outside.read_bytes() == b"untouched"
+
+
+def test_hard_link_counts(mounted_share):
+    served, mount, _ = mounted_share
+    directory = mount("client")
+    source = directory / "source"
+    alias = directory / "alias"
+    source.write_bytes(b"data")
+    assert source.stat().st_nlink == 1
+
+    os.link(source, alias)
+
+    assert (served / "source").stat().st_nlink == 2
+    assert source.stat().st_nlink == 2
+    assert alias.stat().st_nlink == 2
+    # readdir prefetches attributes as well; it must not make link counts
+    # or sizes stale when another name for the same file changes.
+    list(directory.iterdir())
+    alias.write_bytes(b"a larger replacement")
+    assert source.read_bytes() == b"a larger replacement"
+    alias.unlink()
+    assert source.stat().st_nlink == 1

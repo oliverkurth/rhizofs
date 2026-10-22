@@ -79,9 +79,10 @@ ${BINDIR}/rhizo-keygen: ${TOOLS_OBJECTS} ${BINDIR}
 # test-only tools used by the pytest regression tests: rhizo-rawclient
 # talks to the wire protocol directly, rhizo-security-unit exercises the
 # checks that are not reachable from the outside, rhizo-attrcache-unit
-# stresses concurrent cache operations. not part of
+# stresses concurrent cache operations, and rhizo-mapping-unit checks
+# wire attribute conversion. not part of
 # "all"/"install".
-testtools: ${BINDIR}/rhizo-rawclient ${BINDIR}/rhizo-security-unit ${BINDIR}/rhizo-attrcache-unit
+testtools: ${BINDIR}/rhizo-rawclient ${BINDIR}/rhizo-security-unit ${BINDIR}/rhizo-attrcache-unit ${BINDIR}/rhizo-mapping-unit
 
 # kept as an alias for the previous name of this target
 testclient: testtools
@@ -95,7 +96,10 @@ ${BINDIR}/rhizo-security-unit: ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECT
 ${BINDIR}/rhizo-attrcache-unit: ${ATTRCACHEUNIT_OBJECTS} ${ATTRCACHEUNIT_COMMON_OBJECTS} ${BINDIR}
 	$(CC) -o $@ ${ATTRCACHEUNIT_OBJECTS} ${ATTRCACHEUNIT_COMMON_OBJECTS} -lpthread
 
-${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${PROTO_H_COMPILED}
+${BINDIR}/rhizo-mapping-unit: tests/mapping_unit.o ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
+	$(CC) -o $@ tests/mapping_unit.o ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
+
+${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES} tests/mapping_unit.c: ${PROTO_H_COMPILED}
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CFLAGS_EXTRA) -c $< -o $@
@@ -107,7 +111,7 @@ ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} ${ATTRCACHEUNIT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} ${ATTRCACHEUNIT_OBJECTS} tests/mapping_unit.o ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv

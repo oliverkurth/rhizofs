@@ -374,6 +374,8 @@ Attrs_create(const struct stat * stat_result, const char * name)
     rhizofs__attrs__init(attrs);
 
     attrs->size = stat_result->st_size;
+    attrs->has_nlink = 1;
+    attrs->nlink = stat_result->st_nlink;
 
     if (name != NULL) {
         attrs->name = strdup(name);
@@ -471,7 +473,7 @@ Attrs_copy_to_stat(const Rhizofs__Attrs * attrs, struct stat * stat_result)
 
     stat_result->st_size = attrs->size;
     stat_result->st_mode = filetype | permissions;
-    stat_result->st_nlink = 1;
+    stat_result->st_nlink = attrs->nlink;
 
     stat_result->st_atime  = attrs->timestamps->access_sec;
     stat_result->st_mtime  = attrs->timestamps->modify_sec;

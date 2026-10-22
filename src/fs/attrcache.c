@@ -184,6 +184,16 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
         return true;
     }
 
+    /* An unlink or write through another hard-link name changes this file
+     * too. Without an inode-to-path index we cannot invalidate every alias.
+     * Fetch multiply linked attributes afresh instead of caching them. */
+    if (cache_entry->stat_result.st_nlink > 1) {
+        AttrCache_remove(attrcache, path);
+        free(path);
+        CacheEntry_destroy(cache_entry);
+        return true;
+    }
+
     if (attrcache->hashtable->hash_maxcount == 0) {
         debug("Attrcache hastable allows 0 entries - nothing will be added");
         free(path);

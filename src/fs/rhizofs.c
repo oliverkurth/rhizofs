@@ -279,7 +279,10 @@ Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
     RhizoPriv * priv = NULL;
 	(void) conn;
-	(void) cfg;
+
+    /* Our attribute cache controls freshness. A second cache in the kernel
+     * would hide invalidations, notably the source's count after link(). */
+    cfg->attr_timeout = 0;
 
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
@@ -1029,6 +1032,8 @@ Rhizofs_link(const char * path_from, const char * path_to)
     request.path_to = (char *)path_to;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path_from);
+    AttrCache_remove(&attrcache, path_to);
 
     OP_DEINIT(request, response)
     return 0;
