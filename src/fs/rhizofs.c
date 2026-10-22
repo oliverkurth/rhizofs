@@ -1050,6 +1050,8 @@ Rhizofs_rename(const char * path_from, const char * path_to, unsigned int flags)
 
     OP_COMMUNICATE(request, response, returned_err)
     AttrCache_remove(&attrcache, path_from);
+    /* A replacement must not inherit the old destination's size. */
+    AttrCache_remove(&attrcache, path_to);
 
     OP_DEINIT(request, response)
     return 0;
