@@ -11,6 +11,7 @@ from common import start_server_fg, stop_server_fg, run_rawclient
 
 @pytest.mark.parametrize("size,expected", [
     (64 * 1024 * 1024, "accepted"),
+    (64 * 1024 * 1024 + 1, "invalid"),
     (65 * 1024 * 1024 + 1, "disconnected"),
 ])
 def test_write_payload_and_frame_limits(size, expected):
@@ -37,6 +38,10 @@ def test_write_payload_and_frame_limits(size, expected):
                     assert f.read(1) == b"x"
                     f.seek(-1, 2)
                     assert f.read(1) == b"x"
+            elif expected == "invalid":
+                assert result["ERRNO"] == "15"  # invalid request, not a timeout
+                assert result["HASSIZE"] == "0"
+                assert not target.exists()
             else:
                 assert result["_retval"] != 0
                 assert result["TIMEOUT"] == "1"

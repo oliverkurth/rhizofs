@@ -48,6 +48,11 @@
  */
 #define MAX_READ_SIZE ((size_t)64 * 1024 * 1024)
 
+/* Writes are supplied entirely by a peer-controlled protobuf message.  Keep
+ * their decoded size bounded just as reads are, rather than letting a tiny
+ * compressed payload request an arbitrarily large allocation. */
+#define MAX_WRITE_SIZE ((size_t)64 * 1024 * 1024)
+
 /**
  * default permissions for file creation. the same permission set is used
  * by the GNU coreutils touch command
@@ -889,6 +894,16 @@ ServeDir_op_write(const ServeDir * sd, Rhizofs__Request * request, Rhizofs__Resp
         log_err("the request does not contain data");
         response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
         return -1;
+    }
+
+    if ((request->size < 0) || ((uint64_t)request->size > MAX_WRITE_SIZE) ||
+            (request->datablock->size < 0) ||
+            ((uint64_t)request->datablock->size > MAX_WRITE_SIZE) ||
+            (request->datablock->size != request->size) ||
+            (request->datablock->data.len > MAX_WRITE_SIZE)) {
+        log_warn("rejecting write with invalid or oversized data block");
+        response->errnotype = RHIZOFS__ERRNO__ERRNO_INVALID_REQUEST;
+        return 0;
     }
 
     check_debug((ServeDir_fullpath(sd, response, request, &path, PATH_FOLLOW_LEAF) == 0),

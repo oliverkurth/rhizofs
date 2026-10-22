@@ -1,6 +1,7 @@
 #include "datablock.h"
 
 #include <stdint.h>
+#include <limits.h>
 
 #include "dbg.h"
 #include "lz4.h"
@@ -125,6 +126,16 @@ DataBlock_get_data(Rhizofs__DataBlock * dblk, uint8_t ** data)
     int len = 0;
 
     check((dblk != NULL), "passed datablock is null");
+    check((data != NULL), "passed data pointer is null");
+    check((dblk->size >= 0), "datablock has a negative uncompressed size");
+
+    /* The bundled LZ4 API takes int-sized source and destination lengths.
+     * Check before allocation and before narrowing either peer-controlled
+     * protobuf field. */
+    if (dblk->compression == RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) {
+        check((dblk->size <= INT_MAX), "datablock uncompressed size is too large");
+        check((dblk->data.len <= INT_MAX), "datablock compressed size is too large");
+    }
 
     debug("Getting data from datablock containing %d bytes of compressed data",
             (int)dblk->size);
@@ -166,6 +177,11 @@ DataBlock_get_data_noalloc(Rhizofs__DataBlock * dblk, uint8_t * data, size_t dat
 
     check((dblk != NULL), "passed datablock is null");
     check((data != NULL), "passed data buffer is null");
+    check((dblk->size >= 0), "datablock has a negative uncompressed size");
+    if (dblk->compression == RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4) {
+        check((dblk->size <= INT_MAX), "datablock uncompressed size is too large");
+        check((dblk->data.len <= INT_MAX), "datablock compressed size is too large");
+    }
     check((data_len >= (size_t)dblk->size), "passed data buffer is too small "
         "for contents of datablock"
         "(length of data=%d; buffer size=%d)", (int)dblk->size, (int)data_len);
