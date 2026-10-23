@@ -46,9 +46,10 @@ Features
     / `acregmax`), this trades throughput for immediate consistency.
 
     The client manages attribute caching itself; kernel attribute caching is
-    disabled so it cannot hide the client's invalidations. Attributes with
-    more than one hard link are fetched afresh, since changes through another
-    link name affect the same file. This also keeps hard-link based locking
+    disabled so it cannot hide the client's invalidations. Attributes of
+    non-directory entries with more than one hard link are fetched afresh,
+    since changes through another link name affect the same file. Directory
+    attributes remain cached. This also keeps hard-link based locking
     checks accurate. Link counts require an updated server; older servers
     omit the count and clients fall back to reporting one.
 

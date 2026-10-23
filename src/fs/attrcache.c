@@ -186,8 +186,11 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
 
     /* An unlink or write through another hard-link name changes this file
      * too. Without an inode-to-path index we cannot invalidate every alias.
-     * Fetch multiply linked attributes afresh instead of caching them. */
-    if (cache_entry->stat_result.st_nlink > 1) {
+     * Fetch multiply linked attributes afresh instead of caching them.
+     * Directories have multiple links for . and child directories' ..,
+     * not aliases, so their attributes can still be cached. */
+    if (!S_ISDIR(cache_entry->stat_result.st_mode) &&
+            cache_entry->stat_result.st_nlink > 1) {
         AttrCache_remove(attrcache, path);
         free(path);
         CacheEntry_destroy(cache_entry);

@@ -59,6 +59,7 @@ int main(void)
     CacheEntry *single = CacheEntry_create();
     CHECK(single);
     single->cache_creation_ts = time(NULL);
+    single->stat_result.st_mode = S_IFREG | 0600;
     single->stat_result.st_nlink = 1;
     CHECK(AttrCache_set(&cache, strdup("/linked"), single));
     struct stat result;
@@ -66,9 +67,21 @@ int main(void)
     CacheEntry *linked = CacheEntry_create();
     CHECK(linked);
     linked->cache_creation_ts = time(NULL);
+    linked->stat_result.st_mode = S_IFREG | 0600;
     linked->stat_result.st_nlink = 2;
     CHECK(AttrCache_set(&cache, strdup("/linked"), linked));
     CHECK(!AttrCache_copy_stat(&cache, "/linked", &result));
+
+    /* Directory link counts include subdirectories, not file aliases. */
+    CacheEntry *directory = CacheEntry_create();
+    CHECK(directory);
+    directory->cache_creation_ts = time(NULL);
+    directory->stat_result.st_mode = S_IFDIR | 0755;
+    directory->stat_result.st_nlink = 3;
+    CHECK(AttrCache_set(&cache, strdup("/"), directory));
+    CHECK(AttrCache_copy_stat(&cache, "/", &result));
+    CHECK(S_ISDIR(result.st_mode));
+    CHECK(result.st_nlink == 3);
     AttrCache_deinit(&cache);
     return 0;
 }
