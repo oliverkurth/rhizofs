@@ -276,11 +276,19 @@ static int
 ServeDir_resolve(const ServeDir * sd, Rhizofs__Response * response,
         const char * reqpath, char ** fullpath, PathLeafMode leafmode)
 {
-    check((reqpath != NULL), "request path is null");
+    int returned_err = EACCES;
+    if (reqpath == NULL) {
+        returned_err = EINVAL;
+        goto error;
+    }
     check_debug(!path_has_parent_reference(reqpath),
             "rejecting path escaping the served directory: %s", reqpath);
-    check((path_join(sd->directory, reqpath, fullpath)==0), "error processing path");
-    check_debug((*fullpath != NULL), "fullpath is null");
+    /* With valid inputs, joining paths fails only on allocation. Its
+     * check() macros clear errno, so select ENOMEM explicitly here. */
+    if (path_join(sd->directory, reqpath, fullpath) != 0 || *fullpath == NULL) {
+        returned_err = ENOMEM;
+        goto error;
+    }
 
     /* rejecting ".." is not enough: a symlink in the shared directory -
      * planted by a client through SYMLINK, or simply unpacked there
@@ -289,21 +297,21 @@ ServeDir_resolve(const ServeDir * sd, Rhizofs__Response * response,
      * before it sends a path, so refusing to follow them here costs it
      * nothing; only a client speaking the protocol directly ever sends
      * a path that has to be resolved on this side. */
-    if (leafmode == PATH_FOLLOW_LEAF) {
-        check_debug(path_resolves_within(sd->directory, *fullpath),
-                "rejecting path resolving outside of the served directory: %s",
-                reqpath);
-    }
-    else {
-        check_debug(path_parent_resolves_within(sd->directory, *fullpath),
-                "rejecting path below a directory resolving outside of the "
-                "served directory: %s", reqpath);
+    errno = 0;
+    bool contained = leafmode == PATH_FOLLOW_LEAF
+            ? path_resolves_within(sd->directory, *fullpath)
+            : path_parent_resolves_within(sd->directory, *fullpath);
+    if (!contained) {
+        if (errno == ENOMEM) {
+            returned_err = ENOMEM;
+        }
+        goto error;
     }
 
     return 0;
 error:
     /* A rejected path must never produce a successful wire response. */
-    Response_set_errno(response, EACCES);
+    Response_set_errno(response, returned_err);
     free(*fullpath);
     *fullpath = NULL;
     return -1;

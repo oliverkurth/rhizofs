@@ -172,6 +172,9 @@ path_parent_resolves_within(const char * directory, const char * path)
 
     parent = path_dirname(path);
     if (parent == NULL) {
+        /* Inputs were checked above; path_dirname's check() clears errno
+         * on allocation failure. Restore it for the resolver's caller. */
+        errno = ENOMEM;
         return false;
     }
 
@@ -181,7 +184,9 @@ path_parent_resolves_within(const char * directory, const char * path)
         free(resolved);
     }
 
+    int saved_errno = errno;
     free(parent);
+    errno = saved_errno;
     return contained;
 }
 
