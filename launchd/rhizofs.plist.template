@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>__LABEL__</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>trap 'kill -TERM "$PID" 2>/dev/null; wait "$PID" 2>/dev/null' TERM INT; __RHIZOFS_BIN__ -f -o backend=fskit --clientpubkeyfile=__CLIENT_KEYFILE__ --pubkeyfile=__SERVER_KEYFILE__ __SERVER_URL__ __MOUNT_POINT__ &amp; PID=$!; wait "$PID"; STATUS=$?; /sbin/umount __MOUNT_POINT__ 2>/dev/null; exit $STATUS</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>20</integer>
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/__NAME__.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/__NAME__.log</string>
+</dict>
+</plist>
