@@ -48,6 +48,9 @@ RAWCLIENT_SOURCES=tests/rawclient.c
 RAWCLIENT_OBJECTS=$(patsubst %.c,%.o,${RAWCLIENT_SOURCES})
 SECURITYUNIT_SOURCES=tests/security_unit.c
 SECURITYUNIT_OBJECTS=$(patsubst %.c,%.o,${SECURITYUNIT_SOURCES})
+ATTRCACHEUNIT_SOURCES=tests/attrcache_unit.c
+ATTRCACHEUNIT_OBJECTS=$(patsubst %.c,%.o,${ATTRCACHEUNIT_SOURCES})
+ATTRCACHEUNIT_COMMON_OBJECTS=src/fs/attrcache.o src/kazlib/hash.o src/hashfunc.o src/dbg.o
 RAWCLIENT_COMMON_OBJECTS=src/kazlib/hash.o src/datablock.o src/dbg.o src/hashfunc.o \
 	src/lz4.o src/mapping.o src/path.o src/posix.o src/request.o src/response.o \
 	src/proto/rhizofs.pb-c.o
@@ -89,8 +92,8 @@ ${BINDIR}/rhizo-rawclient: ${RAWCLIENT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BI
 ${BINDIR}/rhizo-security-unit: ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} ${BINDIR}
 	$(CC) -o ${BINDIR}/rhizo-security-unit ${SECURITYUNIT_OBJECTS} ${RAWCLIENT_COMMON_OBJECTS} $(LIBS)
 
-${BINDIR}/rhizo-attrcache-unit: tests/attrcache_unit.o src/fs/attrcache.o src/kazlib/hash.o src/hashfunc.o src/dbg.o ${BINDIR}
-	$(CC) -o $@ tests/attrcache_unit.o src/fs/attrcache.o src/kazlib/hash.o src/hashfunc.o src/dbg.o -lpthread
+${BINDIR}/rhizo-attrcache-unit: ${ATTRCACHEUNIT_OBJECTS} ${ATTRCACHEUNIT_COMMON_OBJECTS} ${BINDIR}
+	$(CC) -o $@ ${ATTRCACHEUNIT_OBJECTS} ${ATTRCACHEUNIT_COMMON_OBJECTS} -lpthread
 
 ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${PROTO_H_COMPILED}
 
@@ -104,7 +107,7 @@ ${SERVER_SOURCES} ${FS_SOURCES} ${RAWCLIENT_SOURCES} ${SECURITYUNIT_SOURCES}: ${
 	$(PROTOCC) --c_out=./ $<
 
 clean:
-	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} tests/attrcache_unit.o ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
+	rm -f ${SERVER_OBJECTS} ${FS_OBJECTS} ${TOOLS_OBJECTS} ${RAWCLIENT_OBJECTS} ${SECURITYUNIT_OBJECTS} ${ATTRCACHEUNIT_OBJECTS} ${PROTO_C_COMPILED} ${PROTO_H_COMPILED}
 	rm -rf ${BINDIR}
 
 valgrind-srv: dev ${BINDIR}/rhizosrv
