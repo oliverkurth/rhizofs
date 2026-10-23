@@ -188,3 +188,31 @@ def test_hard_link_counts(mounted_share):
     assert source.read_bytes() == b"a larger replacement"
     alias.unlink()
     assert source.stat().st_nlink == 1
+
+
+@pytest.mark.parametrize("escape", ["parent", "symlink"])
+@pytest.mark.parametrize("operation,args", [
+    ("getattr", ("{path}",)),
+    ("readdir", ("{path}",)),
+    ("read", ("{path}", "64", "0")),
+    ("rename", ("{path}", "/destination")),
+    ("rename", ("/source", "{path}")),
+    ("create", ("{path}", "keep")),
+])
+def test_path_resolution_errors(mounted_share, tmp_path, escape, operation, args):
+    served, _, endpoint = mounted_share
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"secret")
+    source = served / "source"
+    source.write_bytes(b"source")
+    (served / "escape").symlink_to(tmp_path, target_is_directory=True)
+    path = "../outside" if escape == "parent" else "/escape/outside"
+
+    result = run_rawclient(endpoint, operation,
+                           *(arg.format(path=path) for arg in args))
+
+    assert result["_retval"] == 0
+    assert result["ERRNO"] == "5"  # wire ERRNO_ACCES, including CREATE
+    assert outside.read_bytes() == b"secret"
+    assert source.read_bytes() == b"source"
+    assert not (served / "destination").exists()
