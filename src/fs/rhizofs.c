@@ -279,7 +279,13 @@ Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
     RhizoPriv * priv = NULL;
 	(void) conn;
-	(void) cfg;
+
+    /* Our attribute cache controls freshness. A second cache in the kernel
+     * would hide invalidations, notably the source's count after link().
+     * Intentionally override any -o attr_timeout=N: use --attr-cache-timeout
+     * to control caching. Attribute lookups enter the daemon, but a hit in
+     * our cache still avoids a network request. */
+    cfg->attr_timeout = 0;
 
     priv = RhizoPriv_create();
     check(priv, "Could not create RhizoPriv context");
@@ -794,17 +800,18 @@ error:
 static int
 Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
 {
-    (void) fi;
-
     OP_INIT(request, response, returned_err);
 
     request.requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
     request.path = (char *)path;
+    request.openflags = OpenFlags_from_bitmask(fi->flags);
+    check(request.openflags != NULL, "could not create openflags for request");
 
     request.permissions = Permissions_create(create_mode);
     check((request.permissions != NULL), "Could not create create permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;
@@ -1028,6 +1035,8 @@ Rhizofs_link(const char * path_from, const char * path_to)
     request.path_to = (char *)path_to;
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path_from);
+    AttrCache_remove(&attrcache, path_to);
 
     OP_DEINIT(request, response)
     return 0;
@@ -1050,6 +1059,8 @@ Rhizofs_rename(const char * path_from, const char * path_to, unsigned int flags)
 
     OP_COMMUNICATE(request, response, returned_err)
     AttrCache_remove(&attrcache, path_from);
+    /* A replacement must not inherit the old destination's size. */
+    AttrCache_remove(&attrcache, path_to);
 
     OP_DEINIT(request, response)
     return 0;
@@ -1384,6 +1395,9 @@ Rhizofs_usage(const char * progname)
         "                             attribute caching, which is needed to see\n"
         "                             changes made to the shared directory without\n"
         "                             going through this filesystem.\n"
+        "                             Kernel attr_timeout is forced to 0, overriding\n"
+        "                             -o attr_timeout=N; this option controls the\n"
+        "                             client's attribute cache.\n"
         "   --clientpubkeyfile=<file> set client keypair file\n"
         "   -h --help                 print help\n"
         "   -k --pubkey=<key>         set the server public key\n"
@@ -1621,13 +1635,10 @@ Rhizofs_run(int argc, char * argv[])
     }
 #undef TMPBUF_SIZE
 
-    /* switching off our own attribute cache is only effective if the
-     * kernel is told to stop caching attributes and directory entries as
-     * well - otherwise it keeps answering stat() from its own copy, and a
-     * read of a file that changed on the server behind our back gets
-     * silently truncated to the stale size */
+    /* Also disable kernel directory-entry caching for uncached lookups.
+     * Kernel attribute caching is always disabled in Rhizofs_init(). */
     if (settings.attr_cache_timeout == 0) {
-        fuse_opt_insert_arg(&args, 1, "-oattr_timeout=0,entry_timeout=0");
+        fuse_opt_insert_arg(&args, 1, "-oentry_timeout=0");
     }
 
     /* libfuse defaults max_idle_threads to UINT_MAX when not set

@@ -9,6 +9,7 @@
 // prototypes
 static hnode_t * CacheEntry_hash_create(void * context);
 static void CacheEntry_hash_destroy(hnode_t * node, void * context);
+static bool AttrCache_shrink_locked(AttrCache * attrcache);
 bool AttrCache_entry_is_deprecated(const AttrCache * attrcache, const CacheEntry * cache_entry);
 void Attrcache_lock_modify_mutex(AttrCache * attrcache);
 void Attrcache_unlock_modify_mutex(AttrCache * attrcache);
@@ -169,6 +170,7 @@ error:
 bool
 AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
 {
+    bool locked = false;
     check(attrcache != NULL, "passed attrcache is null");
     check(cache_entry != NULL, "passed cache_entry is null");
 
@@ -182,6 +184,19 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
         return true;
     }
 
+    /* An unlink or write through another hard-link name changes this file
+     * too. Without an inode-to-path index we cannot invalidate every alias.
+     * Fetch multiply linked attributes afresh instead of caching them.
+     * Directories have multiple links for . and child directories' ..,
+     * not aliases, so their attributes can still be cached. */
+    if (!S_ISDIR(cache_entry->stat_result.st_mode) &&
+            cache_entry->stat_result.st_nlink > 1) {
+        AttrCache_remove(attrcache, path);
+        free(path);
+        CacheEntry_destroy(cache_entry);
+        return true;
+    }
+
     if (attrcache->hashtable->hash_maxcount == 0) {
         debug("Attrcache hastable allows 0 entries - nothing will be added");
         free(path);
@@ -189,13 +204,14 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
         return true;
     }
 
-    // make room for new keys if the cache is full
+    Attrcache_lock_modify_mutex(attrcache);
+    locked = true;
+
+    // Capacity checks, eviction and insertion must share the same lock.
     if (hash_isfull(attrcache->hashtable)) {
-        AttrCache_shrink(attrcache);
+        check(AttrCache_shrink_locked(attrcache), "could not shrink cache");
     }
 
-
-    Attrcache_lock_modify_mutex(attrcache);
 
     // remove the old entry if there is one
     hnode_t * hash_node = hash_lookup(attrcache->hashtable, path);
@@ -210,7 +226,9 @@ AttrCache_set(AttrCache * attrcache, char * path, CacheEntry * cache_entry)
 
     return true;
 error:
-    Attrcache_unlock_modify_mutex(attrcache);
+    if (locked) {
+        Attrcache_unlock_modify_mutex(attrcache);
+    }
     return false;
 }
 
@@ -222,19 +240,32 @@ AttrCache_remove(AttrCache * attrcache, const char * path)
         return;
     }
 
+    Attrcache_lock_modify_mutex(attrcache);
     hnode_t * hash_node = hash_lookup(attrcache->hashtable, path);
     if (hash_node) {
         debug("Removing %s from cache", path);
-
-        Attrcache_lock_modify_mutex(attrcache);
         hash_delete_free(attrcache->hashtable, hash_node);
-        Attrcache_unlock_modify_mutex(attrcache);
     }
+    Attrcache_unlock_modify_mutex(attrcache);
 }
 
 
 bool
 AttrCache_shrink(AttrCache * attrcache)
+{
+    if (!attrcache) {
+        return false;
+    }
+    Attrcache_lock_modify_mutex(attrcache);
+    bool success = AttrCache_shrink_locked(attrcache);
+    Attrcache_unlock_modify_mutex(attrcache);
+    return success;
+}
+
+
+/* Caller holds mutex_modify, including while checking the table's size. */
+static bool
+AttrCache_shrink_locked(AttrCache * attrcache)
 {
     check(attrcache != NULL, "passed attrcache is null");
 
@@ -254,8 +285,6 @@ AttrCache_shrink(AttrCache * attrcache)
 
     size_t nodes_removed_count = 0;
 
-    Attrcache_lock_modify_mutex(attrcache);
-
     hscan_t hash_scan;
     hnode_t * hash_node = NULL;
 	hash_scan_begin(&hash_scan, attrcache->hashtable);
@@ -264,7 +293,7 @@ AttrCache_shrink(AttrCache * attrcache)
 
         if ((cache_entry->cache_creation_ts + attrcache->max_age_sec) < current_time) {
             // entry is already above max age - immdediately delete it
-            hash_scan_delete(attrcache->hashtable, hash_node);
+            hash_scan_delfree(attrcache->hashtable, hash_node);
             nodes_removed_count++;
         }
     }
@@ -275,17 +304,15 @@ AttrCache_shrink(AttrCache * attrcache)
     if (nodes_removed_count < shrink_num) {
         hash_scan_begin(&hash_scan, attrcache->hashtable);
         while( (nodes_removed_count < shrink_num) && (hash_node = hash_scan_next(&hash_scan)) ) {
-            hash_scan_delete(attrcache->hashtable, hash_node);
+            hash_scan_delfree(attrcache->hashtable, hash_node);
             nodes_removed_count++;
         }
     }
     debug("Removed %d nodes from attrcache", (int)nodes_removed_count);
 
-    Attrcache_unlock_modify_mutex(attrcache);
     return true;
 
 error:
-    Attrcache_unlock_modify_mutex(attrcache);
     return false;
 }
 

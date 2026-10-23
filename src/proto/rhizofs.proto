@@ -137,6 +137,9 @@ message Attrs {
     required Permissions permissions = 6;
 
     optional string name = 7;
+
+    // Older servers omitted this and clients reported a link count of one.
+    optional uint64 nlink = 8 [default = 1];
 }
 
 message StatFs {

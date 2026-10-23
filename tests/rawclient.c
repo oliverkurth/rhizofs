@@ -10,6 +10,7 @@
  *   rhizo-rawclient <endpoint> readdir <path>
  *   rhizo-rawclient <endpoint> read <path> <size> <offset>
  *   rhizo-rawclient <endpoint> rename <path> <path_to>
+ *   rhizo-rawclient <endpoint> create <path> <excl|keep|trunc|legacy>
  *   rhizo-rawclient <endpoint> writeraw <path> <declared_size> <hex_bytes>
  *
  * all subcommands print a single line of "KEY=VALUE" pairs to stdout
@@ -23,10 +24,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <zmq.h>
 
 #include "../src/request.h"
+#include "../src/mapping.h"
 #include "../src/response.h"
 #include "../src/datablock.h"
 #include "../src/proto/rhizofs.pb-c.h"
@@ -217,6 +220,31 @@ cmd_rename(void *sock, const char *path, const char *path_to)
 }
 
 static int
+cmd_create(void *sock, const char *path, const char *mode)
+{
+    Rhizofs__Request *request = Request_create();
+    request->requesttype = RHIZOFS__REQUEST_TYPE__CREATE;
+    request->path = strdup(path);
+    request->permissions = Permissions_create(0600);
+    if (strcmp(mode, "legacy") != 0) {
+        int flags = O_WRONLY | O_CREAT;
+        if (strcmp(mode, "excl") == 0) flags |= O_EXCL;
+        else if (strcmp(mode, "trunc") == 0) flags |= O_TRUNC;
+        else if (strcmp(mode, "keep") != 0) {
+            fprintf(stderr, "unknown create mode: %s\n", mode);
+            Request_destroy(request);
+            return 1;
+        }
+        request->openflags = OpenFlags_from_bitmask(flags);
+    }
+    Rhizofs__Response *response = send_request(sock, request);
+    printf("ERRNO=%d\n", response->errnotype);
+    Response_from_message_destroy(response);
+    Request_destroy(request);
+    return 0;
+}
+
+static int
 cmd_writeraw(void *sock, const char *path, int64_t declared_size, const char *hex)
 {
     uint8_t *rawdata = NULL;
@@ -254,7 +282,7 @@ int
 main(int argc, char **argv)
 {
     if (argc < 3) {
-        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|readdir|read|rename|writeraw> [args...]\n", argv[0]);
+        fprintf(stderr, "usage: %s <endpoint> <ping|getattr|readdir|read|rename|create|writeraw> [args...]\n", argv[0]);
         return 1;
     }
 
@@ -279,6 +307,9 @@ main(int argc, char **argv)
     }
     else if (strcmp(cmd, "rename") == 0 && argc == 5) {
         rc = cmd_rename(sock, argv[3], argv[4]);
+    }
+    else if (strcmp(cmd, "create") == 0 && argc == 5) {
+        rc = cmd_create(sock, argv[3], argv[4]);
     }
     else if (strcmp(cmd, "writeraw") == 0 && argc == 6) {
         rc = cmd_writeraw(sock, argv[3], strtoll(argv[4], NULL, 10), argv[5]);
