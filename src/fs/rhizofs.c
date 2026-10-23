@@ -805,6 +805,7 @@ Rhizofs_create(const char * path, mode_t create_mode, struct fuse_file_info *fi)
     check((request.permissions != NULL), "Could not create create permissions struct");
 
     OP_COMMUNICATE(request, response, returned_err)
+    AttrCache_remove(&attrcache, path);
 
     OP_DEINIT(request, response)
     return 0;

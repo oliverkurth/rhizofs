@@ -38,12 +38,13 @@ def mounted_share(request):
         try:
             wait_for(socket.exists, server, "server socket")
 
-            def mount(name):
+            def mount(name, extra_args=()):
                 directory = root / name
                 directory.mkdir()
                 args = ([] if request.param is None else
                         [f"--attr-cache-timeout={request.param}"])
-                client = start_client_fg(endpoint, str(directory), args=args)
+                client = start_client_fg(endpoint, str(directory),
+                                         args=args + list(extra_args))
                 clients.append(client)
                 wait_for(lambda: os.path.ismount(directory), client, "mount")
                 return directory
@@ -73,6 +74,30 @@ def test_rename_over_cached_file(mounted_share, old_size, new_size):
     assert target.stat().st_size == new_size
     assert target.read_bytes() == b"B" * new_size
     assert (served / "target").read_bytes() == b"B" * new_size
+
+
+@pytest.mark.parametrize("truncate", [False, True], ids=["keep", "truncate"])
+def test_create_over_readdir_cached_file(mounted_share, truncate):
+    served, mount, _ = mounted_share
+    directory = mount("client", extra_args=["-onegative_timeout=60"])
+    target = directory / "target"
+    # Keep a negative kernel entry while readdir prefetches the attributes
+    # of a file created on the server. The next open then reaches CREATE
+    # even though the file already exists remotely.
+    assert not target.exists()
+    remote = served / "target"
+    remote.write_bytes(b"A" * 100)
+    assert target in list(directory.iterdir())
+    remote.write_bytes(b"B" * 300)
+
+    flags = os.O_WRONLY | os.O_CREAT | (os.O_TRUNC if truncate else 0)
+    fd = os.open(target, flags, 0o600)
+    os.close(fd)
+
+    expected = b"" if truncate else b"B" * 300
+    assert remote.read_bytes() == expected
+    assert target.stat().st_size == len(expected)
+    assert target.read_bytes() == expected
 
 
 @pytest.mark.parametrize("mode,expected_errno,expected_data", [
