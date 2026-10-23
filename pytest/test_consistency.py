@@ -216,3 +216,15 @@ def test_path_resolution_errors(mounted_share, tmp_path, escape, operation, args
     assert outside.read_bytes() == b"secret"
     assert source.read_bytes() == b"source"
     assert not (served / "destination").exists()
+
+
+def test_failed_operation_without_errno_reports_io_error(mounted_share):
+    served, _, endpoint = mounted_share
+    target = served / "target"
+    target.write_bytes(b"unchanged")
+    # A negative READ size fails a check() without setting a wire errno.
+    result = run_rawclient(endpoint, "read", "/target", "-1", "0")
+    assert result["_retval"] == 0
+    assert result["ERRNO"] == "1"  # ERRNO_UNKNOWN maps to EIO
+    assert result["SIZE"] == "-1"
+    assert target.read_bytes() == b"unchanged"

@@ -231,6 +231,11 @@ ServeDir_serve(ServeDir * sd)
                 }
 
                 if (op_rc != 0) {
+                    /* Some early checks fail without setting a wire errno.
+                     * Preserve specific errors, but never report success. */
+                    if (response->errnotype == RHIZOFS__ERRNO__ERRNO_NONE) {
+                        Response_set_errno(response, EIO);
+                    }
                     log_warn("calling action failed");
                 }
                 Request_from_message_destroy(request);
