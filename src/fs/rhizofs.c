@@ -281,7 +281,10 @@ Rhizofs_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 	(void) conn;
 
     /* Our attribute cache controls freshness. A second cache in the kernel
-     * would hide invalidations, notably the source's count after link(). */
+     * would hide invalidations, notably the source's count after link().
+     * Intentionally override any -o attr_timeout=N: use --attr-cache-timeout
+     * to control caching. Attribute lookups enter the daemon, but a hit in
+     * our cache still avoids a network request. */
     cfg->attr_timeout = 0;
 
     priv = RhizoPriv_create();
@@ -1392,6 +1395,9 @@ Rhizofs_usage(const char * progname)
         "                             attribute caching, which is needed to see\n"
         "                             changes made to the shared directory without\n"
         "                             going through this filesystem.\n"
+        "                             Kernel attr_timeout is forced to 0, overriding\n"
+        "                             -o attr_timeout=N; this option controls the\n"
+        "                             client's attribute cache.\n"
         "   --clientpubkeyfile=<file> set client keypair file\n"
         "   -h --help                 print help\n"
         "   -k --pubkey=<key>         set the server public key\n"
@@ -1629,13 +1635,10 @@ Rhizofs_run(int argc, char * argv[])
     }
 #undef TMPBUF_SIZE
 
-    /* switching off our own attribute cache is only effective if the
-     * kernel is told to stop caching attributes and directory entries as
-     * well - otherwise it keeps answering stat() from its own copy, and a
-     * read of a file that changed on the server behind our back gets
-     * silently truncated to the stale size */
+    /* Also disable kernel directory-entry caching for uncached lookups.
+     * Kernel attribute caching is always disabled in Rhizofs_init(). */
     if (settings.attr_cache_timeout == 0) {
-        fuse_opt_insert_arg(&args, 1, "-oattr_timeout=0,entry_timeout=0");
+        fuse_opt_insert_arg(&args, 1, "-oentry_timeout=0");
     }
 
     /* libfuse defaults max_idle_threads to UINT_MAX when not set

@@ -46,12 +46,18 @@ Features
     / `acregmax`), this trades throughput for immediate consistency.
 
     The client manages attribute caching itself; kernel attribute caching is
-    disabled so it cannot hide the client's invalidations. Attributes of
-    non-directory entries with more than one hard link are fetched afresh,
-    since changes through another link name affect the same file. Directory
-    attributes remain cached. This also keeps hard-link based locking
-    checks accurate. Link counts require an updated server; older servers
-    omit the count and clients fall back to reporting one.
+    always disabled so it cannot hide the client's invalidations. This
+    intentionally overrides any `-o attr_timeout=N` setting; use
+    `--attr-cache-timeout` to control the client's cache instead. Attribute
+    lookups enter the FUSE daemon, but cache hits still avoid network
+    requests. Setting `--attr-cache-timeout=0` also disables kernel
+    directory-entry caching.
+
+    Attributes of non-directory entries with more than one hard link are
+    fetched afresh, since changes through another link name affect the same
+    file. Directory attributes remain cached. This also keeps hard-link based
+    locking checks accurate. Link counts require an updated server; older
+    servers omit the count and clients fall back to reporting one.
 
 -   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
     encryption and authentication (ZAP).
@@ -248,6 +254,9 @@ general options
                              attribute caching, which is needed to see
                              changes made to the shared directory without
                              going through this filesystem.
+                             Kernel attr_timeout is forced to 0, overriding
+                             -o attr_timeout=N; this option controls the
+                             client's attribute cache.
    --clientpubkeyfile=<file> set client keypair file
    -h --help                 print help
    -k --pubkey=<key>         set the server public key
