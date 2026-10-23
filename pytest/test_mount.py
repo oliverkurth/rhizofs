@@ -30,7 +30,7 @@ def test_start_stop_server_localhost():
     # github workflow needs IP, "localhost" does not work
     endpoint = "tcp://127.0.0.1:9999"
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
-    ret = start_server(endpoint, srv_dir)
+    ret = start_server(endpoint, srv_dir, args=["--insecure"])
 
     time.sleep(1)
 
@@ -38,12 +38,28 @@ def test_start_stop_server_localhost():
     shutil.rmtree(srv_dir)
 
 
+@pytest.mark.parametrize("endpoint", [
+    "tcp://127.0.0.1:9998", "ws://127.0.0.1:9998",
+    "wss://127.0.0.1:9998", "tipc://{1,1,1}", "vmci://1:9998",
+    "future-transport://address",
+])
+@pytest.mark.parametrize("args", [[], ["--encrypt"]])
+def test_network_server_requires_authenticated_encryption(endpoint, args):
+    srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=os.getcwd())
+    try:
+        ret = run([RHIZOSRV, endpoint, srv_dir, "-f"] + args)
+        assert ret.retval != 0
+        assert any("require --encrypt" in line for line in ret.stderr)
+    finally:
+        shutil.rmtree(srv_dir)
+
+
 @pytest.mark.skipif(not vmci_supported(), reason="VMCI not supported")
 def test_start_stop_server_vmci():
     pwd = os.getcwd()
     endpoint = "vmci://1:9999"
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
-    ret = start_server(endpoint, srv_dir)
+    ret = start_server(endpoint, srv_dir, args=["--insecure"])
 
     time.sleep(1)
 
@@ -92,7 +108,7 @@ def test_mount_vmci():
     endpoint = "vmci://1:9999"
 
     srv_dir = tempfile.mkdtemp(prefix="servedir-", dir=pwd)
-    ret = start_server(endpoint, srv_dir)
+    ret = start_server(endpoint, srv_dir, args=["--insecure"])
 
     client_dir = tempfile.mkdtemp(prefix="clientdir-", dir=pwd)
     start_client(endpoint, client_dir)

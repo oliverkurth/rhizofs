@@ -20,12 +20,17 @@
 #define DEFAULT_N_WORKER_THREADS 5
 #define MAX_N_WORKER_THREADS 200
 #define WORKER_SOCKET "inproc://workers"
+/* Allow a full 64 MiB data block plus up to 1 MiB of protobuf metadata.
+ * This admission limit bounds the complete frame before parsing; the write
+ * handler independently enforces its 64 MiB encoded and decoded data caps. */
+#define MAX_WIRE_MESSAGE_SIZE ((int64_t)65 * 1024 * 1024)
 
 
 struct option opts_long[] = {
     {"authorized-keys-file", 1, 0, 'a'},
     {"encrypt",    0, 0, 'e'},
     {"foreground", 0, 0, 'f'},
+    {"insecure",   0, 0, 'I'},
     {"help",       0, 0, 'h'},
     {"keyfile",    1, 0, 'k'},
     {"logfile",    1, 0, 'l'},
@@ -38,7 +43,7 @@ struct option opts_long[] = {
 };
 
 
-static const char *opts_short = "a:ehk:vn:Vl:fp:P:";
+static const char *opts_short = "a:ehIk:vn:Vl:fp:P:";
 
 
 static const char *opts_desc =
@@ -47,6 +52,7 @@ static const char *opts_desc =
     "                            connection is encrypted.\n"
     "  -e --encrypt\n"
     "  -f --foreground           foreground operation - do not daemonize.\n"
+    "  -I --insecure             allow unauthenticated or unencrypted network listeners.\n"
     "  -h --help\n"
     "  -k --keyfile=FILE         File to read for the public key. The secret key\n"
     "                            will be read from the file with the same name but\n"
@@ -69,6 +75,7 @@ typedef struct ServerSettings {
     int n_worker_threads;
     bool encrypt;
     bool foreground; // foreground operation - do not daemonize
+    bool insecure;
     bool verbose;
     char *authorized_keys_file;
 } ServerSettings;
@@ -326,6 +333,14 @@ startup(const char *secret_key)
     in_socket = zmq_socket (context, ZMQ_XREP);
     check((in_socket != NULL), "Could not create zmq socket");
 
+    /* libzmq otherwise accepts messages of unlimited size and allocates
+     * their complete frame before ServeDir can reject malformed protobuf or
+     * an oversized data block. */
+    const int64_t max_message_size = MAX_WIRE_MESSAGE_SIZE;
+    check((zmq_setsockopt(in_socket, ZMQ_MAXMSGSIZE, &max_message_size,
+                    sizeof(max_message_size)) == 0),
+            "could not set maximum inbound message size");
+
     if (secret_key != NULL) {
         const int curve_server_enable = 1;
         check((zmq_setsockopt(in_socket, ZMQ_CURVE_SERVER, &curve_server_enable,
@@ -518,6 +533,7 @@ main(int argc, char *argv[])
     settings.n_worker_threads = DEFAULT_N_WORKER_THREADS;
     settings.verbose = false;
     settings.foreground = false;
+    settings.insecure = false;
 
     while ((optc = getopt_long(argc, argv, opts_short, opts_long, NULL)) != -1) {
 
@@ -581,6 +597,10 @@ main(int argc, char *argv[])
                 settings.foreground = true;
                 break;
 
+            case 'I':
+                settings.insecure = true;
+                break;
+
             case 'P':
                 pubkey_file = strdup(optarg);
                 break;
@@ -616,6 +636,24 @@ main(int argc, char *argv[])
             "the keys file would have no effect.\n"
             "\nUse --help for help.\n");
         exit(EXIT_FAILURE);
+    }
+
+    /* Only these transports are confined to the local host/process. Treat
+     * all other schemes as network listeners, including optional libzmq
+     * transports such as ws, wss, tipc and vmci. */
+    bool local_transport = strncmp(settings.socketname, "ipc://", 6) == 0 ||
+            strncmp(settings.socketname, "inproc://", 9) == 0;
+    if (!local_transport &&
+            (!settings.encrypt || settings.authorized_keys_file == NULL)) {
+        if (!settings.insecure) {
+            fprintf(stderr,
+                "Error: Network listeners require --encrypt and "
+                "--authorized-keys-file.\n"
+                "Use --insecure only when the network is independently trusted.\n");
+            exit(EXIT_FAILURE);
+        }
+        log_warn("starting insecure network listener: clients are not both "
+                "encrypted and authenticated");
     }
 
     /* CURVE without a ZAP handler encrypts the connection but accepts

@@ -11,6 +11,7 @@ typedef struct ServeDir {
     char * directory;
     char * socket_name;
     void * socket;
+    int directory_fd;
 } ServeDir;
 
 

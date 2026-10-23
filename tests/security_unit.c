@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 
@@ -237,6 +238,21 @@ test_datablock_bounds(void)
         fprintf(stderr, "FAIL DataBlock_get_data_noalloc() did not copy the "
                 "data of a well formed datablock\n");
         ++failures;
+    }
+
+    /* DataBlock_get_data() allocates its output.  The LZ4 decoder accepts
+     * int lengths, so a peer-controlled int64 size above that range must be
+     * rejected before an allocation or narrowing cast. */
+    dblk->compression = RHIZOFS__COMPRESSION_TYPE__COMPR_LZ4;
+    dblk->size = (int64_t)INT_MAX + 1;
+    dblk->data.len = 1;
+    dblk->data.data[0] = 0;
+    uint8_t * decoded = NULL;
+    if (DataBlock_get_data(dblk, &decoded) != -1) {
+        fprintf(stderr, "FAIL DataBlock_get_data() accepted an LZ4 block "
+                "whose declared size exceeds INT_MAX\n");
+        ++failures;
+        free(decoded);
     }
 
     DataBlock_destroy(dblk);

@@ -62,12 +62,19 @@ Features
 -   **Encryption and Authentication**: rhizofs can use [CurveZMQ](http://curvezmq.org/) for
     encryption and authentication (ZAP).
 
--   **the shared directory is a boundary**: the server refuses requests for paths that
-    leave the directory it was told to share, whether through a `..` component or by
-    following a symlink out of it. Symlinks *inside* the shared directory are followed
-    as usual, and a client can still create and read back a symlink pointing anywhere -
-    it is resolved on the client, like on any other network filesystem - but the server
-    will not follow one out of the share on the client's behalf.
+-   **the shared directory is a boundary**: the server resolves every request from an
+    open descriptor for the shared directory, and refuses `..` components and symlinks
+    in a protocol path. A client can still create and read back a symlink pointing
+    anywhere: FUSE resolves it on the client and sends the resulting in-share path, but
+    the server never follows a client-supplied symlink on its behalf.
+
+    Linux `chmod` compatibility: if the C library cannot perform
+    no-follow chmod, the server opens and checks the leaf without following
+    symlinks, then changes the opened inode through `/proc/self/fd`. When
+    `/proc` is unavailable too, chmod fails rather than retrying by name,
+    since another client could replace the checked leaf with a symlink.
+    Older glibc therefore needs `/proc` available for chmod; systems with
+    native no-follow chmod support do not need this fallback.
 
 Authentication
 --------------
@@ -82,6 +89,13 @@ CurveZMQ, so `--authorized-keys-file` has to be combined with `--encrypt` and th
 refuses to start without it. Note that `--encrypt` on its own encrypts the connection but
 accepts *any* client key - listing the keys you want to allow in an authorized keys file is
 what restricts who may connect.
+
+Network listeners require both `--encrypt` and `--authorized-keys-file`.
+Only `ipc://` and `inproc://` endpoints may start without them by default.
+This includes TCP, WebSocket, TIPC and VMCI listeners, even when the address
+is loopback. Existing network deployments must add these options or explicitly
+use `-I` / `--insecure` to accept unauthenticated or unencrypted connections
+on an independently trusted network. See [release notes](CHANGELOG.md).
 
 
 File ownership and user mapping
@@ -147,6 +161,7 @@ Options
   -e --encrypt
   -f --foreground          foreground operation - do not daemonize.
   -h --help
+  -I --insecure            allow unauthenticated or unencrypted network listeners.
   -k --keyfile=FILE        File to read for the public key. The secret key
                            will be read from the file with the same name but
                            with '.secret' appended.

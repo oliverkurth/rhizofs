@@ -228,3 +228,107 @@ def test_failed_operation_without_errno_reports_io_error(mounted_share):
     assert result["ERRNO"] == "1"  # ERRNO_UNKNOWN maps to EIO
     assert result["SIZE"] == "-1"
     assert target.read_bytes() == b"unchanged"
+
+
+def test_restore_permissions_on_unreadable_file(mounted_share):
+    served, mount, _ = mounted_share
+    target = mount("client") / "target"
+    target.write_bytes(b"data")
+    try:
+        target.chmod(0)
+        target.chmod(0o644)
+        assert target.stat().st_mode & 0o777 == 0o644
+    finally:
+        (served / "target").chmod(0o644)
+
+
+def test_update_timestamps_on_write_only_file(mounted_share):
+    served, mount, _ = mounted_share
+    target = mount("client") / "target"
+    target.write_bytes(b"data")
+    expected = (1_700_000_001_123_456_000, 1_700_000_002_654_321_000)
+    try:
+        target.chmod(0o200)
+        with pytest.raises(PermissionError):
+            target.read_bytes()
+        os.utime(target, ns=expected)
+        remote = (served / "target").stat()
+        assert (remote.st_atime_ns, remote.st_mtime_ns) == expected
+    finally:
+        (served / "target").chmod(0o644)
+
+
+@pytest.mark.parametrize("mode", [0o311, 0o711])
+def test_traverse_search_only_directory(mounted_share, mode):
+    served, mount, _ = mounted_share
+    directory = mount("client") / "searchable"
+    directory.mkdir()
+    (directory / "inner").write_bytes(b"data")
+    try:
+        directory.chmod(mode)
+        if mode == 0o311:
+            with pytest.raises(PermissionError):
+                list(directory.iterdir())
+        assert (directory / "inner").read_bytes() == b"data"
+        directory.chmod(0o755)
+        assert directory.stat().st_mode & 0o777 == 0o755
+    finally:
+        (served / "searchable").chmod(0o755)
+
+
+def test_restore_permissions_on_search_only_directory(mounted_share):
+    served, mount, _ = mounted_share
+    directory = mount("client") / "searchable"
+    directory.mkdir()
+    try:
+        directory.chmod(0o311)
+        directory.chmod(0o755)
+        assert directory.stat().st_mode & 0o777 == 0o755
+    finally:
+        (served / "searchable").chmod(0o755)
+
+
+def test_statfs_on_unreadable_file(mounted_share):
+    served, mount, _ = mounted_share
+    target = mount("client") / "target"
+    target.write_bytes(b"data")
+    try:
+        target.chmod(0)
+        assert os.statvfs(target).f_bsize == os.statvfs(served).f_bsize
+    finally:
+        (served / "target").chmod(0o644)
+
+
+def test_update_symlink_timestamps_without_following_target(mounted_share, tmp_path):
+    served, mount, _ = mounted_share
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"secret")
+    before = outside.stat()
+    link = mount("client") / "link"
+    link.symlink_to(outside)
+    expected = (1_700_000_001_123_456_000, 1_700_000_002_654_321_000)
+    os.utime(link, ns=expected, follow_symlinks=False)
+    remote = (served / "link").lstat()
+    assert (remote.st_atime_ns, remote.st_mtime_ns) == expected
+    after = outside.stat()
+    assert (after.st_atime_ns, after.st_mtime_ns) == (before.st_atime_ns, before.st_mtime_ns)
+
+
+def test_start_server_with_search_only_share():
+    with tempfile.TemporaryDirectory(prefix="rhizo-permissions-") as work:
+        root = Path(work)
+        served = root / "served"
+        served.mkdir()
+        (served / "inner").write_bytes(b"data")
+        served.chmod(0o311)
+        socket = root / "server.sock"
+        endpoint = f"ipc://{socket}"
+        server = start_server_fg(endpoint, str(served))
+        try:
+            wait_for(socket.exists, server, "server socket")
+            result = run_rawclient(endpoint, "read", "/inner", "4", "0")
+            assert result["ERRNO"] == "0"
+            assert result["SIZE"] == "4"
+        finally:
+            served.chmod(0o755)
+            stop_server_fg(server)
